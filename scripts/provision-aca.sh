@@ -224,6 +224,11 @@ note "created $APP"
 # fragment. Schema bounds: initialDelaySeconds 1-60, periodSeconds 1-240,
 # timeoutSeconds 1-240, failureThreshold 1-10, successThreshold must be 1 for
 # Liveness and Startup. One probe of each type per container.
+#
+# The fragment carries the **whole** container, not just the probes: a YAML
+# patch replaces the container it names rather than merging into it, so a
+# fragment with only the probes would take the environment variables and the
+# resource limits with it.
 
 say "Health probes"
 
@@ -238,6 +243,18 @@ properties:
     containers:
       - name: $CONTAINER_NAME
         image: $IMAGE
+        env:
+          - name: FOUNDRY_PROJECT_ENDPOINT
+            value: $PROJECT_ENDPOINT
+          - name: FOUNDRY_MODEL
+            value: $DEPLOYMENT
+          - name: TOUCHLINE_PUBLIC_URL
+            value: https://$FQDN
+          - name: AZURE_CLIENT_ID
+            value: $UAI_CLIENT
+        resources:
+          cpu: $CPU
+          memory: $MEMORY
         probes:
           - type: Liveness
             httpGet:
