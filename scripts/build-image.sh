@@ -256,15 +256,27 @@ fi
 
 say "Done"
 
-cat <<EOF
-    image : $IMAGE_REF
+echo "    image : $IMAGE_REF"
+echo
 
+if [ "$DEST" = "ghcr" ]; then
+    cat <<EOF
     Make the package public before the Container App pulls it. A public
     package is pulled anonymously, so no registry credential is stored in
     the deployment:
 
         gh api --method PATCH /user/packages/container/$IMAGE_NAME \
             -f visibility=public
+EOF
+else
+    cat <<EOF
+    The Container App pulls this image with its managed identity, so there
+    is no package visibility to set and no registry credential to store.
+    The registry's admin user stays disabled.
+EOF
+fi
+
+cat <<EOF
 
     Then point the app at it:
 

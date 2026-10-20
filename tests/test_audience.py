@@ -374,6 +374,24 @@ def test_the_payload_carries_the_audience(
     assert decoded.candidate.metrics == projected.metrics
 
 
+def test_a_german_decimal_comma_is_a_decimal_comma() -> None:
+    """The grounding check reads a number the way its language writes it.
+
+    German writes twenty point six seven as "20,67". Read the way English
+    writes it -- comma as a thousands separator -- that is two thousand and
+    sixty-seven, and the grounding check would throw away a sentence that
+    the event log perfectly well supports. The copy is written in German
+    and then checked in German, and the German copy has to survive.
+    """
+    from touchline.agents.figures import _figures_in, unsupported_figures
+
+    assert _figures_in("weite 20,67 m", "de") == [pytest.approx(20.67)]
+    assert _figures_in("weite 20,67 m", "en") == [pytest.approx(2067.0)]
+    # The same number, checked against itself, is supported.
+    assert unsupported_figures("weite 20,67 m", [20.67], "de") == []
+    assert unsupported_figures("weite 20,67 m", [20.67], "en") != []
+
+
 class _RecordingClient:
     """The template engine, with every prompt it is given kept."""
 

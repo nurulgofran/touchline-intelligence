@@ -41,17 +41,34 @@ __all__ = [
 #: A figure in running text: ``12``, ``12.3``, ``1,200``.
 _FIGURE = re.compile(r"\d+(?:[.,]\d+)?")
 
+#: The languages that write the decimal point as a comma. German is one, and
+#: a German copy that says "20,67" is saying 20.67 -- reading the comma as
+#: a thousands separator turns it into 2067, and the grounding check then
+#: rejects a perfectly good sentence.
+_COMMA_DECIMAL_LOCALES = frozenset({"de"})
+
 #: How far a figure may sit from one the candidate carries and still be
 #: "the same number said more roughly". The same half-unit the grounding
 #: step allows for a rounded percentage or a rounded distance.
 _TOLERANCE = 0.5
 
 
-def _figures_in(text: str) -> list[float]:
-    """Every figure in a piece of text."""
+def _figures_in(text: str, locale: str = "en") -> list[float]:
+    """Every figure in a piece of text.
+
+    The number is read the way the language writes it. English and German
+    disagree about the decimal point, and reading a German "20,67" as
+    twenty thousand would have the grounding check throw away a sentence
+    that is perfectly well supported.
+    """
     found: list[float] = []
+    comma_decimal = locale in _COMMA_DECIMAL_LOCALES
     for match in _FIGURE.finditer(text or ""):
-        raw = match.group(0).replace(",", "")
+        raw = match.group(0)
+        if comma_decimal:
+            raw = raw.replace(".", "").replace(",", ".")
+        else:
+            raw = raw.replace(",", "")
         try:
             found.append(float(raw))
         except ValueError:
@@ -81,7 +98,7 @@ def allowed_figures(candidate: InsightCandidate, *, locale: str = "en") -> list[
         template.render_facts(candidate, locale=locale),
         template.render_title(candidate, locale=locale),
     ):
-        allowed.extend(_figures_in(text))
+        allowed.extend(_figures_in(text, locale))
     return allowed
 
 
@@ -93,7 +110,9 @@ def _is_supported(figure: float, allowed: list[float]) -> bool:
     )
 
 
-def unsupported_figures(text: str, allowed: list[float]) -> list[float]:
+def unsupported_figures(
+    text: str, allowed: list[float], locale: str = "en"
+) -> list[float]:
     """The figures in a piece of text that the candidate does not carry.
 
     Args:
@@ -104,7 +123,9 @@ def unsupported_figures(text: str, allowed: list[float]) -> list[float]:
         Every figure that is not supported, in the order it appears.
     """
     return [
-        figure for figure in _figures_in(text) if not _is_supported(figure, allowed)
+        figure
+        for figure in _figures_in(text, locale)
+        if not _is_supported(figure, allowed)
     ]
 
 
@@ -121,4 +142,6 @@ def check_figures(
     Returns:
         Every figure that is not supported, in the order it appears.
     """
-    return unsupported_figures(text, allowed_figures(candidate, locale=locale))
+    return unsupported_figures(
+        text, allowed_figures(candidate, locale=locale), locale
+    )
