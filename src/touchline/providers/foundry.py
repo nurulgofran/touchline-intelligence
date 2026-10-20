@@ -109,6 +109,10 @@ _REQUEST_OPTIONS: dict[str, Any] = {
     "max_output_tokens": 400,
 }
 
+#: The same options under a public name, for the modules that build a chat
+#: client rather than calling the provider directly.
+REQUEST_OPTIONS: dict[str, Any] = _REQUEST_OPTIONS
+
 
 def _language_brief(locale: str) -> str:
     """Describe the requested language to the model, by name."""
@@ -186,6 +190,69 @@ def candidate_fallback_title(payload: dict[str, Any], body: str) -> str:
     return body[:60].rsplit(" ", 1)[0][:60] if body else "Insight"
 
 
+def build_foundry_chat_client(
+    *,
+    project_endpoint: str | None = None,
+    model: str | None = None,
+    credential: Any = None,
+) -> Any:
+    """Create the Agent Framework's Foundry chat client.
+
+    This is the one place in the project that knows how to talk to Foundry.
+    Both the one-shot provider and the agent-facing chat client go through
+    it, so there is a single set of credentials and a single set of request
+    options behind both.
+
+    Args:
+        project_endpoint: The Foundry project endpoint. Defaults to
+            ``FOUNDRY_PROJECT_ENDPOINT``.
+        model: The **deployment** name, not the model name. Defaults to
+            ``FOUNDRY_MODEL``.
+        credential: An Azure credential. Defaults to a
+            ``DefaultAzureCredential``, which is keyless both locally and in
+            Azure Container Apps.
+
+    Returns:
+        The Agent Framework chat client.
+
+    Raises:
+        ProviderUnavailable: If the endpoint or the deployment name is
+            missing, or the client packages are not installed.
+    """
+    endpoint = project_endpoint or os.environ.get("FOUNDRY_PROJECT_ENDPOINT", "")
+    deployment = model or os.environ.get("FOUNDRY_MODEL", "")
+    if not endpoint or not deployment:
+        raise ProviderUnavailable(
+            "FOUNDRY_PROJECT_ENDPOINT and FOUNDRY_MODEL are not both set."
+        )
+
+    try:
+        from agent_framework.foundry import FoundryChatClient
+    except ImportError:
+        try:
+            from agent_framework_foundry import FoundryChatClient
+        except ImportError as exc:  # pragma: no cover - dependency missing
+            raise ProviderUnavailable(
+                "agent-framework-foundry is not installed."
+            ) from exc
+
+    if credential is None:
+        try:
+            from azure.identity.aio import DefaultAzureCredential
+        except ImportError as exc:  # pragma: no cover - dependency missing
+            raise ProviderUnavailable(
+                "azure-identity is not installed; the Foundry provider cannot "
+                "authenticate."
+            ) from exc
+        credential = DefaultAzureCredential()
+
+    return FoundryChatClient(
+        project_endpoint=endpoint,
+        model=deployment,
+        credential=credential,
+    )
+
+
 class FoundryProvider:
     """Narrative provider backed by a Microsoft Foundry model deployment.
 
@@ -258,17 +325,7 @@ class FoundryProvider:
                 "FOUNDRY_PROJECT_ENDPOINT and FOUNDRY_MODEL are not both set."
             )
 
-        try:
-            from agent_framework.foundry import FoundryChatClient
-        except ImportError:
-            try:
-                from agent_framework_foundry import FoundryChatClient
-            except ImportError as exc:  # pragma: no cover - dependency missing
-                raise ProviderUnavailable(
-                    "agent-framework-foundry is not installed."
-                ) from exc
-
-        self._client = FoundryChatClient(
+        self._client = build_foundry_chat_client(
             project_endpoint=self.project_endpoint,
             model=self.model,
             credential=self._build_credential(),

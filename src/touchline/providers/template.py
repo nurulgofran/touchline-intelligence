@@ -451,6 +451,223 @@ def _headline_clause(headline: str, locale: str) -> str:
     return f"{headline}."
 
 
+#: The one-line call a commentator would make, by locale. The clock phrase
+#: carries the locale's own time expression and the headline is quoted rather
+#: than mistranslated, because the analyst writes it in English.
+_COMMENTARY: dict[str, str] = {
+    "en": "{clock} — {headline}",
+    "de": "{clock} — {headline}",
+    "bn": "{clock} — {headline}",
+}
+
+
+def _resolve(locale: str, mode: str) -> tuple[str, str]:
+    """Resolve the locale and the mode, falling back to the supported ones."""
+    resolved_locale = locale if locale in SUPPORTED_LOCALES else "en"
+    resolved_mode = mode if mode in SUPPORTED_MODES else "analyst"
+    return resolved_locale, resolved_mode
+
+
+def _interpretation(frame: _Frame) -> str:
+    """The interpretive half of a frame body.
+
+    Every frame body is ``"{headline} {metrics} <interpretation>"``: the
+    first half is the analyst's facts and the second half is what the
+    moment means. The split matters because the facts are added
+    deterministically at the end, so the numbers on screen are always the
+    analyst's and never the model's.
+    """
+    _, _, tail = frame.body.partition("{metrics}")
+    return tail.strip()
+
+
+def _parts(
+    candidate: InsightCandidate, locale: str, mode: str
+) -> tuple[str, str, str, str]:
+    """The rendered pieces of one candidate.
+
+    Returns:
+        The title, the body without the mode's closing line, the closing
+        line, and the commentary call.
+    """
+    frames = _FRAMES[candidate.kind]
+    frame = frames.get(locale, frames["en"])
+    metrics = [_localise_metric(metric, locale) for metric in candidate.metrics]
+
+    headline = candidate.headline.strip().rstrip(".")
+    clock = _clock_phrase(candidate.match_clock_ms, locale)
+    headline_clause = _headline_clause(headline, locale)
+    metrics_sentence = _metrics_sentence(metrics, locale)
+    closer = _MODE_CLOSERS[mode].get(locale, _MODE_CLOSERS[mode]["en"])
+
+    title = frame.title.format(clock=clock, headline=headline)
+    body = frame.body.format(
+        headline=headline_clause,
+        metrics=metrics_sentence,
+        clock=clock,
+    )
+    commentary = _COMMENTARY[locale].format(clock=clock, headline=headline_clause)
+    return title, body, closer, commentary
+
+
+def build_overlay(
+    candidate: InsightCandidate,
+    *,
+    title: str,
+    body: str,
+    locale: str = "en",
+    mode: str = "analyst",
+) -> Overlay:
+    """Assemble an overlay around copy that has already been written.
+
+    This is the one place an overlay is built. The title and the body come
+    from wherever they came -- the template engine, the narrator, the
+    personaliser -- and everything *structural* comes from the candidate:
+    the overlay id, its type, its timing, its metrics, its citations and its
+    confidence.
+
+    Args:
+        candidate: The deterministic, fully-cited insight.
+        title: The overlay's title.
+        body: The overlay's body.
+        locale: Language code for the rendered prose.
+        mode: Audience mode.
+
+    Returns:
+        The overlay, carrying the candidate's citations.
+    """
+    resolved_locale, _ = _resolve(locale, mode)
+    metrics = [
+        _localise_metric(metric, resolved_locale) for metric in candidate.metrics
+    ]
+    overlay_type = _OVERLAY_TYPES[candidate.kind]
+    return Overlay(
+        overlay_id=f"ovl-{candidate.candidate_id}",
+        type=overlay_type,
+        start_ms=candidate.match_clock_ms,
+        end_ms=candidate.match_clock_ms + _DURATION_MS[overlay_type],
+        match_clock_ms=candidate.match_clock_ms,
+        title=title,
+        body=body,
+        metrics=metrics,
+        cited_event_ids=list(candidate.cited_event_ids),
+        locale=resolved_locale,
+        confidence=candidate.confidence,
+    )
+
+
+def render_overlay(
+    candidate: InsightCandidate,
+    *,
+    locale: str = "en",
+    mode: str = "analyst",
+) -> Overlay:
+    """Render one candidate into an overlay, deterministically.
+
+    The same candidate always produces the same overlay, byte for byte.
+
+    Args:
+        candidate: The deterministic, fully-cited insight.
+        locale: Language code for the rendered prose.
+        mode: Audience mode.
+
+    Returns:
+        The overlay, carrying the candidate's citations.
+    """
+    resolved_locale, resolved_mode = _resolve(locale, mode)
+    title, body, closer, _ = _parts(candidate, resolved_locale, resolved_mode)
+    return build_overlay(
+        candidate,
+        title=title,
+        body=f"{body} {closer}",
+        locale=resolved_locale,
+        mode=resolved_mode,
+    )
+
+
+def render_title(candidate: InsightCandidate, *, locale: str = "en") -> str:
+    """Render the overlay's title: what kind of moment this is."""
+    resolved_locale, _ = _resolve(locale, "analyst")
+    frames = _FRAMES[candidate.kind]
+    frame = frames.get(resolved_locale, frames["en"])
+    clock = _clock_phrase(candidate.match_clock_ms, resolved_locale)
+    headline = candidate.headline.strip().rstrip(".")
+    return frame.title.format(clock=clock, headline=headline)
+
+
+def render_facts(candidate: InsightCandidate, *, locale: str = "en") -> str:
+    """Render the factual half of the body: what happened, and the numbers.
+
+    These are the analyst's words and the analyst's numbers. They are added
+    to every overlay unchanged, so the figures a viewer reads are always the
+    figures the grounding step checked.
+    """
+    resolved_locale, _ = _resolve(locale, "analyst")
+    metrics = [
+        _localise_metric(metric, resolved_locale) for metric in candidate.metrics
+    ]
+    headline = candidate.headline.strip().rstrip(".")
+    return (
+        f"{_headline_clause(headline, resolved_locale)} "
+        f"{_metrics_sentence(metrics, resolved_locale)}"
+    )
+
+
+def render_closer(mode: str, *, locale: str = "en") -> str:
+    """Render the closing line for an audience mode.
+
+    The closer is deterministic. It is never written by a model, because it
+    makes a claim about the numbers above it -- and that claim has to stay
+    true.
+    """
+    resolved_locale, resolved_mode = _resolve(locale, mode)
+    closers = _MODE_CLOSERS[resolved_mode]
+    return closers.get(resolved_locale, closers["en"])
+
+
+def render_reading(candidate: InsightCandidate, *, locale: str = "en") -> str:
+    """Render the reading: what the moment means.
+
+    The reading is the interpretive half only. The factual half -- the
+    headline and the numbers -- is added deterministically at the end, so a
+    reading can interpret the numbers but can never restate them wrongly.
+    """
+    resolved_locale, _ = _resolve(locale, "analyst")
+    frames = _FRAMES[candidate.kind]
+    frame = frames.get(resolved_locale, frames["en"])
+    return _interpretation(frame)
+
+
+def render_commentary(
+    candidate: InsightCandidate, *, locale: str = "en", mode: str = "analyst"
+) -> str:
+    """Render the one-line call a commentator would make."""
+    resolved_locale, resolved_mode = _resolve(locale, mode)
+    _, _, _, commentary = _parts(candidate, resolved_locale, resolved_mode)
+    return commentary
+
+
+def render_narration(
+    candidate: InsightCandidate, *, locale: str = "en", mode: str = "analyst"
+) -> dict[str, str]:
+    """Render the title, the interpretation and the commentary in one go.
+
+    This is the shape the Narrator agent asks a client for. The body is the
+    interpretive half only: the factual half is added by the personaliser,
+    deterministically, so that the numbers on screen are the analyst's.
+    """
+    resolved_locale, resolved_mode = _resolve(locale, mode)
+    frames = _FRAMES[candidate.kind]
+    frame = frames.get(resolved_locale, frames["en"])
+    return {
+        "title": render_title(candidate, locale=resolved_locale),
+        "body": _interpretation(frame),
+        "commentary": render_commentary(
+            candidate, locale=resolved_locale, mode=resolved_mode
+        ),
+    }
+
+
 class TemplateProvider:
     """Renders overlays deterministically, without calling a model.
 
@@ -477,42 +694,20 @@ class TemplateProvider:
 
         The same candidate always produces the same overlay, byte for byte.
         """
-        resolved_locale = locale if locale in SUPPORTED_LOCALES else "en"
         resolved_mode = mode if mode in SUPPORTED_MODES else self.default_mode
+        return render_overlay(candidate, locale=locale, mode=resolved_mode)
 
-        frames = _FRAMES[candidate.kind]
-        frame = frames.get(resolved_locale, frames["en"])
-        metrics = [
-            _localise_metric(metric, resolved_locale) for metric in candidate.metrics
-        ]
 
-        headline = candidate.headline.strip().rstrip(".")
-        clock = _clock_phrase(candidate.match_clock_ms, resolved_locale)
-        headline_clause = _headline_clause(headline, resolved_locale)
-        metrics_sentence = _metrics_sentence(metrics, resolved_locale)
-        closer = _MODE_CLOSERS[resolved_mode].get(
-            resolved_locale, _MODE_CLOSERS[resolved_mode]["en"]
-        )
-
-        title = frame.title.format(clock=clock, headline=headline)
-        body = frame.body.format(
-            headline=headline_clause,
-            metrics=metrics_sentence,
-            clock=clock,
-        )
-        body = f"{body} {closer}"
-
-        overlay_type = _OVERLAY_TYPES[candidate.kind]
-        return Overlay(
-            overlay_id=f"ovl-{candidate.candidate_id}",
-            type=overlay_type,
-            start_ms=candidate.match_clock_ms,
-            end_ms=candidate.match_clock_ms + _DURATION_MS[overlay_type],
-            match_clock_ms=candidate.match_clock_ms,
-            title=title,
-            body=body,
-            metrics=metrics,
-            cited_event_ids=list(candidate.cited_event_ids),
-            locale=resolved_locale,
-            confidence=candidate.confidence,
-        )
+__all__ = [
+    "SUPPORTED_LOCALES",
+    "SUPPORTED_MODES",
+    "TemplateProvider",
+    "build_overlay",
+    "render_closer",
+    "render_commentary",
+    "render_facts",
+    "render_narration",
+    "render_overlay",
+    "render_reading",
+    "render_title",
+]

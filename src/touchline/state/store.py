@@ -15,13 +15,16 @@ from __future__ import annotations
 
 import threading
 from collections import Counter
+from collections.abc import Iterable
 
 from touchline.metrics.definitions import (
     METRICS,
     POSSESSION_EVENT_TYPES,
     compute_metric,
 )
+from touchline.models.claims import Explanation
 from touchline.models.events import EventType, MatchEvent, TeamSide
+from touchline.models.insights import InsightCandidate
 
 #: The metrics that :meth:`MatchStateStore.recompute` knows how to reproduce.
 #: The registry is the single source of truth: the analyst computes its
@@ -37,6 +40,8 @@ class MatchStateStore:
         self._lock = threading.Lock()
         self._events: list[MatchEvent] = []
         self._by_id: dict[str, MatchEvent] = {}
+        self._candidates: dict[str, InsightCandidate] = {}
+        self._explanations: dict[str, Explanation] = {}
 
     # -- mutation ---------------------------------------------------------
 
@@ -71,6 +76,60 @@ class MatchStateStore:
         with self._lock:
             self._events.clear()
             self._by_id.clear()
+            self._candidates.clear()
+            self._explanations.clear()
+
+    # -- candidates --------------------------------------------------------
+
+    def put_candidates(self, candidates: Iterable[InsightCandidate]) -> None:
+        """Record the insights the analyst found.
+
+        The candidates are kept alongside the event log because a later stage
+        sometimes holds only an id -- the grounding verdict names one, and
+        the veto it carries has to be sent back to the candidate it is about.
+        Without the registry that hand-off would have to carry the whole
+        candidate in its payload, and the payload would grow with it.
+
+        Args:
+            candidates: The candidates to record. One with an id already
+                recorded replaces the earlier one.
+        """
+        with self._lock:
+            for candidate in candidates:
+                self._candidates[candidate.candidate_id] = candidate
+
+    def candidate(self, candidate_id: str) -> InsightCandidate | None:
+        """Look one candidate up by id."""
+        with self._lock:
+            return self._candidates.get(candidate_id)
+
+    @property
+    def candidates(self) -> list[InsightCandidate]:
+        """The recorded candidates, in the order they were recorded."""
+        with self._lock:
+            return list(self._candidates.values())
+
+    # -- explanations ------------------------------------------------------
+
+    def put_explanation(self, candidate_id: str, explanation: Explanation) -> None:
+        """Record the claim the grounding step accepted.
+
+        The verdict carries only an id, so the claim itself has to live
+        somewhere the next stage can reach. It lives here, beside the
+        candidate it is about, because the Narrator needs both: the
+        candidate to write about and the accepted claim to write from.
+
+        Args:
+            candidate_id: The candidate the claim is about.
+            explanation: The claim that was accepted.
+        """
+        with self._lock:
+            self._explanations[candidate_id] = explanation
+
+    def explanation(self, candidate_id: str) -> Explanation | None:
+        """The claim that was accepted for one candidate, if there is one."""
+        with self._lock:
+            return self._explanations.get(candidate_id)
 
     # -- reads ------------------------------------------------------------
 

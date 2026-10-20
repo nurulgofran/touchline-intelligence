@@ -10,6 +10,7 @@ repository's code or on the hackathon submission.
 | [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (`agent-framework-core`, `agent-framework-foundry`, `agent-framework-openai`, `agent-framework-a2a`) | MIT | Orchestration runtime, agent definitions, the Foundry chat client, A2A hosting |
 | [Microsoft Foundry / Azure AI SDKs](https://learn.microsoft.com/azure/ai-foundry/) (`azure-ai-projects`, `azure-ai-inference`) | MIT / Apache-2.0 | Model inference and Foundry project integration — the deployed demo *and* local development. Provisioned by `scripts/provision-foundry.sh` with the Azure CLI |
 | [A2A Protocol SDK](https://github.com/a2aproject/a2a-python) (`a2a-sdk`) | Apache-2.0 | A2A agent card, task store, and transport bindings |
+| [sse-starlette](https://github.com/sysid/sse-starlette) | BSD-3-Clause | Server-Sent Events response type that the A2A JSON-RPC and agent-card routes are built on |
 | [OpenCV](https://opencv.org) (`opencv-python-headless`) | Apache-2.0 | Real-time video tracking for the auto-eventing path |
 | [NumPy](https://numpy.org) | BSD-3-Clause | Numeric work in the metrics and tracker |
 | [FastAPI](https://fastapi.tiangolo.com) | MIT | HTTP API and WebSocket transport |
