@@ -10,14 +10,27 @@
 #   - Azure CLI 2.80.0 or newer
 #   - az login completed
 #   - The Foundry account already provisioned (scripts/provision-foundry.sh)
-#   - The container image published as a PUBLIC package on GHCR, so the pull
-#     below is anonymous and no registry credential is needed
+#
+# The image path
+# --------------
+# The image is built in Azure, by ACR Tasks, from the same Dockerfile the CI
+# workflow builds (scripts/build-image.sh). The registry is in the same
+# subscription as the Container App, so the pull authenticates with the app's
+# **system-assigned managed identity** against the ACR token service -- the
+# app is given the AcrPull role on the registry scope and no registry
+# credential is stored in the deployment. There is no admin password, no
+# secret reference, and no PAT anywhere in the chain.
+#
+# The GitHub Actions route to a public GHCR package is kept in
+# .github/workflows/image.yml for the day the account's billing lock lifts; it
+# needs no change to the Dockerfile and needs no registry credential either,
+# because a public package is pulled anonymously.
 #
 # Usage:
 #   scripts/provision-aca.sh
 #
 # Overrides (all optional):
-#   RG, ENV, APP, LOCATION, IMAGE, ACCOUNT, PROJECT, DEPLOYMENT, HOSTNAME
+#   RG, ENV, APP, LOCATION, IMAGE, ACR, ACCOUNT, PROJECT, DEPLOYMENT, HOSTNAME
 #   Set HOSTNAME to bind a custom domain; leave it unset to use the default
 #   *.azurecontainerapps.io FQDN.
 
@@ -27,11 +40,16 @@ RG="${RG:-touchline-rg}"
 ENV="${ENV:-touchline-env}"
 APP="${APP:-touchline-app}"
 LOCATION="${LOCATION:-germanywestcentral}"
-IMAGE="${IMAGE:-ghcr.io/nurulgofran/touchline-intelligence:v1}"
+ACR="${ACR:-touchlineacr}"
+IMAGE="${IMAGE:-touchlineacr.azurecr.io/touchline-intelligence:v1}"
 ACCOUNT="${ACCOUNT:-touchlinefoundry}"
 PROJECT="${PROJECT:-touchline}"
 DEPLOYMENT="${DEPLOYMENT:-gpt-5-mini}"
 HOSTNAME="${HOSTNAME:-}"
+
+# The registry the app pulls from. Set REGISTRY_SERVER empty for an anonymous
+# pull from a public package (the GHCR route); leave it set for the ACR route.
+REGISTRY_SERVER="${REGISTRY_SERVER:-touchlineacr.azurecr.io}"
 
 # minReplicas 1  -> the demo URL never scales to zero, so a judge never waits on
 #                    a cold start. This is the cost driver and it is deliberate.
@@ -115,11 +133,39 @@ else
     note "created $ENV"
 fi
 
+# --- the registry ------------------------------------------------------------
+#
+# The image is built in Azure by ACR Tasks (scripts/build-image.sh) and pushed
+# to this registry. The registry is in the same subscription as the Container
+# App, so the pull authenticates with the app's managed identity against the
+# ACR token service: the app gets the AcrPull role on the registry scope and
+# no registry credential is stored in the deployment.
+
+say "Container registry"
+
+if [ -n "$REGISTRY_SERVER" ]; then
+    if ! az acr show -g "$RG" -n "$ACR" >/dev/null 2>&1; then
+        az acr create -g "$RG" -n "$ACR" --sku Basic -l "$LOCATION" \
+            --admin-enabled false --output none
+        note "created $ACR"
+    else
+        note "$ACR already exists"
+    fi
+
+    if ! az acr repository show --name "$ACR" --repository "${IMAGE##*/}" >/dev/null 2>&1; then
+        note "the image is not in the registry yet - building it with ACR Tasks"
+        scripts/build-image.sh
+    else
+        note "image already in the registry"
+    fi
+fi
+
 # --- the application ---------------------------------------------------------
 #
-# No --registry-server / --registry-username / --registry-password: the GHCR
-# package is public, so the image is pulled anonymously and no registry
-# credential exists anywhere in the chain.
+# --registry-identity system: the pull uses the app's system-assigned managed
+# identity, so there is no --registry-username and no --registry-password.
+# Leave REGISTRY_SERVER empty for an anonymous pull from a public package
+# (the GHCR route), where the registry flags are omitted entirely.
 
 say "Container App"
 
@@ -128,9 +174,15 @@ if az containerapp show -n "$APP" -g "$RG" >/dev/null 2>&1; then
     az containerapp delete -n "$APP" -g "$RG" --yes --output none
 fi
 
+REGISTRY_ARGS=()
+if [ -n "$REGISTRY_SERVER" ]; then
+    REGISTRY_ARGS=(--registry-server "$REGISTRY_SERVER" --registry-identity system)
+fi
+
 az containerapp create \
     -n "$APP" -g "$RG" --environment "$ENV" \
     --image "$IMAGE" \
+    "${REGISTRY_ARGS[@]}" \
     --target-port "$TARGET_PORT" --ingress external --transport auto \
     --min-replicas "$MIN_REPLICAS" --max-replicas "$MAX_REPLICAS" \
     --cpu "$CPU" --memory "$MEMORY" \
@@ -213,6 +265,24 @@ say "Managed identity and role assignment"
 PRINCIPAL="$(az containerapp show -n "$APP" -g "$RG" --query identity.principalId -o tsv)"
 note "principal: $PRINCIPAL"
 
+# AcrPull on the registry scope, so the image is pulled with the identity
+# rather than with a stored credential. The first revision cannot pull until
+# this role exists, so the revision is forced afterwards -- see below.
+if [ -n "$REGISTRY_SERVER" ]; then
+    ACR_SCOPE="/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ContainerRegistry/registries/$ACR"
+    if az role assignment list --scope "$ACR_SCOPE" --assignee-object-id "$PRINCIPAL" \
+            --query "[?contains(roleName, 'AcrPull')].id" -o tsv 2>/dev/null | grep -q .; then
+        note "AcrPull already assigned"
+    else
+        az role assignment create \
+            --role "AcrPull" \
+            --assignee-object-id "$PRINCIPAL" --assignee-principal-type ServicePrincipal \
+            --scope "$ACR_SCOPE" \
+            --output none
+        note "assigned AcrPull"
+    fi
+fi
+
 SCOPE="/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.CognitiveServices/accounts/$ACCOUNT"
 
 if az role assignment list --scope "$SCOPE" --assignee-object-id "$PRINCIPAL" \
@@ -226,6 +296,29 @@ else
         --output none
     note "assigned Foundry User"
 fi
+
+# --- the revision ------------------------------------------------------------
+#
+# The revisions created above were built before AcrPull existed on the app's
+# identity, so their pull was refused. A new revision is created now that the
+# identity can pull; it is the one that serves the demo.
+
+say "Revision"
+
+az containerapp update -n "$APP" -g "$RG" --image "$IMAGE" --output none
+note "new revision created"
+
+# Wait for it to come up. The app analyses the match in the background from
+# the moment it starts, so a healthy revision means the demo is live.
+for _ in $(seq 1 30); do
+    STATE="$(az containerapp revision list -n "$APP" -g "$RG" \
+        --query "[?active].properties.runningState" -o tsv 2>/dev/null | head -1)"
+    if [ "${STATE:-}" = "Running" ]; then
+        note "revision running"
+        break
+    fi
+    sleep 10
+done
 
 cat <<EOF
     If the app gets 401/403 from Foundry, work this order:
