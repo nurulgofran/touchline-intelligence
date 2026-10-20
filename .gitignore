@@ -34,7 +34,10 @@ data/
 
 # --- Local working documents ---
 #
-# The build plan and the working agreements are the builder's own notes. They
-# stay on this machine and out of the public repository.
+# The build plan, the working agreements and the hackathon brief are the
+# builder's own notes. They stay on this machine and out of the public
+# repository.
 PLAN.md
 CLAUDE.md
+inside-the-game-hackathon-description.md
+inside-the-game-hackathon-plan.md

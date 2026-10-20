@@ -150,9 +150,8 @@ and to the Container App's managed identity for the deployment.
 
 ## Status
 
-Work in progress. The official brief is in
-[`inside-the-game-hackathon-description.md`](./inside-the-game-hackathon-description.md), and the
-original concept in [`inside-the-game-hackathon-plan.md`](./inside-the-game-hackathon-plan.md).
+Work in progress. The build plan and the hackathon brief are kept off the public repository; the
+source, the scripts and this README are the whole of it.
 
 > All data is **synthetic**. No real Premier League match data is used anywhere in this project.
 > Clubs and players are fictional, and no Premier League or Microsoft trademarks, logos, or crests
