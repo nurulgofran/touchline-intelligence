@@ -17,6 +17,7 @@ imports cleanly in an environment that has only ``pydantic`` installed.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -104,9 +105,20 @@ _SYSTEM_PROMPT = (
 #: The live feed has to keep up with a football match, so the difference
 #: between 4.2 s and 1.8 s per overlay is the difference between a narrated
 #: match and a narrated slideshow.
+#:
+#: The cap is a ceiling, not a budget, and the two callers need different
+#: amounts of room. The Narrator asks for a title and a body and is done in
+#: a few hundred tokens; the Explainer asks for a reading *and* the metrics
+#: *and* the cited event ids, and a candidate can carry fifty of those --
+#: the ids alone are a couple of thousand characters. A 400-token ceiling
+#: cut that reply off mid-sentence, which left a JSON object that could not
+#: be parsed, and an unreadable reply used to stop the whole analysis. The
+#: ceiling is now high enough for the longest reply the prompts ask for. It
+#: costs nothing when the answer is short: the model stops when the JSON is
+#: finished, not when the ceiling is reached.
 _REQUEST_OPTIONS: dict[str, Any] = {
     "reasoning": {"effort": "minimal"},
-    "max_output_tokens": 400,
+    "max_output_tokens": 4000,
 }
 
 #: The same options under a public name, for the modules that build a chat
@@ -427,19 +439,34 @@ class FoundryProvider:
             raise ProviderError("The model returned an empty response.")
         return joined
 
-    @staticmethod
-    async def _get_response(get_response: Any, messages: Any) -> Any:
+    async def _get_response(self, get_response: Any, messages: Any) -> Any:
         """Call the chat client, with the request options when supported.
 
         The options are what cap the reasoning effort, so they are not
         optional in practice. A client that does not accept them still gets a
         usable answer -- it just pays the default reasoning cost -- so the
         fallback is a retry without the options rather than a failure.
+
+        The call is bounded by the provider's timeout. The Agent Framework's
+        Foundry client carries no timeout of its own -- it hands the request
+        to the OpenAI transport, whose default is ten minutes -- and a live
+        feed cannot afford to wait ten minutes for one overlay. A call that
+        runs long becomes a provider failure, and the provider chain falls
+        back to the template engine rather than the match standing still.
         """
         try:
-            return await get_response(messages, options=_REQUEST_OPTIONS)
+            return await asyncio.wait_for(
+                get_response(messages, options=_REQUEST_OPTIONS),
+                timeout=self.timeout_seconds,
+            )
         except TypeError:
-            return await get_response(messages)
+            return await asyncio.wait_for(
+                get_response(messages), timeout=self.timeout_seconds
+            )
+        except TimeoutError:
+            raise ProviderUnavailable(
+                f"Foundry did not answer within {self.timeout_seconds:g}s."
+            ) from None
 
     async def aclose(self) -> None:
         """Release the HTTP session and the credential.

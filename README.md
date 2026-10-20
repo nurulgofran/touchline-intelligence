@@ -81,10 +81,9 @@ The studio is the demo: a live match on a pitch, the momentum curve, the insight
 explained, and the agent trace showing every hand-off.
 
 **Demo URL: `demo.nurulgofran.dev`** — a custom domain bound to the Azure Container App's
-generated FQDN (`<app>.<env-id>.<region>.azurecontainerapps.io`, which works on its own and is the
-fallback). The container app is provisioned by
-[`scripts/provision-aca.sh`](./scripts/provision-aca.sh); until it is deployed, the studio runs
-locally:
+generated FQDN, which is `https://touchline-app.icywave-bfcbf183.germanywestcentral.azurecontainerapps.io`
+and works on its own whatever the domain does. The container app is provisioned by
+[`scripts/provision-aca.sh`](./scripts/provision-aca.sh); the studio also runs locally:
 
 ```bash
 uv venv --python 3.12 && source .venv/bin/activate

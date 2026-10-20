@@ -539,16 +539,48 @@ class LiveMatchEngine:
     # -- the work ----------------------------------------------------------
 
     async def _compute(self) -> None:
-        """Analyse the match, one stretch at a time."""
+        """Analyse the match, one stretch at a time.
+
+        A stretch that fails is recorded and skipped; the rest of the match
+        is still analysed. One unreadable reply used to end the analysis
+        there and leave the studio showing a match that stopped at minute
+        nineteen -- the feed has to keep running, and a hole in it is a far
+        better answer than a frozen match.
+        """
         try:
             for index, (start_ms, end_ms, events) in enumerate(self._stretches()):
-                await self._analyse_stretch(index, start_ms, end_ms, events)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception("the live analysis stopped")
+                try:
+                    await self._analyse_stretch(index, start_ms, end_ms, events)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.exception(
+                        "stretch %d could not be analysed", index
+                    )
+                    self._record_degradation(index, start_ms, end_ms)
         finally:
             self._advanced.set()
+
+    def _record_degradation(
+        self, index: int, start_ms: int, end_ms: int
+    ) -> None:
+        """Note in the trace that one stretch of the match was lost.
+
+        Args:
+            index: Which stretch.
+            start_ms: When it starts, in match time.
+            end_ms: When it ends, in match time.
+        """
+        try:
+            self._trace.record(
+                "analyst",
+                "explainer",
+                "degradation",
+                f"the stretch at {start_ms // 60000:02d}:"
+                f"{end_ms // 60000:02d} could not be analysed",
+            )
+        except Exception:  # pragma: no cover - the trace must never break the feed
+            logger.debug("the degradation could not be recorded", exc_info=True)
 
     async def _analyse_stretch(
         self,

@@ -9,7 +9,8 @@ from the same origin.
 
 Usage:
     python scripts/verify-live.py https://demo.nurulgofran.dev
-    python scripts/verify-live.py https://<app>.<env>.<region>.azurecontainerapps.io --wait 180
+    python scripts/verify-live.py \
+        https://<app>.<env>.<region>.azurecontainerapps.io --wait 180
 
 Every check prints PASS or FAIL. The exit status is 0 only when every check
 passed, so the script can be used as a gate.
@@ -83,7 +84,11 @@ async def check_rest(client: httpx.AsyncClient, base: str, report: Report) -> No
     report.section("REST")
 
     response = await client.get(f"{base}/healthz", timeout=30.0)
-    report.check("GET /healthz", response.status_code == 200, f"HTTP {response.status_code}")
+    report.check(
+        "GET /healthz",
+        response.status_code == 200,
+        f"HTTP {response.status_code}",
+    )
     if response.status_code == 200:
         health = response.json()
         provider = health.get("provider", {})
@@ -117,13 +122,13 @@ async def check_rest(client: httpx.AsyncClient, base: str, report: Report) -> No
             f"{card.get('name')} skills={skill_names}",
         )
 
-    for path, key in (
-        ("/api/match", "match"),
-        ("/api/match/insights", "insights"),
-        ("/api/match/momentum", "momentum"),
-        ("/api/match/trace", "trace"),
-        ("/api/match/tracking", "tracking"),
-        ("/api/match/audience", "audience"),
+    for path in (
+        "/api/match",
+        "/api/match/insights",
+        "/api/match/momentum",
+        "/api/match/trace",
+        "/api/match/tracking",
+        "/api/match/audience",
     ):
         response = await client.get(f"{base}{path}", timeout=60.0)
         ok = response.status_code == 200
@@ -168,7 +173,7 @@ async def check_websocket(base: str, report: Report, seconds: int) -> None:
             while time.monotonic() < deadline:
                 try:
                     raw = await asyncio.wait_for(socket.recv(), timeout=10.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     break
                 frame = json.loads(raw)
                 kind = frame.get("type", "?")
@@ -176,7 +181,7 @@ async def check_websocket(base: str, report: Report, seconds: int) -> None:
                     seen[kind] = frame
                 if kind == "overlay":
                     overlays += 1
-    except Exception as exc:  # noqa: BLE001 - the report says what happened
+    except Exception as exc:
         report.check(f"the socket at {WS_PATH}", False, repr(exc))
         return
 
