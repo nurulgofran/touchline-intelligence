@@ -252,7 +252,7 @@ class FoundryChatClient:
         project_endpoint: str | None = None,
         model: str | None = None,
         credential: Any = None,
-        timeout_seconds: float = 30.0,
+        timeout_seconds: float = 90.0,
         max_attempts: int = 3,
         backoff_seconds: float = 0.5,
         inner: Any = None,
@@ -264,7 +264,12 @@ class FoundryChatClient:
             model: The **deployment** name, not the model name.
             credential: An Azure credential. Defaults to a
                 ``DefaultAzureCredential``.
-            timeout_seconds: How long one attempt may take.
+            timeout_seconds: How long one attempt may take. The Explainer's
+                reply is the long one -- it restates forty metrics and fifty
+                event ids -- and on the deployed container it can take thirty
+                seconds, so the ceiling is set above that. A call that runs
+                long is abandoned and the provider chain falls back; the
+                analysis keeps going either way.
             max_attempts: How many attempts in total, including the first.
             backoff_seconds: The first wait between attempts. Each further
                 wait is twice as long.

@@ -24,7 +24,7 @@ Microsoft Agent Framework workflow, one Azure Container App — no mirror, no se
 | **Microsoft Foundry** | The one model provider, used by the deployed demo and by local development. `FoundryChatClient` against a Foundry project endpoint, with the model deployment created and managed by the Azure CLI script in [`scripts/provision-foundry.sh`](./scripts/provision-foundry.sh). The provider badge shows the actual provider of the last call — "Microsoft Foundry" plus a live/fallback state chip. |
 | **Microsoft Agent Framework** | The orchestration runtime. A `WorkflowBuilder` graph of typed executors — Ingest → Analyst → Explainer → Grounding → Narrator → Personalizer — over one shared state store, with per-executor events powering the agent-trace view and checkpointing for recovery. |
 | **A2A (Agent2Agent)** | The Explainer and Narrator are exposed as A2A servers with published agent cards (`/.well-known/agent-card.json`); the Narrator calls the Explainer over A2A HTTP+JSON. |
-| **Azure Container Apps** | The only host. The container image is published as a **public** GitHub Container Registry package and pulled **anonymously**, so no registry credential is stored in the deployment. The app reaches Foundry through a **user-assigned managed identity** — the Consumption environment refuses a system-assigned one — with `minReplicas: 1` so the demo URL is always on with no cold start, `maxReplicas: 1` so the in-process shared state stays consistent, liveness and readiness probes on `/healthz`, and an external ingress carrying the live WebSocket feed. Provisioned by [`scripts/provision-aca.sh`](./scripts/provision-aca.sh) with the Azure CLI. |
+| **Azure Container Apps** | The only host. The container image is pulled from an **Azure Container Registry** in the same subscription, with the app's **user-assigned managed identity** (`AcrPull` on the registry scope) — the registry's admin user is disabled and the deployment holds no registry credential at all. The Consumption environment refuses a system-assigned identity outright (`ExpressEnvironmentFeatureNotSupported`) and accepts a user-assigned one, for the app's access to Foundry and for the image pull alike. `minReplicas: 1` so the demo URL is always on with no cold start, `maxReplicas: 1` so the in-process shared state stays consistent, liveness and readiness probes on `/healthz`, and an external ingress carrying the live WebSocket feed. Provisioned by [`scripts/provision-aca.sh`](./scripts/provision-aca.sh) with the Azure CLI. |
 | **GitHub CLI / GitHub SDK** | Repo automation, CI wiring, release and submission checklists. |
 | **GitHub Copilot** | Used to build the project (agent mode) — and named in the pitch per the category description. *Stretch: a Copilot-backed agent inside the workflow via `agent_framework.github.GitHubCopilotAgent`.* |
 | **Azure Database for PostgreSQL** *(Day 6, bonus)* | Durable store behind the shared state — event log and agent handoff trace. Writes are best-effort; the live path never depends on it. |
@@ -133,13 +133,15 @@ the repository, or anywhere else.
 ### Build and CI
 
 [`scripts/build-image.sh`](./scripts/build-image.sh) builds the image from the committed
-[`Dockerfile`](./Dockerfile) and pushes it to a public GitHub Container Registry package, which Azure
-Container Apps pulls anonymously. The platform is pinned to `linux/amd64`, because that is what the
-Container App's nodes are, whatever the build machine is.
+[`Dockerfile`](./Dockerfile) and pushes it to the container registry the Container App pulls from. The
+platform is pinned to `linux/amd64`, because that is what the Container App's nodes are, whatever the
+build machine is, and the image is written in the OCI media types, because the Container Apps
+runtime converts an image into the OCI layout on import and that conversion rejects the gzip layers
+of the Docker format.
 
 The CI workflow in [`.github/workflows/image.yml`](./.github/workflows/image.yml) runs the same three
 checks this project is held to — `pytest`, `ruff`, `mypy` — and then the frontend build, before its
-image job publishes the same package. It is the path the project takes when the account's Actions
+image job publishes the same image. It is the path the project takes when the account's Actions
 runner is available; until then the same commands are run locally and the image is built by the
 script above.
 
@@ -151,6 +153,7 @@ The footprint itself:
 | Foundry project | `touchline` | Project endpoint `https://touchline.services.ai.azure.com/api/projects/touchline` |
 | Model deployment | `gpt-5-mini` | `gpt-5-mini` / `2025-08-07`, `GlobalStandard`, capacity 10 |
 | Managed identity | `touchline-identity` | User-assigned; "Foundry User" on the Foundry account, and the image pull |
+| Container registry | `touchlineacr` | `Basic`, `germanywestcentral`, admin user disabled, pulled with the managed identity |
 | Container Apps env | `touchline-env` | `germanywestcentral`, with an explicit Log Analytics workspace |
 | Container App | `touchline-app` | `minReplicas: 1`, `maxReplicas: 1`, the managed identity attached |
 

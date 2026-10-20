@@ -29,15 +29,11 @@
 #
 # The image path
 # --------------
-# The image is published as a **public** GitHub Container Registry package
-# (scripts/build-image.sh) and Azure Container Apps pulls it **anonymously**.
-# There is no registry credential anywhere in the chain: no admin password,
-# no secret reference, no PAT, and no registry configuration on the app at
-# all. A public package is read the same way a public Docker Hub image is.
-#
-# Why not an Azure Container Registry in the same subscription? The pull
-# would need a credential, because registry-wide anonymous pull on ACR needs
-# the Premium tier, which is $1.67 a day. The public package costs nothing.
+# The image is built by scripts/build-image.sh and pushed to an Azure
+# Container Registry in the same subscription. The Container App pulls it
+# with the app's **managed identity** -- the registry's admin user is
+# disabled, and the deployment holds no registry credential at all: no
+# password, no secret reference, no PAT.
 #
 # Usage:
 #   scripts/provision-aca.sh
@@ -55,7 +51,7 @@ RG="${RG:-touchline-rg}"
 ENV="${ENV:-touchline-env}"
 APP="${APP:-touchline-app}"
 LOCATION="${LOCATION:-germanywestcentral}"
-IMAGE="${IMAGE:-ghcr.io/nurulgofran/touchline-intelligence:v1}"
+IMAGE="${IMAGE:-touchlineacr.azurecr.io/touchline-intelligence:v1}"
 ACCOUNT="${ACCOUNT:-touchlinefoundry}"
 PROJECT="${PROJECT:-touchline}"
 DEPLOYMENT="${DEPLOYMENT:-gpt-5-mini}"

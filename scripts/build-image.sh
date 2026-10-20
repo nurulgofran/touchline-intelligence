@@ -5,10 +5,12 @@
 #
 # Two destinations, one Dockerfile:
 #
-#   DEST=ghcr    a public GitHub Container Registry package. Azure Container
-#                Apps pulls it anonymously, so no registry credential exists
-#                anywhere in the deployment. This is the default and the route
-#                the deployment uses.
+#   DEST=acr     an Azure Container Registry in the same subscription, pulled
+#                by the Container App with its managed identity. No registry
+#                credential exists anywhere in the deployment. This is the
+#                default and the route the deployment uses.
+#   DEST=ghcr    a public GitHub Container Registry package, which Azure
+#                Container Apps pulls anonymously. The alternative route.
 #   DEST=acr     an Azure Container Registry in the same subscription. The
 #                pull then needs a credential -- the Express (Consumption)
 #                environment refuses the managed-identity pull, and registry-
@@ -56,7 +58,7 @@ IMAGE_NAME="${IMAGE_NAME:-touchline-intelligence}"
 TAG="${TAG:-v1}"
 LOCATION="${LOCATION:-germanywestcentral}"
 MODE="${MODE:-docker}"
-DEST="${DEST:-ghcr}"
+DEST="${DEST:-acr}"
 
 # The platform the image is built for.
 #
