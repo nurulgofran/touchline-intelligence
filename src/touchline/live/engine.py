@@ -578,8 +578,8 @@ class LiveMatchEngine:
 
         The lock is held for the whole rewrite, so the analysis cannot add
         an insight half way through and leave the feed with a card in the
-        old language. The copy is only published if the reader who asked
-        for it is still the reader.
+        old language. Each card is published as it is written, and only
+        while the reader who asked for it is still the reader.
 
         Args:
             audience: Who the overlays are written for.
@@ -614,24 +614,63 @@ class LiveMatchEngine:
                             revision=revision,
                         )
 
-                overlays: list[Overlay] = list(
-                    await asyncio.gather(*(rewrite(c, n) for c, n in jobs))
-                )
-                if self._revision != revision:
-                    # Somebody else has been asked for in the meantime.
-                    # This copy is for a reader who is no longer reading.
-                    return
-                self._overlays = overlays
-                self._recap = self._build_recap()
-                if self._recap is not None:
-                    self._overlays.append(self._recap)
-                self._feed_version += 1
+                # Each card goes on the screen as it is written, rather
+                # than the whole feed at the end. A rewrite is one call
+                # per insight at the deployment's rate -- minutes, not
+                # seconds -- and a reader waiting four minutes to see the
+                # moment they are looking at change would think nothing
+                # had happened at all.
+                #
+                # The tasks are made in the order the reader is reading
+                # in, so the calls go out in that order too: the nearest
+                # moments are the ones being asked for while the rest
+                # wait their turn at the deployment's rate.
+                tasks = [
+                    asyncio.create_task(rewrite(c, n), name="touchline-rewrite")
+                    for c, n in jobs
+                ]
+                try:
+                    pending = set(tasks)
+                    while pending:
+                        done, pending = await asyncio.wait(
+                            pending, return_when=asyncio.FIRST_COMPLETED
+                        )
+                        for task in done:
+                            overlay = task.result()
+                            if self._revision != revision:
+                                # Somebody else has been asked for in the
+                                # meantime. This copy is for a reader who
+                                # is no longer reading.
+                                return
+                            self._publish(overlay)
+                finally:
+                    for task in tasks:
+                        if not task.done():
+                            task.cancel()
         except asyncio.CancelledError:
             raise
         except Exception:
             logger.exception(
                 "the rewrite for %s could not be finished", audience.key
             )
+
+    def _publish(self, overlay: Overlay) -> None:
+        """Put one rewritten card on the screen, where it was.
+
+        The card keeps its id -- it is the same moment, written for
+        somebody else -- so it goes back where it was rather than at the
+        end of the feed.
+
+        Args:
+            overlay: The rewritten card.
+        """
+        for index, current in enumerate(self._overlays):
+            if current.overlay_id == overlay.overlay_id:
+                self._overlays[index] = overlay
+                self._feed_version += 1
+                return
+        self._overlays.append(overlay)
+        self._feed_version += 1
 
     def _replace_recap(self) -> None:
         """Write the full-time card again, for the reader who is here now.

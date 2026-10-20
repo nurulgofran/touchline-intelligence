@@ -369,13 +369,66 @@ def click_when_ready(text: str) -> str:
     return CLICK_WAITING.format(text=json.dumps(text))
 
 
+# The card the studio is showing: the newest insight, and not the
+# full-time recap. The recap is a deterministic summary of the whole
+# match, so a beat that is about the model rewriting something wants the
+# insight -- the one the model wrote.
+CARD = """
+(() => {{
+  const cards = [...document.querySelectorAll('article')];
+  return cards.find((card) => !card.textContent.includes('RECAP')) ?? cards[0] ?? null;
+}})()
+"""
+
+# Read the moment for one side, and wait for it to be rewritten.
+#
+# The body is compared rather than the title, because a title can be the
+# same word in two languages, and the comparison is with the text that was
+# on screen a moment earlier. It is all one script, so the card cannot
+# change underneath the comparison.
+SWITCH_SIDE = """
+(async () => {{
+  const pick = () => {{
+    const cards = [...document.querySelectorAll('article')];
+    return cards.find((card) => !card.textContent.includes('RECAP'))
+      ?? cards[0] ?? null;
+  }};
+  const find = (label) => [...document.querySelectorAll('button')]
+    .find((b) => b.textContent.includes(label));
+  const card = pick();
+  const body = card ? card.querySelector('p') : null;
+  const before = body ? body.textContent.trim() : '';
+  const mode = find('My team');
+  if (!mode) return false;
+  mode.click();
+  await new Promise((r) => setTimeout(r, 400));
+  const side = find('Riverside United');
+  if (!side) return false;
+  side.click();
+  for (let i = 0; i < 160; i += 1) {{
+    await new Promise((r) => setTimeout(r, 250));
+    const now_card = pick();
+    const now_body = now_card ? now_card.querySelector('p') : null;
+    const now = now_body ? now_body.textContent.trim() : '';
+    if (now && now !== before) return true;
+  }}
+  return false;
+}})()
+"""
+
+
 # Switch the language and wait for the card to be rewritten. The body is
 # compared rather than the title, because a title can be the same word in two
 # languages. It is all one script, so the text it compares against is the
 # text that was on screen a moment earlier.
 SWITCH_LANGUAGE = """
 (async () => {{
-  const card = document.querySelector('article');
+  const pick = () => {{
+    const cards = [...document.querySelectorAll('article')];
+    return cards.find((card) => !card.textContent.includes('RECAP'))
+      ?? cards[0] ?? null;
+  }};
+  const card = pick();
   const body = card ? card.querySelector('p') : null;
   const before = body ? body.textContent.trim() : '';
   const button = [...document.querySelectorAll('button')]
@@ -384,11 +437,10 @@ SWITCH_LANGUAGE = """
   button.click();
   for (let i = 0; i < 160; i += 1) {{
     await new Promise((r) => setTimeout(r, 250));
-    const busy = document.body.innerText.includes('rewriting the feed');
-    const now_card = document.querySelector('article');
+    const now_card = pick();
     const now_body = now_card ? now_card.querySelector('p') : null;
     const now = now_body ? now_body.textContent.trim() : '';
-    if (!busy && now && now !== before) return true;
+    if (now && now !== before) return true;
   }}
   return false;
 }})()
@@ -478,7 +530,8 @@ PICK_PLAYER = """
 # English alongside a translation the model wrote in another language.
 READ_INSIGHT = """
 (() => {
-  const card = document.querySelector('article');
+  const cards = [...document.querySelectorAll('article')];
+  const card = cards.find((c) => !c.textContent.includes('RECAP')) ?? cards[0];
   if (!card) return '';
   const title = card.querySelector('h3');
   const body = card.querySelector('p');
@@ -525,7 +578,8 @@ SAME_CARD = """
 # that was rewritten in one of them.
 LANGUAGE_LANDED = """
 (() => {{
-  const card = document.querySelector('article');
+  const cards = [...document.querySelectorAll('article')];
+  const card = cards.find((c) => !c.textContent.includes('RECAP')) ?? cards[0];
   if (!card) return false;
   return /[^\x00-\x7F]/.test(card.textContent);
 }})()
@@ -947,22 +1001,35 @@ def build_timeline() -> Timeline:
         )
     )
 
-    # 0:47 - the personalizer. The first change is the slow one.
+    # 0:47 - full time. The clock reaches the end of the match, so the
+    # feed shows the last moments and the recap on top of them.
+    #
+    # This beat comes before the reader changes on purpose. The service
+    # rewrites the feed around the moment the reader is looking at, so
+    # the reader beats want the clock at the end of the match -- where
+    # the moments on screen are the ones the rewrite reaches first.
+    timeline.add(
+        Shot(
+            name="full time",
+            caption="Full time — the recap, from the same 90 minutes of events.",
+            action=[SPRINT_TO_END, wait_for_idle],
+            settle=3.0,
+            hold=4.5,
+        )
+    )
+
+    # 0:55 - the personalizer. The same moment, written for one side.
     timeline.add(
         Shot(
             name="read it as my team",
             caption="The same moment, rewritten for one side — over the same events.",
-            action=[
-                click_when_ready("My team"),
-                wait_for_idle,
-                click_when_ready("Riverside United"),
-                wait_for_idle,
-            ],
+            action=[SWITCH_SIDE, wait_for_idle],
             settle=2.0,
             hold=4.0,
         )
     )
-    # 1:00 - the language. The caption carries the English of the moment that
+
+    # 1:03 - the language. The caption carries the English of the moment that
     # is on screen in another language, so nothing is shown without English
     # beside it.
     # The English is read before the switch and shown after it, so the
@@ -1008,18 +1075,7 @@ def build_timeline() -> Timeline:
         )
     )
 
-    # 1:08 - full time.
-    timeline.add(
-        Shot(
-            name="full time",
-            caption="Full time — the recap, from the same 90 minutes of events.",
-            action=[SPRINT_TO_END, wait_for_idle],
-            settle=3.0,
-            hold=4.5,
-        )
-    )
-
-    # 1:16 - the stack.
+    # 1:11 - the stack.
     timeline.add(
         Shot(
             name="the stack",
