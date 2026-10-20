@@ -72,12 +72,12 @@ lives in `~/.touchline-secrets.env` (mode 600, outside the repo).
 
 ## Demo
 
-Live URL: **the Azure Container App FQDN** — `<app>.<env-id>.<region>.azurecontainerapps.io`, or
-`demo.nurulgofran.dev` once the custom domain is bound. See [`PLAN.md`](./PLAN.md) §7.
+Live URL: **`demo.nurulgofran.dev`** — a custom domain bound to the Azure Container App's
+generated FQDN (`<app>.<env-id>.<region>.azurecontainerapps.io`, which works on its own and is the
+fallback). See [`PLAN.md`](./PLAN.md) §7.
 
 One Azure Container App, one warm replica (`minReplicas: 1`) — no cold start, no login, no signup,
-no paywall, free of charge through the end of the judging period. The default
-`*.azurecontainerapps.io` FQDN works immediately; the custom domain is additive.
+no paywall, free of charge through the end of the judging period.
 
 ## Azure provisioning
 
