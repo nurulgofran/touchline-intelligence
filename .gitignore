@@ -29,6 +29,13 @@ artifacts/
 *.log
 .DS_Store
 
+# --- Recorded video takes and the frames cut from them ---
+#
+# The recorder is committed (scripts/record-demo.py); the takes it produces are
+# not. A take is a couple of megabytes of video of somebody else's deployment,
+# and it is re-recorded with one command.
+build/
+
 # --- Generated match output (synthetic, regenerable from a seed) ---
 data/
 

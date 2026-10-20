@@ -22,20 +22,20 @@ Microsoft Agent Framework workflow, one Azure Container App — no mirror, no se
 | Technology | How this project uses it |
 |---|---|
 | **Microsoft Foundry** | The one model provider, used by the deployed demo and by local development. `FoundryChatClient` against a Foundry project endpoint, with the model deployment created and managed by the Azure CLI script in [`scripts/provision-foundry.sh`](./scripts/provision-foundry.sh). The provider badge shows the actual provider of the last call — "Microsoft Foundry" plus a live/fallback state chip. |
-| **Microsoft Agent Framework** | The orchestration runtime. A `WorkflowBuilder` graph of typed executors — Ingest → Analyst → Explainer → Grounding → Narrator → Personalizer — over one shared state store, with per-executor events powering the agent-trace view and checkpointing for recovery. |
+| **Microsoft Agent Framework** | The orchestration runtime. A `WorkflowBuilder` graph of typed executors — Ingest → Analyst → Explainer → Grounding → Narrator → Personalizer — over one shared state store, with per-executor events powering the agent-trace view and a second edge from Grounding back to the Explainer, so a vetoed claim is re-routed to the agent that wrote it. |
 | **A2A (Agent2Agent)** | The Explainer and Narrator are exposed as A2A servers with published agent cards (`/.well-known/agent-card.json`); the Narrator calls the Explainer over A2A HTTP+JSON. |
 | **Azure Container Apps** | The only host. The container image is pulled from an **Azure Container Registry** in the same subscription, with the app's **user-assigned managed identity** (`AcrPull` on the registry scope) — the registry's admin user is disabled and the deployment holds no registry credential at all. The Consumption environment refuses a system-assigned identity outright (`ExpressEnvironmentFeatureNotSupported`) and accepts a user-assigned one, for the app's access to Foundry and for the image pull alike. `minReplicas: 1` so the demo URL is always on with no cold start, `maxReplicas: 1` so the in-process shared state stays consistent, liveness and readiness probes on `/healthz`, and an external ingress carrying the live WebSocket feed. Provisioned by [`scripts/provision-aca.sh`](./scripts/provision-aca.sh) with the Azure CLI. |
 | **Azure Container Registry** | The image registry, in the same subscription as the app. The Container App pulls from it with its managed identity (`AcrPull` on the registry scope), so the deployment holds no registry credential and the registry's own admin user is disabled. The image is built for `linux/amd64` and written in the OCI media types, because that is what the Container Apps runtime takes. |
 | **GitHub CLI / GitHub SDK** | Repo automation, CI wiring, release and submission checklists. |
 | **GitHub Copilot** | Used to build the project (agent mode) — and named in the pitch per the category description. *Stretch: a Copilot-backed agent inside the workflow via `agent_framework.github.GitHubCopilotAgent`.* |
-| **Azure Database for PostgreSQL** *(Day 6, bonus)* | Durable store behind the shared state — event log and agent handoff trace. Writes are best-effort; the live path never depends on it. |
-| **Azure MCP** *(stretch, only if ≥2h spare)* | Optional MCP surface over the match store for agent tool use. |
+| Azure Database for PostgreSQL | Not used — the shared state is in-process, and stating that honestly beats name-dropping. |
+| Azure MCP | Not used — stated honestly rather than name-dropped. |
 | Fabric, other listed hero tech | Not used — stated honestly rather than name-dropped. |
 
 ## Architecture
 
 ```
-sim/generator.py ──► metrics/analyst.py ──► agents/explainer.py ──► grounding.py ──► agents/narrator.py ──► agents/personalizer.py
+sim/generator.py ──► metrics/analyst.py ──► agents/explainer.py ──► orchestration/grounding.py ──► agents/narrator.py ──► agents/personalizer.py
         │                    │                     │  ▲                                            │
         │                    │                     │  └────── A2A (agent card + HTTP/JSON) ────────────┘
         ▼                    ▼                     ▼
@@ -115,7 +115,7 @@ no paywall, free of charge through the end of the judging period.
 | **Feed** | Each insight as it is explained, with the metric and the event ids it rests on |
 | **Momentum** | The control-vs-chaos curve, in match time, with a cursor on the clock |
 | **Tracker** | The vision tracker's own score sheet: precision, recall, position error and pass distance, measured against the ground truth the synthetic feed was rendered from |
-| **Trace** | Every hand-off between the stages, as it happens — including the A2A hop and the grounding veto. "Show hand-offs" on an insight narrows the trace to that one moment |
+| **Trace** | Every hand-off between the stages, as it happens — including the A2A hop and the grounding verdict, and a veto if a claim had to be sent back. "Show hand-offs" on an insight narrows the trace to that one moment |
 | **Transport** | Play, pause, replay, speed, and "jump to the next key moment" |
 
 The clock and the analysis are deliberately separate. The engine analyses the match stretch by
@@ -159,7 +159,7 @@ The footprint itself:
 
 | Resource | Name | Detail |
 |---|---|---|
-| Foundry account | `touchlinefoundry` | `AIServices`, `germanywestcentral` |
+| Foundry account | `touchlinefoundry` | `Microsoft.CognitiveServices/accounts`, `germanywestcentral` |
 | Foundry project | `touchline` | Project endpoint `https://touchline.services.ai.azure.com/api/projects/touchline` |
 | Model deployment | `gpt-5-mini` | `gpt-5-mini` / `2025-08-07`, `GlobalStandard`, capacity 10 |
 | Managed identity | `touchline-identity` | User-assigned; "Foundry User" on the Foundry account, and the image pull |
