@@ -81,37 +81,6 @@ PROJECT_ENDPOINT="$(az cognitiveservices account project show \
     -n "$ACCOUNT" --project-name "$PROJECT" -g "$RG" \
     --query 'properties.endpoints."AI Foundry API"' -o tsv)"
 
-# --- preflight ---------------------------------------------------------------
-
-say "Preflight"
-
-if ! command -v az >/dev/null 2>&1; then
-    echo "Azure CLI is not installed. Install it with: brew install --cask azure-cli" >&2
-    exit 1
-fi
-
-if ! az account show >/dev/null 2>&1; then
-    echo "Not signed in. Run 'az login' first." >&2
-    exit 1
-fi
-
-SUB="$(az account show --query id -o tsv)"
-SUB_NAME="$(az account show --query name -o tsv)"
-note "subscription: $SUB_NAME ($SUB)"
-
-# The role assignment below scopes to the Foundry account's resource group, and
-# a managed identity can only be granted a role on a resource in its own
-# subscription. Foundry and Container Apps therefore have to live together.
-if ! az cognitiveservices account show -n "$ACCOUNT" -g "$RG" >/dev/null 2>&1; then
-    echo "Foundry account '$ACCOUNT' not found in '$RG'." >&2
-    echo "Run scripts/provision-foundry.sh first." >&2
-    exit 1
-fi
-
-PROJECT_ENDPOINT="$(az cognitiveservices account project show \
-    -n "$ACCOUNT" --project-name "$PROJECT" -g "$RG" \
-    --query 'properties.endpoints."AI Foundry API"' -o tsv)"
-
 # --- environment -------------------------------------------------------------
 
 say "Container Apps environment"
@@ -172,6 +141,16 @@ note "created $APP"
 
 FQDN="$(az containerapp show -n "$APP" -g "$RG" --query "properties.configuration.ingress.fqdn" -o tsv)"
 note "url: https://$FQDN"
+
+# The agent card publishes the address the service is reachable at, and the
+# A2A client dials it. Neither can be guessed before the app exists, so the
+# public URL is set once the FQDN is known and the revision is restarted.
+# Without it the card would publish http://localhost:8000, which is right in
+# a dev shell and wrong on the demo URL.
+az containerapp update -n "$APP" -g "$RG" \
+    --set-env-vars "TOUCHLINE_PUBLIC_URL=https://$FQDN" \
+    --output none
+note "public url set to https://$FQDN"
 
 # --- health probes -----------------------------------------------------------
 #

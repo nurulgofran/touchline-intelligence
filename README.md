@@ -59,6 +59,11 @@ sim/generator.py ──► metrics/analyst.py ──► agents/explainer.py ─�
 ```bash
 uv venv --python 3.12 && source .venv/bin/activate
 uv pip install -r requirements.txt
+
+# The Foundry configuration. Neither value is a secret, and the file lives
+# outside the repo, so it is read rather than committed.
+set -a && source ~/.touchline-secrets.env && set +a
+
 python -m touchline.sim.generator --seed 42 --out data/match.jsonl   # one full synthetic match
 pytest                                                        # metrics + grounding tests
 ```
@@ -72,12 +77,41 @@ lives in `~/.touchline-secrets.env` (mode 600, outside the repo).
 
 ## Demo
 
-Live URL: **`demo.nurulgofran.dev`** — a custom domain bound to the Azure Container App's
+The studio is the demo: a live match on a pitch, the momentum curve, the insights as they are
+explained, and the agent trace showing every hand-off.
+
+**Demo URL: `demo.nurulgofran.dev`** — a custom domain bound to the Azure Container App's
 generated FQDN (`<app>.<env-id>.<region>.azurecontainerapps.io`, which works on its own and is the
-fallback). See [`PLAN.md`](./PLAN.md) §7.
+fallback). See [`PLAN.md`](./PLAN.md) §7. The container app is provisioned by
+[`scripts/provision-aca.sh`](./scripts/provision-aca.sh); until it is deployed, the studio runs
+locally:
+
+```bash
+uv venv --python 3.12 && source .venv/bin/activate
+uv pip install -r requirements.txt
+set -a && source ~/.touchline-secrets.env && set +a   # the Foundry deployment to talk to
+cd web && npm install && npm run build && cd ..
+uvicorn touchline.api.main:app --reload --port 8000   # http://localhost:8000
+```
 
 One Azure Container App, one warm replica (`minReplicas: 1`) — no cold start, no login, no signup,
 no paywall, free of charge through the end of the judging period.
+
+### The studio
+
+| View | What it shows |
+|---|---|
+| **Pitch** | The synthetic match, top-down, with the two fictional clubs' colours |
+| **Feed** | Each insight as it is explained, with the metric and the event ids it rests on |
+| **Momentum** | The control-vs-chaos curve, in match time, with a cursor on the clock |
+| **Trace** | Every hand-off between the stages, as it happens — including the A2A hop and the grounding veto. "Show hand-offs" on an insight narrows the trace to that one moment |
+| **Transport** | Play, pause, replay, speed, and "jump to the next key moment" |
+
+The clock and the analysis are deliberately separate. The engine analyses the match stretch by
+stretch as fast as the model allows and keeps the answers; the studio plays those answers back on
+its own clock. So the demo is not a video of a script — pausing, speeding up or jumping forward
+changes the pacing and never the analysis, because the analyst only ever looks backwards from the
+moment it reports on.
 
 ## Azure provisioning
 

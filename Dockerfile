@@ -8,9 +8,24 @@
 # because MatchStateStore is in-process), pulling it anonymously from a public
 # GHCR package.
 #
-# The frontend build stage is added here when `web/` lands (Day 4); until then
-# the image serves the API only and the ACA health probe has something to hit.
+# The studio is built in its own stage and copied into the runtime image, so
+# the container serves the app and the API from one origin — no CORS, no
+# second host, and the WebSocket upgrade goes to the same address the page
+# came from.
 # ---------------------------------------------------------------------------
+
+# --- frontend ---------------------------------------------------------------
+FROM node:20-slim AS web
+
+WORKDIR /web
+
+# The lock file is copied on its own so the dependency layer is cached until
+# the dependencies themselves change.
+COPY web/package.json web/package-lock.json* ./
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+COPY web ./
+RUN npm run build
 
 # --- dependencies -----------------------------------------------------------
 FROM python:3.12-slim AS builder
@@ -58,6 +73,10 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY --chown=appuser:appuser src ./src
 COPY --chown=appuser:appuser schemas ./schemas
+
+# The built studio. The service serves it from the same origin as the API,
+# and falls back to a JSON description of itself when it is absent.
+COPY --from=web --chown=appuser:appuser /web/dist ./web/dist
 
 ENV PYTHONPATH=/app/src
 
