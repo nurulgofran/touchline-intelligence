@@ -520,6 +520,18 @@ SAME_CARD = """
 """
 
 
+# Did the copy on screen actually change language? German and Bengali
+# both write characters outside ASCII, so a card that has one is a card
+# that was rewritten in one of them.
+LANGUAGE_LANDED = """
+(() => {{
+  const card = document.querySelector('article');
+  if (!card) return false;
+  return /[^\x00-\x7F]/.test(card.textContent);
+}})()
+"""
+
+
 READ_OVERLAY_ID = """
 (() => {{
   const card = document.querySelector('article');
@@ -967,16 +979,22 @@ def build_timeline() -> Timeline:
 
     async def show_english(cdp: CDP) -> str:
         english = captured.get("english", "")
+        generic = (
+            "The interface is English. "
+            "The explanation is rewritten in the reader's language."
+        )
         if not english:
-            return ""
+            return generic
         script = SAME_CARD.replace("__ID__", json.dumps(captured.get("id", "")))
         if not await cdp.evaluate(script):
             # A different moment is on screen now, so the caption cannot
             # claim to be its translation.
-            return (
-                "The interface is English. "
-                "The explanation is rewritten in the reader's language."
-            )
+            return generic
+        if not await cdp.evaluate(LANGUAGE_LANDED):
+            # The rewrite did not land -- the grounding check may have sent
+            # the copy back -- so the screen is still English and the
+            # caption must not claim otherwise.
+            return generic
         return f"In English: {english}"
 
     timeline.add(
