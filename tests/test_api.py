@@ -13,6 +13,7 @@ judge will touch:
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Iterator
 
@@ -365,6 +366,128 @@ def test_a_nonsense_audience_is_refused(client: TestClient) -> None:
     after = client.get("/api/match/audience").json()["audience"]
     assert after == before
     assert frame["type"] in {"clock", "events", "momentum", "trace", "provider"}
+
+
+class _SlowPersonalizer:
+    """A Personaliser that takes its time, like the model does.
+
+    A rewrite against the real model is minutes of work. The test that
+    uses this is about what the service does while that work is going on.
+    """
+
+    def __init__(self, inner: object, delay: float = 5.0) -> None:
+        self._inner = inner
+        self._delay = delay
+        self.degradations: list[str] = []
+
+    async def personalise(self, candidate, narration, **kwargs):
+        await asyncio.sleep(self._delay)
+        return await self._inner.personalise(candidate, narration, **kwargs)
+
+
+def test_the_socket_answers_a_second_reader_change_without_waiting(
+    client: TestClient,
+    analysed: list[dict],
+) -> None:
+    """Two reader changes in a row: the second is not lost behind the first.
+
+    The control channel used to wait for the whole rewrite before it read
+    the next control, so the second change sat in a queue for the length
+    of a rewrite -- minutes -- and was lost altogether if the socket was
+    cut first. That is how the studio asked for English, the service went
+    on writing in German, and the change was never seen again.
+
+    The second change has to be answered while the first is still being
+    rewritten, and the rewrite here takes five seconds a card, so the
+    test does not depend on how far the analysis has got.
+    """
+    from touchline.api.live import get_engine
+
+    engine = get_engine(42, start=False)
+    original = engine._personalizer
+    engine._personalizer = _SlowPersonalizer(original)
+    try:
+        with client.websocket_connect("/ws/match?seed=42") as socket:
+            socket.receive_json()  # hello
+
+            # The first change moves the reader away from where it is, so
+            # that the second one has somewhere to go. The default is the
+            # analyst in English, and a change to that would prove
+            # nothing at all.
+            socket.send_json(
+                {
+                    "type": "control",
+                    "action": "audience",
+                    "value": {"mode": "fan", "locale": "de"},
+                }
+            )
+            deadline = time.monotonic() + 20.0
+            first: dict = {}
+            while time.monotonic() < deadline:
+                first = client.get("/api/match/audience").json()["audience"]
+                if first.get("locale") == "de":
+                    break
+                time.sleep(0.05)
+            assert first.get("locale") == "de", (
+                f"the first reader change never landed; the service is in {first}"
+            )
+
+            # The second change, sent while the first is still rewriting.
+            socket.send_json(
+                {
+                    "type": "control",
+                    "action": "audience",
+                    "value": {"mode": "analyst", "locale": "en"},
+                }
+            )
+            deadline = time.monotonic() + 3.0
+            applied: dict = {}
+            while time.monotonic() < deadline:
+                applied = client.get("/api/match/audience").json()["audience"]
+                if applied["locale"] == "en" and applied["mode"] == "analyst":
+                    break
+                time.sleep(0.05)
+    finally:
+        engine._personalizer = original
+
+    assert applied.get("locale") == "en", (
+        "the second reader change never landed; the service is still in "
+        f"{applied}"
+    )
+    assert applied.get("mode") == "analyst", (
+        f"the second reader change never landed; the service is still in {applied}"
+    )
+
+
+def test_the_socket_says_which_reader_is_in_force(client: TestClient) -> None:
+    """The studio is told what the service is actually doing.
+
+    The reader is service state, so the studio follows the service: a
+    language the service does not write is refused, and the picker has to
+    show the language that is really in use.
+    """
+    with client.websocket_connect("/ws/match?seed=42") as socket:
+        socket.receive_json()  # hello
+        socket.send_json(
+            {
+                "type": "control",
+                "action": "audience",
+                "value": {"mode": "analyst", "locale": "bn"},
+            }
+        )
+        frame = None
+        deadline = time.monotonic() + 10.0
+        while time.monotonic() < deadline:
+            candidate = socket.receive_json()
+            if candidate["type"] != "audience":
+                continue
+            if candidate["audience"]["locale"] == "bn":
+                frame = candidate
+                break
+
+    assert frame is not None, "the studio was never told which reader is in force"
+    assert frame["audience"]["mode"] == "analyst"
+    assert "rewriting" in frame, "the frame does not say whether the feed is changing"
 
 
 # -- the vision tracker ----------------------------------------------------

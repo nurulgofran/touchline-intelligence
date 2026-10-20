@@ -59,7 +59,7 @@ from touchline.models.audience import Audience, AudienceMode
 from touchline.models.claims import Narration
 from touchline.models.events import MATCH_DURATION_MS, MatchEvent, TeamSide
 from touchline.models.insights import InsightCandidate
-from touchline.models.overlay import Overlay
+from touchline.models.overlay import Overlay, OverlayType
 from touchline.orchestration.handoffs import Handoff, HandoffTrace
 from touchline.orchestration.workflow import FeedCursor, MatchWorkflow
 from touchline.providers import foundry
@@ -190,9 +190,10 @@ class LiveMatchEngine:
                 analyst's own feed interval is used when absent, so the
                 stretches line up with the feed exactly.
             rewrite_concurrency: How many insights are rewritten at once
-                when the reader changes. Four is enough to turn a minute
-                of waiting into a few seconds without turning into a
-                burst of requests the model deployment would refuse.
+                when the reader changes. Four is enough to bring a
+                rewrite that took four minutes down to one, without
+                turning into a burst of requests the model deployment
+                would refuse.
         """
         from touchline.providers.clients import build_client
 
@@ -245,8 +246,10 @@ class LiveMatchEngine:
         self._overlays: list[Overlay] = []
         self._recap: Overlay | None = None
         self._revision = 0
+        self._feed_version = 0
         self._computed_ms = 0
         self._task: asyncio.Task[None] | None = None
+        self._rewrite_task: asyncio.Task[None] | None = None
         self._advanced = asyncio.Event()
         self._lock = asyncio.Lock()
         self._tracking: Any | None = None
@@ -386,6 +389,28 @@ class LiveMatchEngine:
         """Every overlay computed so far, in clock order."""
         return list(self._overlays)
 
+    @property
+    def feed_version(self) -> int:
+        """How many times the feed has been rewritten.
+
+        The session walks the feed from the start whenever this changes,
+        because a rewritten card keeps its id: the reader sees the same
+        moment again, written for somebody else.
+        """
+        return self._feed_version
+
+    @property
+    def rewriting(self) -> bool:
+        """Whether the feed is being rewritten at this moment.
+
+        A rewrite is one model call per insight, and the deployment's
+        rate makes it a matter of minutes. The studio says so, because a
+        feed that is still being rewritten is not a finished feed and
+        the reader should know which one they are looking at.
+        """
+        task = self._rewrite_task
+        return task is not None and not task.done()
+
     def overlay_clocks(self) -> list[int]:
         """The match clock of every overlay computed so far, in order."""
         return [overlay.match_clock_ms for overlay in self.overlays]
@@ -409,6 +434,11 @@ class LiveMatchEngine:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
+        rewrite, self._rewrite_task = self._rewrite_task, None
+        if rewrite is not None:
+            rewrite.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await rewrite
         owns = self._owns_client
         self._owns_client = None
         if owns is not None:
@@ -443,8 +473,26 @@ class LiveMatchEngine:
 
     # -- the audience ------------------------------------------------------
 
-    async def set_audience(self, audience: Audience) -> list[Overlay]:
+    async def set_audience(
+        self, audience: Audience, focus_ms: int | None = None
+    ) -> list[Overlay]:
         """Change who the overlays are written for, and rewrite them.
+
+        The change is applied **at once**. The audience is the service's
+        state, and a control that says "write it in English" has to be
+        answered with English -- not with an English card four minutes
+        later, and not with the picker snapping back to the old language
+        because the model was busy. So the state changes before the lock
+        is even taken: the analysis holds that lock for a whole stretch,
+        and a reader should not have to wait for a stretch to be finished
+        to be answered.
+
+        The rewrite is the slow half -- one model call per insight -- and
+        it happens in the background, so the control channel is never held
+        up by it. That matters more than it looks: a rewrite is minutes of
+        model time, the studio asks for the next reader in between, and a
+        channel that waits for the rewrite would answer the studio's
+        questions minutes late, or not at all if the socket was cut first.
 
         Only the Personaliser runs again. The Explainer's claim and the
         Narrator's copy are kept, because neither of them is a property of
@@ -453,49 +501,157 @@ class LiveMatchEngine:
 
         Args:
             audience: Who the overlays are written for.
+            focus_ms: Where in the match the reader is looking. The
+                rewrite starts at the moments nearest there, because those
+                are the ones on the screen. ``None`` starts at the
+                beginning of the match.
 
         Returns:
-            The overlays, rewritten for the new audience.
+            The overlays, as they stand. The rewritten ones are published
+            later, with a higher revision, and the session walks the feed
+            again when they arrive.
         """
-        async with self._lock:
-            self._audience = audience
-            self._locale = audience.locale
-            self._mode = audience.mode.value
-            self._revision += 1
+        self._audience = audience
+        self._locale = audience.locale
+        self._mode = audience.mode.value
+        self._revision += 1
+        revision = self._revision
 
-            # The rewrites are independent of one another -- each is one
-            # insight, one audience, one model call -- so they are run
-            # together rather than one after the other. Done one at a time,
-            # a language change took the better part of a minute, and the
-            # person who asked for it was left watching a spinner.
-            jobs: list[tuple[Any, Any]] = []
-            for result in self._results:
-                for candidate in result.candidates:
-                    narration = result.narration_for(candidate.candidate_id)
-                    if narration is None:
-                        continue
-                    jobs.append((candidate, narration))
+        # The full-time card is deterministic -- a summary of the log's
+        # numbers -- so it costs nothing to write it again and it is the
+        # card a reader sees once the clock reaches the end. It changes
+        # with the reader, at once, like the rest of the state.
+        self._replace_recap()
 
-            limit = asyncio.Semaphore(self._rewrite_concurrency)
+        # A reader change supersedes the one before it. The rewrite that
+        # is running is for somebody who is no longer reading, so it is
+        # abandoned rather than allowed to finish: letting it land would
+        # put a language on the screen that the reader has already moved
+        # on from.
+        running = self._rewrite_task
+        if running is not None and not running.done():
+            running.cancel()
 
-            async def rewrite(candidate: Any, narration: Any) -> Overlay:
-                async with limit:
-                    return await self._personalizer.personalise(
-                        candidate,
-                        narration,
-                        audience=audience,
-                        events=self._cited_events(candidate),
-                        revision=self._revision,
-                    )
-
-            overlays: list[Overlay] = list(
-                await asyncio.gather(*(rewrite(c, n) for c, n in jobs))
-            )
-            self._overlays = overlays
-            self._recap = self._build_recap()
-            if self._recap is not None:
-                self._overlays.append(self._recap)
+        self._rewrite_task = asyncio.create_task(
+            self._rewrite(audience, revision, focus_ms),
+            name=f"touchline-rewrite-{self._match_id}",
+        )
         return list(self._overlays)
+
+    async def wait_for_rewrite(self, timeout: float | None = None) -> bool:
+        """Wait for the rewrite that is running to finish.
+
+        Args:
+            timeout: How long to wait, in seconds. ``None`` waits as long
+                as it takes.
+
+        Returns:
+            Whether the rewrite finished.
+        """
+        task = self._rewrite_task
+        if task is None:
+            return True
+        try:
+            await asyncio.wait_for(asyncio.shield(task), timeout=timeout)
+        except TimeoutError:
+            return False
+        except asyncio.CancelledError:
+            return False
+        return True
+
+    async def _rewrite(
+        self, audience: Audience, revision: int, focus_ms: int | None = None
+    ) -> None:
+        """Rewrite the overlays for one audience, in the background.
+
+        The work is one model call per insight, and the calls are
+        independent of one another -- each is one insight, one audience,
+        one call -- so they run together rather than one after the other.
+        Done one at a time, a language change took four minutes.
+
+        The order is the order the reader is reading in: the moments
+        nearest where the reader is looking are rewritten first, because
+        those are the ones on the screen. The whole feed is rewritten --
+        the deployment's rate is what makes that a matter of minutes
+        rather than seconds, and a card that is still in the old language
+        three minutes later is a card the reader has moved past.
+
+        The lock is held for the whole rewrite, so the analysis cannot add
+        an insight half way through and leave the feed with a card in the
+        old language. The copy is only published if the reader who asked
+        for it is still the reader.
+
+        Args:
+            audience: Who the overlays are written for.
+            revision: The revision this rewrite is for. A rewrite whose
+                revision is no longer the current one is stale.
+            focus_ms: Where in the match the reader is looking.
+        """
+        try:
+            async with self._lock:
+                jobs: list[tuple[Any, Any]] = []
+                for result in self._results:
+                    for candidate in result.candidates:
+                        narration = result.narration_for(candidate.candidate_id)
+                        if narration is None:
+                            continue
+                        jobs.append((candidate, narration))
+
+                focus = 0 if focus_ms is None else int(focus_ms)
+                jobs.sort(
+                    key=lambda job: abs(job[0].match_clock_ms - focus)
+                )
+
+                limit = asyncio.Semaphore(self._rewrite_concurrency)
+
+                async def rewrite(candidate: Any, narration: Any) -> Overlay:
+                    async with limit:
+                        return await self._personalizer.personalise(
+                            candidate,
+                            narration,
+                            audience=audience,
+                            events=self._cited_events(candidate),
+                            revision=revision,
+                        )
+
+                overlays: list[Overlay] = list(
+                    await asyncio.gather(*(rewrite(c, n) for c, n in jobs))
+                )
+                if self._revision != revision:
+                    # Somebody else has been asked for in the meantime.
+                    # This copy is for a reader who is no longer reading.
+                    return
+                self._overlays = overlays
+                self._recap = self._build_recap()
+                if self._recap is not None:
+                    self._overlays.append(self._recap)
+                self._feed_version += 1
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception(
+                "the rewrite for %s could not be finished", audience.key
+            )
+
+    def _replace_recap(self) -> None:
+        """Write the full-time card again, for the reader who is here now.
+
+        The recap is deterministic, so it costs nothing to write and it
+        is the card on the screen once the clock reaches the end of the
+        match. It is written again as soon as the reader changes, rather
+        than at the end of a rewrite that takes minutes.
+        """
+        recap = self._build_recap()
+        if recap is None:
+            return
+        self._recap = recap
+        for index, overlay in enumerate(self._overlays):
+            if overlay.type is OverlayType.RECAP:
+                self._overlays[index] = recap
+                self._feed_version += 1
+                return
+        self._overlays.append(recap)
+        self._feed_version += 1
 
     def _cited_events(self, candidate: InsightCandidate) -> list[MatchEvent]:
         """The events one candidate cites, as the shared state holds them."""

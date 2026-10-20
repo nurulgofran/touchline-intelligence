@@ -254,8 +254,9 @@ class FoundryChatClient:
         credential: Any = None,
         timeout_seconds: float = 90.0,
         max_attempts: int = 3,
-        backoff_seconds: float = 0.5,
+        backoff_seconds: float = 5.0,
         inner: Any = None,
+        rate_pacer: Any = None,
     ) -> None:
         """Create the client.
 
@@ -272,9 +273,14 @@ class FoundryChatClient:
                 analysis keeps going either way.
             max_attempts: How many attempts in total, including the first.
             backoff_seconds: The first wait between attempts. Each further
-                wait is twice as long.
+                wait is twice as long. The wait is long on purpose: the
+                deployment's rate is counted over a minute, so a retry that
+                goes out after half a second finds the window exactly as
+                full as it was.
             inner: The chat client to wrap. Used by the tests; in production
                 this is the Agent Framework's Foundry client.
+            rate_pacer: The pacer that keeps the service inside the
+                deployment's request rate. The shared one by default.
         """
         from touchline.providers import foundry
 
@@ -286,6 +292,11 @@ class FoundryChatClient:
         self.backoff_seconds = backoff_seconds
         self._inner = inner
         self._factory = foundry.build_foundry_chat_client
+        if rate_pacer is None:
+            from touchline.providers.pacer import pacer as shared_pacer
+
+            rate_pacer = shared_pacer
+        self._pacer = rate_pacer
 
     def _client(self) -> Any:
         """The wrapped client, created once."""
@@ -323,6 +334,12 @@ class FoundryChatClient:
         last_error: BaseException | None = None
         for attempt in range(1, self.max_attempts + 1):
             try:
+                # The service waits its turn before it asks. The
+                # deployment counts the requests in the last minute, and
+                # a request over that count comes back as a 429 -- which
+                # is a fallback, and a fallback is something the studio
+                # shows on the badge.
+                await self._pacer.acquire()
                 response = await asyncio.wait_for(
                     self._call(self._client(), messages, **kwargs),
                     timeout=self.timeout_seconds,

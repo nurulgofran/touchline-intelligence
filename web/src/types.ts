@@ -165,6 +165,8 @@ export interface HelloFrame {
   event_count: number;
   /** Who the overlays are written for. */
   audience: Audience;
+  /** Whether the feed is still being rewritten for that reader. */
+  rewriting?: boolean;
 }
 
 export interface ClockFrame {
@@ -208,6 +210,27 @@ export interface ProviderFrame {
   provider: ProviderState;
 }
 
+export interface AudienceFrame {
+  type: "audience";
+  /**
+   * Who the overlays are written for, once the change has been applied.
+   *
+   * The service says what it is actually doing, so the studio shows the
+   * truth rather than what it asked for: a language the service does not
+   * write is refused, and the picker follows the service.
+   */
+  audience: Audience;
+  /**
+   * Whether the feed is still being rewritten.
+   *
+   * A rewrite is one model call per insight, and the deployment's rate
+   * makes it a matter of minutes. The studio says so while it is going
+   * on, because a feed that is still being rewritten is not a finished
+   * feed.
+   */
+  rewriting: boolean;
+}
+
 export interface EndFrame {
   type: "end";
   clock_ms: number;
@@ -223,6 +246,7 @@ export type ServerFrame =
   | OverlayFrame
   | TraceFrame
   | ProviderFrame
+  | AudienceFrame
   | EndFrame;
 
 /* ------------------------------------------------------------------ */

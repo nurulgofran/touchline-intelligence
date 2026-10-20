@@ -131,6 +131,11 @@ def parse_audience(value: object, engine: LiveMatchEngine) -> Audience | None:
     Anything unreadable is refused rather than guessed at, because a wrong
     audience would put the wrong numbers on screen.
 
+    A language the service does not write is the one thing that is kept
+    rather than refused: the reader stays where they are, and the studio
+    is told what was actually applied, so the picker shows the truth
+    instead of a language nobody is reading in.
+
     Args:
         value: The control message's value.
         engine: The engine whose roster the player is looked up in.
@@ -201,6 +206,9 @@ class LiveSession:
     _overlay_cursor: int = 0
     _momentum_cursor: int = 0
     _trace_cursor: int = 0
+    _feed_version: int = 0
+    _audience_key: str = ""
+    _rewriting: bool = False
     _events: list[Any] = field(default_factory=list)
     _momentum: list[Any] = field(default_factory=list)
     _seen_overlays: set[str] = field(default_factory=set)
@@ -209,6 +217,13 @@ class LiveSession:
         """Take a copy of what the session walks through."""
         self._events = list(self.engine.events)
         self._momentum = list(self.engine.momentum)
+        # The audience the engine is already writing for. The studio is
+        # told about it in the greeting frame, so the first frame is not
+        # a repeat of it -- and, more to the point, the first frame is
+        # never a stale one that would talk the studio out of a reader
+        # change it has just asked for.
+        self._audience_key = self.engine.audience.key
+        self._rewriting = self.engine.rewriting
 
     # -- the control surface ----------------------------------------------
 
@@ -273,16 +288,22 @@ class LiveSession:
     async def set_audience(self, audience: Audience) -> None:
         """Change who the overlays are written for.
 
-        The engine rewrites the overlays it has already computed, and the
-        session walks them again from the start, so the viewer sees the
-        same moments written for somebody else.
+        The engine changes its state at once and rewrites the feed in the
+        background, so this returns as soon as the change is recorded. The
+        session walks the feed again when the rewritten cards arrive --
+        see :meth:`_overlay_frames` -- because a rewritten card keeps its
+        id and the viewer has to be shown the new copy of it.
+
+        The session's clock goes with it: the rewrite starts at the
+        moments nearest where this viewer is looking, because those are
+        the ones on the screen. A rewrite of the whole feed takes minutes
+        at the deployment's rate, and the reader should not spend them
+        looking at a card that is still in the old language.
 
         Args:
             audience: Who the overlays are written for.
         """
-        await self.engine.set_audience(audience)
-        self._overlay_cursor = 0
-        self._seen_overlays.clear()
+        await self.engine.set_audience(audience, focus_ms=int(self.clock_ms))
 
     # -- the frames --------------------------------------------------------
 
@@ -305,6 +326,7 @@ class LiveSession:
             "provider": provider_payload(),
             "event_count": len(self._events),
             "audience": self.engine.audience.describe(),
+            "rewriting": self.engine.rewriting,
         }
 
     def tick(self, now: float | None = None) -> list[dict[str, object]]:
@@ -332,8 +354,33 @@ class LiveSession:
         frames.extend(self._momentum_frames(clock))
         frames.extend(self._overlay_frames(clock))
         frames.extend(self._trace_frames())
+        frames.extend(self._audience_frames())
         frames.append(self._clock_frame(clock))
         return frames
+
+    def _audience_frames(self) -> list[dict[str, object]]:
+        """Who the overlays are written for, and whether it is still changing.
+
+        The reader is service state, so the studio is told what the
+        service is doing rather than what it asked for: a change made
+        here, or by somebody else watching the same match, reaches every
+        viewer. The *rewriting* flag is on the frame too, because a
+        rewrite takes minutes at the deployment's rate and a feed that is
+        still being rewritten is not a finished one.
+        """
+        audience = self.engine.audience
+        rewriting = self.engine.rewriting
+        if audience.key == self._audience_key and rewriting == self._rewriting:
+            return []
+        self._audience_key = audience.key
+        self._rewriting = rewriting
+        return [
+            {
+                "type": "audience",
+                "audience": audience.describe(),
+                "rewriting": rewriting,
+            }
+        ]
 
     def _event_frames(self, clock: int) -> list[dict[str, object]]:
         """The events the clock has just passed."""
@@ -374,8 +421,16 @@ class LiveSession:
         still shown: the clock does not wait for the model, the model
         catches up with the clock. That is the difference between a live
         feed that stalls and one that does not.
+
+        When the reader changes, the feed is rewritten and every card
+        keeps its id, so the walk starts again: the viewer is shown the
+        same moments, written for somebody else.
         """
         frames: list[dict[str, object]] = []
+        if self.engine.feed_version != self._feed_version:
+            self._feed_version = self.engine.feed_version
+            self._overlay_cursor = 0
+            self._seen_overlays.clear()
         overlays = self.engine.overlays
         while self._overlay_cursor < len(overlays):
             overlay = overlays[self._overlay_cursor]

@@ -36,6 +36,10 @@ The frames:
     The momentum points the clock has just reached.
 ``overlay``
     An insight, with its metrics and the events it was computed from.
+``audience``
+    Who the overlays are written for, once a reader change has been
+    applied. The studio shows what the service is actually doing, rather
+    than what it asked for.
 ``trace``
     The hand-offs made since the last frame.
 ``provider``
@@ -146,11 +150,27 @@ async def _read_controls(
                 # The audience change is not a clock control: it asks the
                 # engine to rewrite the overlays it has already computed,
                 # which is a model call per insight.
+                #
+                # The engine changes its state at once and rewrites the
+                # feed in the background, so this returns as soon as the
+                # change is recorded. It used to wait for the whole
+                # rewrite -- four minutes of model time -- and every
+                # control that came after it was stuck behind that one,
+                # and lost if the socket was cut first. The studio now
+                # gets its answer straight away, and the rewritten cards
+                # arrive when they are ready.
                 audience = parse_audience(message.get("value"), session.engine)
                 if audience is None:
                     logger.info("live control: the audience was not readable")
                     continue
-                await session.set_audience(audience)
+                try:
+                    await session.set_audience(audience)
+                except Exception:
+                    # A reader change that could not be applied is a
+                    # failure of that change, not of the channel: the
+                    # clock and the rest of the studio carry on.
+                    logger.exception("live control: the audience could not be set")
+                    continue
                 logger.info("live control: audience %s", audience.key)
                 continue
             action = apply_control(session, message)

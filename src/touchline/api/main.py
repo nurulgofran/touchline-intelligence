@@ -83,6 +83,32 @@ def _model_configured() -> bool:
     )
 
 
+def _configure_logging() -> None:
+    """Let the service's own log lines reach the container's log.
+
+    Uvicorn configures its own loggers and leaves the rest of the tree
+    alone, so the application's lines sat below the root's default level
+    and never appeared. That mattered: the lines that say the service
+    received a control were invisible, so a control that was lost and a
+    control that was never sent looked the same from the outside.
+
+    The project has a handful of these lines, and the operator needs
+    them, so they are turned on rather than left to chance.
+    """
+    logger = logging.getLogger("touchline")
+    logger.setLevel(logging.INFO)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter("%(levelname)s %(name)s: %(message)s")
+        )
+        logger.addHandler(handler)
+    logger.propagate = False
+
+
+_configure_logging()
+
+
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Start the analysis when the service starts, and stop it when it ends.

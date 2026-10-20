@@ -453,9 +453,11 @@ def test_the_engine_rewrites_its_overlays_for_a_new_audience() -> None:
         engine = LiveMatchEngine(seed=SEED, client=TemplateChatClient())
         assert await engine.wait_for(engine.duration_ms, timeout=180)
         before = list(engine.overlays)
-        after = await engine.set_audience(
-            Audience(mode=AudienceMode.FAN, locale="de")
-        )
+        await engine.set_audience(Audience(mode=AudienceMode.FAN, locale="de"))
+        # The rewrite runs in the background: the change is recorded at
+        # once, and the new copy arrives when the model has written it.
+        assert await engine.wait_for_rewrite(timeout=60)
+        after = list(engine.overlays)
         await engine.close()
         return before, after
 

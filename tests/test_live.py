@@ -99,6 +99,31 @@ class _CountingPersonalizer:
             self.running -= 1
 
 
+class _SlowPersonalizer(_CountingPersonalizer):
+    """A Personaliser that takes its time, like the model does.
+
+    The point of it is the wait: a rewrite against the real model is
+    minutes of work, and the tests that follow are about what the
+    service does while that work is going on.
+    """
+
+    async def personalise(self, candidate, narration, **kwargs):
+        await asyncio.sleep(1.0)
+        return await super().personalise(candidate, narration, **kwargs)
+
+
+class _OrderRecordingPersonalizer(_CountingPersonalizer):
+    """A Personaliser that records the order the insights came in."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.clocks: list[int] = []
+
+    async def personalise(self, candidate, narration, **kwargs):
+        self.clocks.append(candidate.match_clock_ms)
+        return await super().personalise(candidate, narration, **kwargs)
+
+
 def test_a_reader_change_rewrites_the_insights_together() -> None:
     """The rewrites run at the same time, not one after the other.
 
@@ -117,12 +142,264 @@ def test_a_reader_change_rewrites_the_insights_together() -> None:
         counter = _CountingPersonalizer()
         engine._personalizer = counter
         await engine.set_audience(Audience(mode=AudienceMode.FAN, locale="de"))
+        # The rewrite runs in the background, so the test waits for it
+        # rather than assuming it is done when the change is recorded.
+        assert await engine.wait_for_rewrite(timeout=60)
         await engine.close()
         return counter
 
     counter = asyncio.run(run())
     assert counter.calls > 1, "there was nothing to rewrite"
     assert counter.peak > 1, "the rewrites ran one after the other"
+
+
+def test_a_reader_change_is_answered_before_the_rewrite_is_finished() -> None:
+    """The service says who the feed is for straight away.
+
+    The rewrite is minutes of model time -- one call per insight, and
+    there are forty-odd insights. If the change were only recorded when
+    the rewrite finished, the studio would show the old language for
+    minutes, and a socket that was cut in the meantime would lose the
+    change altogether. So the state changes at once and the rewrite
+    follows.
+    """
+    from touchline.live.engine import LiveMatchEngine
+    from touchline.models.audience import Audience, AudienceMode
+
+    async def run() -> tuple[str, bool]:
+        engine = LiveMatchEngine(seed=SEED, client=TemplateChatClient())
+        assert await engine.wait_for(engine.duration_ms, timeout=180)
+        engine._personalizer = _SlowPersonalizer()
+        await engine.set_audience(Audience(mode=AudienceMode.FAN, locale="de"))
+        # The change is recorded before the rewrite is finished, and the
+        # rewrite is still running.
+        locale = engine.audience.locale
+        still_running = engine._rewrite_task is not None and not (
+            engine._rewrite_task.done()
+        )
+        await engine.close()
+        return locale, still_running
+
+    locale, still_running = asyncio.run(run())
+    assert locale == "de", "the change was not recorded at once"
+    assert still_running, "the change waited for the rewrite"
+
+
+def test_the_language_can_be_changed_back_to_english() -> None:
+    """Switching to German and back again leaves the feed in English.
+
+    This is the bug that was reported: the studio asked for English, the
+    service went on writing in German, and the request was lost. The
+    engine has to follow the request both ways -- and the second change
+    must not be swallowed by the first one's rewrite, which is the part
+    that used to lose it.
+    """
+    from touchline.live.engine import LiveMatchEngine
+    from touchline.models.audience import Audience, AudienceMode
+
+    async def run() -> list[str]:
+        engine = LiveMatchEngine(seed=SEED, client=TemplateChatClient())
+        assert await engine.wait_for(engine.duration_ms, timeout=180)
+        engine._personalizer = _SlowPersonalizer()
+        seen = []
+        for locale in ("de", "en", "bn", "en"):
+            await engine.set_audience(
+                Audience(mode=AudienceMode.ANALYST, locale=locale)
+            )
+            seen.append(engine.audience.locale)
+        await engine.close()
+        return seen
+
+    assert asyncio.run(run()) == ["de", "en", "bn", "en"]
+
+
+def test_a_second_reader_change_is_not_queued_behind_the_first() -> None:
+    """The second change is answered while the first is still rewriting.
+
+    The control channel used to wait for the whole rewrite before it read
+    the next control, so a studio that asked twice in a row had its
+    second request sit in a queue for minutes -- and lose it entirely if
+    the socket was cut first.
+    """
+    from touchline.live.engine import LiveMatchEngine
+    from touchline.models.audience import Audience, AudienceMode
+
+    async def run() -> tuple[str, str]:
+        engine = LiveMatchEngine(seed=SEED, client=TemplateChatClient())
+        assert await engine.wait_for(engine.duration_ms, timeout=180)
+        engine._personalizer = _SlowPersonalizer()
+        await engine.set_audience(Audience(mode=AudienceMode.FAN, locale="de"))
+        await engine.set_audience(Audience(mode=AudienceMode.ANALYST, locale="en"))
+        first, second = engine.audience.locale, engine.audience.mode.value
+        await engine.close()
+        return first, second
+
+    locale, mode = asyncio.run(run())
+    assert locale == "en", "the second change did not take effect"
+    assert mode == "analyst", "the second change did not take effect"
+
+
+def test_a_superseded_rewrite_does_not_land() -> None:
+    """The copy of a reader nobody is reading any more never reaches the feed.
+
+    The rewrite for the first change is abandoned when the second change
+    arrives, so the feed is not left with the language the reader has
+    already moved on from.
+    """
+    from touchline.live.engine import LiveMatchEngine
+    from touchline.models.audience import Audience, AudienceMode
+
+    async def run() -> list[str]:
+        engine = LiveMatchEngine(seed=SEED, client=TemplateChatClient())
+        assert await engine.wait_for(engine.duration_ms, timeout=180)
+        engine._personalizer = _SlowPersonalizer()
+        await engine.set_audience(Audience(mode=AudienceMode.FAN, locale="de"))
+        await engine.set_audience(Audience(mode=AudienceMode.ANALYST, locale="en"))
+        assert await engine.wait_for_rewrite(timeout=60)
+        locales = [overlay.locale for overlay in engine.overlays]
+        await engine.close()
+        return locales
+
+    locales = asyncio.run(run())
+    assert locales, "the feed is empty"
+    assert set(locales) == {"en"}, f"the feed carries {set(locales)}"
+
+
+def test_the_session_shows_the_rewritten_cards() -> None:
+    """The viewer is shown the same moments, written for somebody else.
+
+    A rewritten card keeps its id, so the session has to walk the feed
+    again when the rewrite lands. If it did not, the viewer would keep
+    looking at the copy they had already seen.
+    """
+    from touchline.live.engine import LiveMatchEngine
+    from touchline.models.audience import Audience, AudienceMode
+
+    async def run() -> tuple[list[str], list[str]]:
+        engine = LiveMatchEngine(seed=SEED, client=TemplateChatClient())
+        assert await engine.wait_for(engine.duration_ms, timeout=180)
+        session = LiveSession(engine=engine)
+        session.pause()
+        session.seek(engine.duration_ms)
+
+        before = [
+            frame["overlay"]["title"]
+            for frame in session.tick()
+            if frame["type"] == "overlay"
+        ]
+        await session.set_audience(
+            Audience(mode=AudienceMode.ANALYST, locale="de")
+        )
+        assert await engine.wait_for_rewrite(timeout=60)
+        after = [
+            frame["overlay"]["title"]
+            for frame in session.tick()
+            if frame["type"] == "overlay"
+        ]
+        await engine.close()
+        return before, after
+
+    before, after = asyncio.run(run())
+    assert before, "the session showed nothing"
+    assert after, "the rewritten cards were never shown"
+    assert len(after) == len(before), "the feed lost a card"
+
+
+def test_the_rewrite_starts_where_the_reader_is_looking() -> None:
+    """The cards on screen are rewritten first.
+
+    A rewrite of the whole feed is one call per insight, and the
+    deployment's rate makes that a matter of minutes rather than seconds.
+    So the order is the order the reader is reading in: the moments
+    nearest where the reader is looking come first, because those are the
+    ones on the screen.
+    """
+    from touchline.live.engine import LiveMatchEngine
+    from touchline.models.audience import Audience, AudienceMode
+
+    async def run() -> list[int]:
+        engine = LiveMatchEngine(seed=SEED, client=TemplateChatClient())
+        assert await engine.wait_for(engine.duration_ms, timeout=180)
+        recorder = _OrderRecordingPersonalizer()
+        engine._personalizer = recorder
+        await engine.set_audience(
+            Audience(mode=AudienceMode.ANALYST, locale="de"), focus_ms=1_200_000
+        )
+        assert await engine.wait_for_rewrite(timeout=60)
+        await engine.close()
+        return recorder.clocks
+
+    clocks = asyncio.run(run())
+    assert len(clocks) > 2, "there was nothing to rewrite"
+    # The nearest moment to the reader's clock is the first one rewritten.
+    focus = 1_200_000
+    assert clocks[0] == min(clocks, key=lambda c: abs(c - focus)), (
+        "the rewrite did not start at the moment the reader is looking at"
+    )
+    assert clocks[1] == min(
+        (c for c in clocks if c != clocks[0]), key=lambda c: abs(c - focus)
+    ), "the second rewrite was not the next nearest moment"
+
+
+def test_the_full_time_card_changes_with_the_reader_at_once() -> None:
+    """The recap is written again straight away, not at the end of a rewrite.
+
+    The recap is deterministic -- a summary of the log's numbers -- so it
+    costs nothing to write it again. And it is the card on the screen
+    once the clock reaches the end of the match, so a reader who changes
+    the language should not have to wait minutes for it.
+    """
+    from touchline.live.engine import LiveMatchEngine
+    from touchline.models.audience import Audience, AudienceMode
+    from touchline.models.overlay import OverlayType
+
+    async def run() -> tuple[str, str]:
+        engine = LiveMatchEngine(seed=SEED, client=TemplateChatClient())
+        assert await engine.wait_for(engine.duration_ms, timeout=180)
+        engine._personalizer = _SlowPersonalizer()
+        before = next(
+            overlay.title
+            for overlay in engine.overlays
+            if overlay.type is OverlayType.RECAP
+        )
+        await engine.set_audience(Audience(mode=AudienceMode.ANALYST, locale="de"))
+        after = next(
+            overlay.title
+            for overlay in engine.overlays
+            if overlay.type is OverlayType.RECAP
+        )
+        await engine.close()
+        return before, after
+
+    before, after = asyncio.run(run())
+    assert before != after, "the full-time card did not change with the reader"
+
+
+def test_the_service_does_not_ask_for_more_than_the_deployment_gives() -> None:
+    """The pacer keeps the service inside the request rate.
+
+    A request over the deployment's limit comes back as a 429, and a 429
+    that cannot be retried in time is a fallback: the template engine
+    writes the card instead of the model, and the studio says so. So the
+    service waits its turn, however many things are asking at once.
+    """
+    from touchline.providers.pacer import CallPacer
+
+    async def run() -> list[float]:
+        paced = CallPacer(limit=3, window=0.3)
+        times: list[float] = []
+        for _ in range(5):
+            await paced.acquire()
+            times.append(time.monotonic())
+        return times
+
+    times = asyncio.run(run())
+    assert times[3] - times[0] >= 0.25, (
+        "the fourth call went out without waiting for the window"
+    )
+    assert times[4] - times[1] >= 0.25, (
+        "the fifth call went out without waiting for the window"
+    )
 
 
 def test_the_live_feed_is_the_batch_feed(engine: LiveMatchEngine) -> None:

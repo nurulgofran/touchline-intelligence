@@ -230,6 +230,16 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<number | null>(null);
   const disposedRef = useRef(false);
+  /**
+   * The reader change that has been asked for and not yet answered.
+   *
+   * A reader change is a message on the socket, and the socket in front
+   * of the service is cut every few minutes. A change that was in flight
+   * when it was cut would be lost, and the studio would sit there
+   * showing a language the service is not using. So the change is kept
+   * until the service confirms it, and sent again when the socket opens.
+   */
+  const pendingAudienceRef = useRef<Audience | null>(null);
 
   const send = useCallback((message: ControlMessage): boolean => {
     const socket = socketRef.current;
@@ -316,6 +326,14 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
         if (target !== null && !userMovedRef.current && helloCountRef.current === 0) {
           send({ type: "control", action: "seek", value: target });
         }
+        // A reader change that was in flight when the last socket was cut
+        // never reached the service. It is asked for again, so the reader
+        // gets the language they asked for rather than the one that
+        // happened to be in force when the socket came back.
+        const pending = pendingAudienceRef.current;
+        if (pending) {
+          send({ type: "control", action: "audience", value: pending });
+        }
       };
 
       socket.onmessage = (message) => {
@@ -391,6 +409,16 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
           const isResume = helloCountRef.current > 0;
           helloCountRef.current += 1;
           lastClockRef.current = frame.clock_ms;
+          // The reader is service state, so the service has the last word
+          // about it: a judge who opens the studio after somebody else
+          // changed the reader sees that reader's choice.
+          //
+          // But a change this studio asked for and has not had answered
+          // is not the service's to overwrite -- the request is still in
+          // flight, or was lost with the last socket, and it is sent
+          // again when the socket opens. The studio keeps showing what
+          // the reader asked for until the service says otherwise.
+          const pending = pendingAudienceRef.current;
           setState((prev) => ({
             ...prev,
             matchId: frame.match_id,
@@ -401,7 +429,13 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
             provider: frame.provider,
             speed: frame.speed,
             everConnected: true,
-            audience: frame.audience ?? prev.audience,
+            audience: pending ?? frame.audience ?? prev.audience,
+            // The service says whether the feed is still being rewritten,
+            // so the studio is not left saying it is working when the
+            // work is done -- or the other way about.
+            audiencePending: pending
+              ? true
+              : (frame.rewriting ?? prev.audiencePending),
           }));
           if (isResume) {
             // The connection dropped. Resume from the clock we last saw,
@@ -491,10 +525,10 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
             return {
               ...prev,
               overlays,
-              // A rewritten card carries a higher revision, and that is
-              // the sign that the new audience has been applied.
-              audiencePending:
-                (overlay.revision ?? 0) > 0 ? false : prev.audiencePending,
+              // Whether the feed is still being rewritten is the
+              // service's to say -- it knows when the last rewrite
+              // landed -- so the studio does not guess it from the
+              // arrival of one card.
               insightClocks: prev.insightClocks.includes(overlay.match_clock_ms)
                 ? prev.insightClocks
                 : [...prev.insightClocks, overlay.match_clock_ms].sort(
@@ -527,6 +561,29 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
 
         case "provider": {
           setState((prev) => ({ ...prev, provider: frame.provider }));
+          break;
+        }
+
+        case "audience": {
+          // The service has applied the reader change and says what it
+          // applied. The studio follows it: a language the service does
+          // not write is refused, and the picker must show the language
+          // that is really in use rather than the one that was asked for.
+          //
+          // The service also says whether the feed is still being
+          // rewritten. A rewrite is one call per insight and takes
+          // minutes at the deployment's rate, so the hint is the
+          // service's to give: a feed that is still being rewritten is
+          // not a finished one, and the studio says so until it is.
+          const applied = frame.audience;
+          // The change has been answered, so it no longer has to be
+          // re-sent when the socket comes back.
+          pendingAudienceRef.current = null;
+          setState((prev) => ({
+            ...prev,
+            audience: applied,
+            audiencePending: frame.rewriting,
+          }));
           break;
         }
 
@@ -826,9 +883,13 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
    * moments in a different voice. Until they arrive the studio says it is
    * working, because a card that has not been rewritten yet is still the
    * old one.
+   *
+   * The change is kept until the service confirms it, so it survives a
+   * socket that is cut before the message gets there.
    */
   const setAudience = useCallback(
     (audience: Audience) => {
+      pendingAudienceRef.current = audience;
       setState((prev) => ({
         ...prev,
         audience,
