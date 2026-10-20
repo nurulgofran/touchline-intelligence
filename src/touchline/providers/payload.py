@@ -193,11 +193,71 @@ def decode_payload(text: str) -> Payload:
     )
 
 
+def repair_truncated_json(text: str) -> str:
+    """Close a JSON object that was cut off part-way through.
+
+    A reply that runs out of output stops in the middle of a list or an
+    object. The reading is written first, so it is intact and only the tail
+    is missing -- and the tail is the part that can be checked anyway: the
+    grounding step recomputes every number from the cited event ids, so a
+    claim that lost its tail is refused rather than believed.
+
+    Two things are repaired. A value that was only half written is dropped,
+    because half an event id is not an event id. The open containers are
+    then closed, which is what makes the text parse.
+
+    Args:
+        text: The reply, as the model wrote it.
+
+    Returns:
+        The reply with its open containers closed.
+    """
+    stack: list[str] = []
+    in_string = False
+    escaped = False
+    string_start = 0
+    cut = len(text)
+
+    for index, character in enumerate(text):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            continue
+        if character == '"':
+            in_string = True
+            string_start = index
+        elif character in "{[":
+            stack.append("}" if character == "{" else "]")
+        elif character in "}]":
+            if stack:
+                stack.pop()
+
+    if in_string:
+        # The string was cut in half. Drop it rather than keep half a value.
+        cut = string_start
+
+    head = text[:cut].rstrip()
+    # A value that was cut off leaves its key and its comma behind, and
+    # ``{"a":1,}`` is not JSON.
+    if head.endswith(","):
+        head = head[:-1].rstrip()
+    if head.endswith(":"):
+        # The key is there and the value never arrived. Drop the pair.
+        head = head[: head.rfind(",")] if "," in head else ""
+
+    return head + "".join(reversed(stack))
+
+
 def parse_json_object(raw: str) -> dict[str, Any]:
     """Pull a JSON object out of a model's reply.
 
     The model is asked for JSON and usually complies. When it wraps the object
-    in prose or a code fence the object is still recovered; when there is no
+    in prose or a code fence the object is still recovered; when the reply was
+    cut off part-way it is repaired and what arrived is read; when there is no
     object at all, an empty dict comes back and the caller decides what to do
     about it.
     """
@@ -216,10 +276,21 @@ def parse_json_object(raw: str) -> dict[str, Any]:
         start = text.find("{")
         end = text.rfind("}")
         if start == -1 or end <= start:
-            return {}
-        try:
-            payload = json.loads(text[start : end + 1])
-        except json.JSONDecodeError:
-            return {}
+            # No closing brace at all: the reply was cut off. Close what is
+            # open and read what arrived.
+            repaired = repair_truncated_json(text)
+            try:
+                payload = json.loads(repaired)
+            except json.JSONDecodeError:
+                return {}
+        else:
+            try:
+                payload = json.loads(text[start : end + 1])
+            except json.JSONDecodeError:
+                repaired = repair_truncated_json(text[start:])
+                try:
+                    payload = json.loads(repaired)
+                except json.JSONDecodeError:
+                    return {}
 
     return payload if isinstance(payload, dict) else {}

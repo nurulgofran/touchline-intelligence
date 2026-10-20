@@ -112,3 +112,48 @@ def test_one_failed_stretch_does_not_stop_the_match() -> None:
 
     kinds = [entry.kind for entry in engine.trace.as_list()]
     assert "degradation" in kinds, "the lost stretch was not recorded in the trace"
+
+
+def test_a_reply_that_was_cut_off_is_repaired() -> None:
+    """A reply that ran out of output is read for what it says.
+
+    The reading is written first, so a reply that was cut off still has it;
+    only the tail is missing. Closing the open containers recovers it.
+    """
+    from touchline.providers.payload import parse_json_object
+
+    cut = (
+        '{"reading":"Riverside completed 15 passes.",'
+        '"metrics":[{"name":"passes","value":15.0,"unit":"","side":"HOME"}],'
+        '"cited_event_ids":["ev-000133","ev-000134","ev-00017'
+    )
+    payload = parse_json_object(cut)
+
+    assert payload.get("reading") == "Riverside completed 15 passes."
+    assert payload.get("cited_event_ids") == ["ev-000133", "ev-000134"]
+    assert payload.get("metrics") == [
+        {"name": "passes", "value": 15.0, "unit": "", "side": "HOME"}
+    ]
+
+
+def test_a_half_written_value_is_dropped_not_kept() -> None:
+    """Half an event id is not an event id.
+
+    The grounding step recomputes every number from the cited ids, so a
+    half-written id would either be refused -- or worse, name a different
+    event. Dropping it is the safe answer.
+    """
+    from touchline.providers.payload import parse_json_object
+
+    cut = '{"reading":"ok","cited_event_ids":["ev-000133","ev-0001'
+    payload = parse_json_object(cut)
+
+    assert payload.get("cited_event_ids") == ["ev-000133"]
+
+
+def test_a_reply_that_is_not_json_at_all_is_still_refused() -> None:
+    """Repairing a reply must not invent one."""
+    from touchline.providers.payload import parse_json_object
+
+    assert parse_json_object("not json at all") == {}
+    assert parse_json_object("") == {}

@@ -106,19 +106,20 @@ _SYSTEM_PROMPT = (
 #: between 4.2 s and 1.8 s per overlay is the difference between a narrated
 #: match and a narrated slideshow.
 #:
-#: The cap is a ceiling, not a budget, and the two callers need different
-#: amounts of room. The Narrator asks for a title and a body and is done in
-#: a few hundred tokens; the Explainer asks for a reading *and* the metrics
-#: *and* the cited event ids, and a candidate can carry fifty of those --
-#: the ids alone are a couple of thousand characters. A 400-token ceiling
-#: cut that reply off mid-sentence, which left a JSON object that could not
-#: be parsed, and an unreadable reply used to stop the whole analysis. The
-#: ceiling is now high enough for the longest reply the prompts ask for. It
-#: costs nothing when the answer is short: the model stops when the JSON is
-#: finished, not when the ceiling is reached.
+#: The cap is a ceiling, not a budget, and the Explainer needs a lot of
+#: room. It asks for a reading *and* the metrics *and* the cited event ids,
+#: and a candidate can carry forty metrics and fifty event ids -- copying
+#: those accurately is work, and the reasoning it takes counts against the
+#: ceiling along with the answer. At 400 the reply was cut off inside the
+#: list of event ids; at 4000 it was still cut off, about three thousand
+#: tokens into the reasoning and nine hundred into the answer.
+#:
+#: The ceiling has to clear the reasoning *and* the answer, so it is set
+#: well above either. It costs nothing when the reply is short: the model
+#: stops when the JSON is finished, not when the ceiling is reached.
 _REQUEST_OPTIONS: dict[str, Any] = {
     "reasoning": {"effort": "minimal"},
-    "max_output_tokens": 4000,
+    "max_output_tokens": 16000,
 }
 
 #: The same options under a public name, for the modules that build a chat
