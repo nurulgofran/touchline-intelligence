@@ -520,12 +520,6 @@ class LiveMatchEngine:
         self._revision += 1
         revision = self._revision
 
-        # The full-time card is deterministic -- a summary of the log's
-        # numbers -- so it costs nothing to write it again and it is the
-        # card a reader sees once the clock reaches the end. It changes
-        # with the reader, at once, like the rest of the state.
-        self._replace_recap()
-
         # A reader who asks for the reader they are already reading gets
         # the feed they already have. A rewrite is one model call per
         # insight, and at the deployment's rate that is minutes of work
@@ -533,6 +527,12 @@ class LiveMatchEngine:
         if audience.key == self._written_for:
             return list(self._overlays)
         self._written_for = audience.key
+
+        # The full-time card is deterministic -- a summary of the log's
+        # numbers -- so it costs nothing to write it again and it is the
+        # card a reader sees once the clock reaches the end. It changes
+        # with the reader, at once, like the rest of the state.
+        self._replace_recap()
 
         # A reader change supersedes the one before it. The rewrite that
         # is running is for somebody who is no longer reading, so it is
