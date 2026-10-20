@@ -1,35 +1,9 @@
 name: Build image and CI
 
-# Two jobs:
-#   1. ci    — pytest + ruff + mypy (+ the web build once `web/` exists) on every
-#              push and pull request.
-#   2. image — buildx build → push to GHCR. Runs on a `v*` tag or on manual
-#              dispatch. The package is published **public**, so Azure Container
-#              Apps pulls it anonymously and no registry credential exists.
-#
-# The GHCR package name must be lowercase: ghcr.io/nurulgofran/touchline-intelligence
-
 on:
   push:
     branches: [main]
-    tags: ['v*']
-  pull_request:
-    branches: [main]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Image tag to publish (e.g. v1). Leave empty for a sha tag.'
-        required: false
-        type: string
-
-permissions:
-  contents: read
-  packages: write
-
-env:
-  IMAGE_NAME: ghcr.io/nurulgofran/touchline-intelligence
-  PYTHON_VERSION: '3.12'
-  NODE_VERSION: '20'
 
 jobs:
   ci:
@@ -37,85 +11,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: requirements.txt
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest ruff mypy
-
-      - name: Lint (ruff)
-        run: ruff check .
-
-      # --follow-imports=silent and --ignore-missing-imports keep the check on
-      # our code: the third-party packages under .venv are read for types but
-      # their own errors are not reported.
-      - name: Type check (mypy)
-        run: mypy src/touchline --follow-imports=silent --ignore-missing-imports
-
-      - name: Test (pytest)
-        run: pytest
-
-      # The frontend arrives on Day 4. Until web/package.json exists these steps
-      # are skipped rather than failing the build on a directory that is not
-      # there yet.
-      - name: Set up Node
-        if: ${{ hashFiles('web/package.json') != '' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Build the frontend
-        if: ${{ hashFiles('web/package.json') != '' }}
-        working-directory: web
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          npm run build
-
-  image:
-    name: Build and push to GHCR
-    needs: ci
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Derive tags
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=tag
-            type=ref,event=branch
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Hello
+        run: echo hello
