@@ -24,7 +24,7 @@ Microsoft Agent Framework workflow, one Azure Container App — no mirror, no se
 | **Microsoft Foundry** | The one model provider, used by the deployed demo and by local development. `FoundryChatClient` against a Foundry project endpoint, with the model deployment created and managed by the Azure CLI script in [`scripts/provision-foundry.sh`](./scripts/provision-foundry.sh). The provider badge shows the actual provider of the last call — "Microsoft Foundry" plus a live/fallback state chip. |
 | **Microsoft Agent Framework** | The orchestration runtime. A `WorkflowBuilder` graph of typed executors — Ingest → Analyst → Explainer → Grounding → Narrator → Personalizer — over one shared state store, with per-executor events powering the agent-trace view and checkpointing for recovery. |
 | **A2A (Agent2Agent)** | The Explainer and Narrator are exposed as A2A servers with published agent cards (`/.well-known/agent-card.json`); the Narrator calls the Explainer over A2A HTTP+JSON. |
-| **Azure Container Apps** | The only host. The container image built in GitHub Actions and pulled anonymously from a public GHCR package, deployed with a system-assigned managed identity, `minReplicas: 1` so the demo URL is always on with no cold start, `maxReplicas: 1` so the in-process shared state stays consistent, liveness and readiness probes on `/healthz`, and an external ingress carrying the live WebSocket feed. Provisioned by [`scripts/provision-aca.sh`](./scripts/provision-aca.sh) with the Azure CLI. |
+| **Azure Container Apps** | The only host. The container image is published as a **public** GitHub Container Registry package and pulled **anonymously**, so no registry credential is stored in the deployment. Deployed with a system-assigned managed identity, `minReplicas: 1` so the demo URL is always on with no cold start, `maxReplicas: 1` so the in-process shared state stays consistent, liveness and readiness probes on `/healthz`, and an external ingress carrying the live WebSocket feed. Provisioned by [`scripts/provision-aca.sh`](./scripts/provision-aca.sh) with the Azure CLI. |
 | **GitHub CLI / GitHub SDK** | Repo automation, CI wiring, release and submission checklists. |
 | **GitHub Copilot** | Used to build the project (agent mode) — and named in the pitch per the category description. *Stretch: a Copilot-backed agent inside the workflow via `agent_framework.github.GitHubCopilotAgent`.* |
 | **Azure Database for PostgreSQL** *(Day 6, bonus)* | Durable store behind the shared state — event log and agent handoff trace. Writes are best-effort; the live path never depends on it. |
@@ -123,12 +123,26 @@ judge's or a reviewer's point of view:
 ```bash
 az login
 scripts/provision-foundry.sh     # Foundry account + project + model deployment
-scripts/provision-aca.sh        # Container Apps environment + app + managed identity + role
+scripts/build-image.sh           # the image, built and pushed to the registry
+scripts/provision-aca.sh         # Container Apps environment + app + managed identity + roles
 ```
 
-Both run against **one subscription**, so the role assignment and the billing live in one place.
-The app reaches Foundry through its managed identity — no key is stored in the deployment, in the
-repository, or anywhere else.
+All three run against **one subscription**, so the role assignments and the billing live in one
+place. The app reaches Foundry through its managed identity — no key is stored in the deployment, in
+the repository, or anywhere else.
+
+### Build and CI
+
+[`scripts/build-image.sh`](./scripts/build-image.sh) builds the image from the committed
+[`Dockerfile`](./Dockerfile) and pushes it to a public GitHub Container Registry package, which Azure
+Container Apps pulls anonymously. The platform is pinned to `linux/amd64`, because that is what the
+Container App's nodes are, whatever the build machine is.
+
+The CI workflow in [`.github/workflows/image.yml`](./.github/workflows/image.yml) runs the same three
+checks this project is held to — `pytest`, `ruff`, `mypy` — and then the frontend build, before its
+image job publishes the same package. It is the path the project takes when the account's Actions
+runner is available; until then the same commands are run locally and the image is built by the
+script above.
 
 The footprint itself:
 
@@ -152,6 +166,11 @@ and to the Container App's managed identity for the deployment.
 
 Work in progress. The build plan and the hackathon brief are kept off the public repository; the
 source, the scripts and this README are the whole of it.
+
+One account-level caveat, stated plainly: the GitHub Actions runner for this account is
+billing-locked, so the workflow above does not currently execute. The three checks and the frontend
+build are run locally from the same commands, and the image is built by
+[`scripts/build-image.sh`](./scripts/build-image.sh).
 
 > All data is **synthetic**. No real Premier League match data is used anywhere in this project.
 > Clubs and players are fictional, and no Premier League or Microsoft trademarks, logos, or crests
