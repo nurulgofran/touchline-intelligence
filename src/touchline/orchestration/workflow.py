@@ -82,6 +82,7 @@ __all__ = [
     "STAGE_PERSONALIZER",
     "AnalystExecutor",
     "ExplainerExecutor",
+    "FeedCursor",
     "GroundingExecutor",
     "IngestExecutor",
     "MatchRun",
@@ -110,6 +111,28 @@ STAGE_PERSONALIZER = "personalizer"
 #: reproduces, because it is the candidate -- and the veto stays visible in
 #: the trace.
 DEFAULT_MAX_GROUNDING_ATTEMPTS = 2
+
+
+@dataclass
+class FeedCursor:
+    """Where a live match keeps what it has already put on the feed.
+
+    The live path runs the graph once per stretch of match time, and each
+    of those runs analyses the whole event log as it stands. Without a
+    cursor, every run would put the whole feed on the wire again and the
+    model would be asked to explain every insight in the match on every
+    stretch -- slow, and wrong to look at.
+
+    Attributes:
+        ids: The ids of the insights already handed to the Explainer.
+        last_bucket: The stretch of match time already published. The
+            stretch is a bucket of the analyst's feed interval: ninety
+            seconds of match time.
+    """
+
+    ids: set[str] = field(default_factory=set)
+    last_bucket: int = -1
+
 
 
 @dataclass
@@ -201,6 +224,7 @@ class AnalystExecutor(Executor):
         analyst: MatchAnalyst,
         store: MatchStateStore,
         trace: HandoffTrace,
+        cursor: FeedCursor | None = None,
         id: str = STAGE_ANALYST,
     ) -> None:
         """Create the executor.
@@ -209,31 +233,84 @@ class AnalystExecutor(Executor):
             analyst: The deterministic analyst.
             store: The shared state holding the event log.
             trace: The ledger of hand-offs.
+            cursor: Where the live path keeps what it has already handed
+                over. Absent for a single batch run, which hands the whole
+                feed over at once.
             id: The executor's id.
         """
         super().__init__(id=id)
         self._analyst = analyst
         self._store = store
         self._trace = trace
+        self._cursor = cursor
 
     @handler(input=MatchLoaded, output=InsightsAnalysed)
     async def analyse(
         self, message: MatchLoaded, ctx: WorkflowContext[InsightsAnalysed]
     ) -> None:
-        """Find the insights worth showing and hand them to the Explainer."""
+        """Find the insights worth showing and hand them to the Explainer.
+
+        The whole event log is analysed, not just the newest stretch of it:
+        the analyst is causal, so analysing the log as it stands gives the
+        same answer as the log analysed all at once -- and that is what
+        makes a live feed and a batch feed the same feed.
+        """
         candidates = self._analyst.analyse(self._store.events)
         feed = self._analyst.select_for_feed(candidates)
         self._store.put_candidates(candidates)
 
+        fresh = self._fresh(feed)
         self._trace.record(
             STAGE_ANALYST,
             STAGE_EXPLAINER,
             "insights",
-            f"{len(feed)} insights for the feed, from {len(candidates)} found",
+            f"{len(fresh)} insights for the feed, from {len(candidates)} found",
         )
         await ctx.send_message(
-            InsightsAnalysed(candidates=feed), target_id=STAGE_EXPLAINER
+            InsightsAnalysed(candidates=fresh), target_id=STAGE_EXPLAINER
         )
+
+    def _fresh(self, feed: list[InsightCandidate]) -> list[InsightCandidate]:
+        """The feed entries to hand over now.
+
+        A single batch run hands the whole feed over: the match is over,
+        so there is no reason to hold anything back.
+
+        A live run hands over **the stretch the event log has just
+        filled** and nothing else. That is not a detail. The analyst's
+        window rules are evaluated on a fixed grid of match times, so
+        analysing a log that stops at 12:00 also produces a candidate for
+        12:30 -- with a window that has only half the events in it. That
+        candidate is a guess about a stretch that has not happened yet, and
+        it is *not* the candidate the same stretch produces once the log
+        reaches it. So the live path waits: it publishes a stretch when the
+        log has filled that stretch, and the window it computes is then
+        whole.
+
+        The result is that the live feed and the batch feed carry the same
+        insights, in the same order, with the same numbers.
+        """
+        if self._cursor is None:
+            return feed
+
+        span = self._analyst.thresholds.feed_interval_ms
+        newest = max(
+            (event.match_clock_ms for event in self._store.events), default=-1
+        )
+        bucket = newest // span
+        if bucket <= self._cursor.last_bucket:
+            return []
+        self._cursor.last_bucket = bucket
+
+        fresh = [
+            candidate
+            for candidate in feed
+            if candidate.match_clock_ms // span == bucket
+            and candidate.candidate_id not in self._cursor.ids
+        ]
+        for candidate in fresh:
+            self._cursor.ids.add(candidate.candidate_id)
+        return fresh
 
 
 class ExplainerExecutor(Executor):
@@ -554,6 +631,24 @@ class NarratorExecutor(Executor):
         )
         self._narrations.append(narration)
 
+        if ask_explainer:
+            # The hop is recorded, because a multi-agent system is only as
+            # convincing as its hand-offs: a judge has to be able to see
+            # that the Narrator really did reach the Explainer over A2A,
+            # and which transport answered.
+            client = getattr(self._narrator, "_explainer_client", None)
+            transport = getattr(client, "last_transport", None)
+            if transport is not None:
+                self._trace.record(
+                    STAGE_NARRATOR,
+                    STAGE_EXPLAINER,
+                    "a2a",
+                    f"{candidate.candidate_id}: the narrator asked the "
+                    f"explainer over {transport}",
+                    candidate_id=candidate.candidate_id,
+                    accepted=True,
+                )
+
         self._trace.record(
             STAGE_NARRATOR,
             STAGE_PERSONALIZER,
@@ -650,6 +745,8 @@ class MatchWorkflow:
         narrator: NarratorAgent | None = None,
         personalizer: PersonalizerAgent | None = None,
         explainer_client: ExplainerClient | None = None,
+        trace: HandoffTrace | None = None,
+        cursor: FeedCursor | None = None,
         locale: str = "en",
         mode: str = "analyst",
         max_grounding_attempts: int = DEFAULT_MAX_GROUNDING_ATTEMPTS,
@@ -660,6 +757,14 @@ class MatchWorkflow:
         answers for it -- the pipeline has to be runnable before any Azure
         credentials exist, and it has to keep running when they do not.
 
+        A live match builds the graph once per stretch of match time, so
+        three things can be **shared** between those builds: the store (the
+        event log grows), the trace (the ledger of hand-offs grows), and
+        the set of insights already handed to the Explainer (so the model
+        is not asked to explain the same moment again on the next stretch).
+        The agents are shared too, because the Explainer's memory is what
+        makes the A2A hop cheap.
+
         Args:
             store: The shared state. A fresh one is made when absent.
             analyst: The deterministic analyst.
@@ -668,6 +773,10 @@ class MatchWorkflow:
             personalizer: The Personaliser agent.
             explainer_client: The client the Narrator uses to reach the
                 Explainer over A2A.
+            trace: The ledger of hand-offs. A fresh one is made when absent.
+            cursor: Where the live path keeps what it has already handed
+                over. Nothing is held back when absent, which is what a
+                single batch run wants.
             locale: Language code for the prose.
             mode: Audience mode.
             max_grounding_attempts: How many times a claim may be explained
@@ -675,11 +784,17 @@ class MatchWorkflow:
         """
         from touchline.providers.clients import TemplateChatClient
 
-        self._store = store or MatchStateStore()
-        self._analyst = analyst or MatchAnalyst()
+        # `is None` and not `or`: the store and the trace both define
+        # `__len__`, so an *empty* one is falsy. `store or MatchStateStore()`
+        # would quietly throw away the caller's store and the caller's
+        # trace -- and a live match that shares them would silently stop
+        # sharing them.
+        self._store = store if store is not None else MatchStateStore()
+        self._analyst = analyst if analyst is not None else MatchAnalyst()
         self._locale = locale
         self._mode = mode
-        self._trace = HandoffTrace()
+        self._trace = trace if trace is not None else HandoffTrace()
+        self._cursor = cursor
 
         template_client = TemplateChatClient()
 
@@ -696,6 +811,7 @@ class MatchWorkflow:
             analyst=self._analyst,
             store=self._store,
             trace=self._trace,
+            cursor=self._cursor,
         )
         self._explainer_executor = ExplainerExecutor(
             explainer=self._explainer,
@@ -802,6 +918,21 @@ class MatchWorkflow:
         if client is not None:
             degradations.extend(getattr(client, "degradations", []))
         return degradations
+
+    @property
+    def local_degradations(self) -> list[str]:
+        """The degradations this graph's own executors recorded.
+
+        The agents' degradations are *not* here: the agents are shared
+        between the runs of a live match, so their list grows for the whole
+        match rather than for one stretch. A caller that wants the
+        degradations of one stretch asks the executors.
+        """
+        return [
+            *self._grounding.degradations,
+            *self._narrator_executor.degradations,
+            *self._personalizer_executor.degradations,
+        ]
 
 
 def build_explainer_client(

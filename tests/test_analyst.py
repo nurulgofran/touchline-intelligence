@@ -354,7 +354,11 @@ def _content(candidate: object) -> tuple:
         candidate.side.value if candidate.side else None,
         candidate.headline,
         tuple(
-            (metric.name, round(metric.value, 6), metric.side.value if metric.side else None)
+            (
+                metric.name,
+                round(metric.value, 6),
+                metric.side.value if metric.side else None,
+            )
             for metric in candidate.metrics
         ),
         tuple(candidate.cited_event_ids),
@@ -384,26 +388,37 @@ def test_analysing_a_prefix_gives_the_same_answer_as_the_whole_match(
     analyst = MatchAnalyst(team_names=team_names(seed))
     span = analyst.thresholds.feed_interval_ms
 
+    # The whole match, analysed in one go. The feed holds one insight per
+    # stretch of match time, so the answer is a list of stretches, and the
+    # first insight in a stretch is the one the live path would publish.
     whole = analyst.select_for_feed(analyst.analyse(events))
-    expected = {
-        candidate.match_clock_ms // span: _content(candidate)
-        for candidate in whole
-    }
+    expected: dict[int, list[tuple]] = {}
+    for candidate in whole:
+        expected.setdefault(candidate.match_clock_ms // span, []).append(
+            _content(candidate)
+        )
 
+    # The same match, analysed stretch by stretch as it is played. Each
+    # stretch is read at its **closing** boundary: the prefix ends at the
+    # moment the stretch is over, which is the only moment the live feed
+    # could have read it at.
     prefix: list[MatchEvent] = []
     index = 0
     bucket = 0
-    produced: dict[int, tuple] = {}
+    produced: dict[int, list[tuple]] = {}
     while index < len(events):
         boundary = bucket * span
         while index < len(events) and events[index].match_clock_ms < boundary + span:
             prefix.append(events[index])
             index += 1
         candidates = analyst.analyse(prefix)
-        for candidate in analyst.select_for_feed(
-            [c for c in candidates if c.match_clock_ms // span == bucket]
-        ):
-            produced.setdefault(bucket, _content(candidate))
+        picked = [
+            candidate
+            for candidate in analyst.select_for_feed(candidates)
+            if candidate.match_clock_ms // span == bucket
+        ]
+        if picked:
+            produced[bucket] = [_content(candidate) for candidate in picked]
         bucket += 1
 
     assert produced == expected, (

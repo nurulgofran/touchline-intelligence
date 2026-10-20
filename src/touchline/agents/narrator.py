@@ -200,6 +200,19 @@ class NarratorAgent:
         """The underlying Agent Framework agent."""
         return self._agent
 
+    def set_explainer_client(self, client: Any) -> None:
+        """Point the Narrator at a different Explainer client.
+
+        The live engine builds its agents before the A2A server is mounted,
+        because the server serves *that* Explainer -- the same object, so
+        the memory it keeps is shared. The client that reaches it over the
+        wire is built once the application exists, and is attached here.
+
+        Args:
+            client: The client the Narrator uses to reach the Explainer.
+        """
+        self._explainer_client = client
+
     @property
     def degradations(self) -> list[str]:
         """Every time the Narrator had to fall back on the template engine.

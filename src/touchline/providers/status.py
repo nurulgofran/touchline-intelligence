@@ -101,13 +101,21 @@ def current(model_configured: bool) -> ProviderState:
             configured. Computed by the caller from the environment, so this
             module does not have to read it.
     """
+    # The template engine is not a *fallback* when there was never a model
+    # to fall back from. The chip is what the badge in the UI shows, and a
+    # badge that says "Template engine (model not configured)" next to an
+    # amber "fallback" chip would say two contradictory things at once.
+    state = _REGISTRY.last_call_state
+    if not model_configured and state == "fallback":
+        state = None
+
     return ProviderState(
         configured_provider=(
             FOUNDRY_PROVIDER if model_configured else NOT_CONFIGURED_PROVIDER
         ),
         model_configured=model_configured,
         last_call_provider=_REGISTRY.last_call_provider,
-        last_call_state=_REGISTRY.last_call_state,
+        last_call_state=state,
         last_call_at=_REGISTRY.last_call_at,
         call_count=_REGISTRY.call_count,
         fallback_count=_REGISTRY.fallback_count,
