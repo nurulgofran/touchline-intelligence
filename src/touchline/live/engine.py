@@ -207,6 +207,9 @@ class LiveMatchEngine:
         )
         self._locale = self._audience.locale
         self._mode = self._audience.mode.value
+        # The reader the feed is written for. The analysis writes in the
+        # audience it is given, so the feed starts written for this one.
+        self._written_for = self._audience.key
 
         self._events: list[MatchEvent] = sorted(
             simulate(seed=seed), key=lambda e: (e.match_clock_ms, e.event_id)
@@ -522,6 +525,14 @@ class LiveMatchEngine:
         # card a reader sees once the clock reaches the end. It changes
         # with the reader, at once, like the rest of the state.
         self._replace_recap()
+
+        # A reader who asks for the reader they are already reading gets
+        # the feed they already have. A rewrite is one model call per
+        # insight, and at the deployment's rate that is minutes of work
+        # and the deployment's quota: it is not spent on nothing.
+        if audience.key == self._written_for:
+            return list(self._overlays)
+        self._written_for = audience.key
 
         # A reader change supersedes the one before it. The rewrite that
         # is running is for somebody who is no longer reading, so it is

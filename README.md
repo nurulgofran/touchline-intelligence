@@ -53,6 +53,11 @@ sim/generator.py ──► metrics/analyst.py ──► agents/explainer.py ─�
   state), a veto that re-routes a rejected draft back to the Explainer, and a live analysis that
   skips a stretch it cannot explain rather than stopping there — the loss is recorded in the trace,
   and the rest of the match is still analysed.
+- **The service keeps inside the deployment's request rate.** A shared pacer holds every call to
+  the model — the analysis, the rewrites, everything — to eight requests a minute, because the
+  deployment allows ten and a request over that comes back as a 429. A 429 that cannot be retried
+  in time is a *fallback*: the template engine writes the card instead of the model and the badge
+  says so. Waiting the model's turn is what keeps the badge green.
 - **Provider routing:** one provider interface, two implementations — **Microsoft Foundry** (the
   only model provider, used by the deployed demo *and* by local development) and a **template
   provider** that needs no model at all.

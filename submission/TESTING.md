@@ -98,8 +98,10 @@ team**, **Metric lens**:
 
 The **In** row switches the language: **English**, **Deutsch**, **বাংলা**. The
 interface chrome stays English; the *explanation* is rewritten in the chosen language.
-The button turns amber and the hint line says *rewriting the feed…* for a moment while
-the model does it.
+The button turns amber and the hint line says *rewriting the feed…* while the model does
+it. The card you are looking at changes within a second or two — the service rewrites the
+moments nearest your clock first — and the rest of the feed follows over the next few
+minutes, at the model deployment's own rate. The hint clears when the last one lands.
 
 ## Checking that the numbers are real
 

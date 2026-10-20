@@ -476,10 +476,38 @@ async def reset_audience(cdp: CDP) -> None:
 
     The audience is service state, not page state, so it survives a reload.
     Without this, a take opens on whatever the last visitor left behind.
+
+    The wait is for the *rewrite* to finish, not for the page to go quiet:
+    a reader change rewrites the whole feed, one model call per insight, and
+    the studio says "rewriting the feed…" while it is going on. A judge who
+    arrived in the middle of that would find a half-rewritten feed.
     """
     for label in ("Analyst", "English"):
         await cdp.evaluate(CLICK.format(text=json.dumps(label)))
         await wait_for_idle(cdp)
+    await wait_for_rewrite(cdp)
+
+
+# Is the service still rewriting the feed?
+REWRITING = """
+(() => document.body.innerText.includes('rewriting the feed'))()
+"""
+
+
+async def wait_for_rewrite(cdp: CDP, timeout: float = 420.0) -> bool:
+    """Wait for the service to finish rewriting the feed.
+
+    A reader change is minutes of work at the deployment's rate, so the
+    wait is minutes too. It is the difference between leaving the
+    deployment with a feed that is finished and leaving it with one that
+    is still being written.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not await cdp.evaluate(REWRITING):
+            return True
+        await asyncio.sleep(2.0)
+    return False
 
 
 FOCUS_EVENT = """

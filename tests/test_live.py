@@ -375,6 +375,40 @@ def test_the_full_time_card_changes_with_the_reader_at_once() -> None:
     assert before != after, "the full-time card did not change with the reader"
 
 
+def test_asking_for_the_reader_you_are_already_reading_costs_nothing() -> None:
+    """A reader change that changes nothing does not rewrite the feed.
+
+    A rewrite is one model call per insight, and at the deployment's
+    rate that is minutes of the deployment's quota. It is not spent on
+    a reader who asked for the reader they were already reading -- which
+    is what the studio's own reset does, and what a click on the
+    language that is already in force does.
+    """
+    from touchline.live.engine import LiveMatchEngine
+    from touchline.models.audience import Audience, AudienceMode
+
+    async def run() -> int:
+        engine = LiveMatchEngine(seed=SEED, client=TemplateChatClient())
+        assert await engine.wait_for(engine.duration_ms, timeout=180)
+        counter = _CountingPersonalizer()
+        engine._personalizer = counter
+        # The reader the feed is already written for.
+        await engine.set_audience(
+            Audience(mode=AudienceMode.ANALYST, locale="en")
+        )
+        calls = counter.calls
+        await engine.set_audience(
+            Audience(mode=AudienceMode.ANALYST, locale="en")
+        )
+        again = counter.calls
+        await engine.close()
+        return again - calls
+
+    assert asyncio.run(run()) == 0, (
+        "asking for the reader you are already reading rewrote the feed"
+    )
+
+
 def test_the_service_does_not_ask_for_more_than_the_deployment_gives() -> None:
     """The pacer keeps the service inside the request rate.
 
