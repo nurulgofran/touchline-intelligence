@@ -145,28 +145,32 @@ class MatchAnalyst:
         if not ordered:
             return []
 
-        drafts: list[_Draft] = []
-        last_fired: dict[tuple[str, TeamSide], int] = {}
-
-        for draft in self._window_drafts(ordered):
-            if self._allowed(draft, last_fired):
-                drafts.append(draft)
-
-        for draft in self._set_piece_drafts(ordered):
-            if self._allowed(draft, last_fired):
-                drafts.append(draft)
-
-        for draft in self._dangerous_set_piece_drafts(ordered):
-            if self._allowed(draft, last_fired):
-                drafts.append(draft)
-
-        for draft in self._milestone_drafts(ordered):
-            if self._allowed(draft, last_fired):
-                drafts.append(draft)
-
+        # Every rule family is gathered first, and the whole set is put in
+        # clock order before the cooldown is applied. The cooldown is
+        # first-wins, so the order it is applied in decides which candidate
+        # survives a busy spell. Applying it to the drafts in the order the
+        # rules happened to produce them would make the answer depend on
+        # that order -- the milestones are produced per player, not in
+        # clock order -- and therefore on how much of the match had been
+        # seen when the analysis ran.
+        #
+        # That matters more than it looks. A live feed analyses the match as
+        # it is played, so the analyst sees a growing prefix of the log, and
+        # the feed it produces has to be the feed the same events would have
+        # produced at full time. With the cooldown applied in clock order
+        # that is true, and it is a tested property rather than a hope.
+        drafts: list[_Draft] = [
+            *self._window_drafts(ordered),
+            *self._set_piece_drafts(ordered),
+            *self._dangerous_set_piece_drafts(ordered),
+            *self._milestone_drafts(ordered),
+        ]
         drafts.sort(key=lambda d: (d.clock, d.rule, d.side.value))
+
+        last_fired: dict[tuple[str, TeamSide], int] = {}
+        kept = [draft for draft in drafts if self._allowed(draft, last_fired)]
         return [
-            self._candidate(index, draft) for index, draft in enumerate(drafts, start=1)
+            self._candidate(index, draft) for index, draft in enumerate(kept, start=1)
         ]
 
     def select_for_feed(

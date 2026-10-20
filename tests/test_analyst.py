@@ -340,3 +340,72 @@ def test_the_feed_is_in_clock_order(
         feed = analyst.select_for_feed(analyst.analyse(events))
         clocks = [candidate.match_clock_ms for candidate in feed]
         assert clocks == sorted(clocks)
+
+
+def _content(candidate: object) -> tuple:
+    """What an insight *is*, without the name it was given.
+
+    The id is assigned by position, so it moves when the number of insights
+    found before it changes. What has to stay the same is the insight.
+    """
+    return (
+        candidate.kind.value,
+        candidate.match_clock_ms,
+        candidate.side.value if candidate.side else None,
+        candidate.headline,
+        tuple(
+            (metric.name, round(metric.value, 6), metric.side.value if metric.side else None)
+            for metric in candidate.metrics
+        ),
+        tuple(candidate.cited_event_ids),
+    )
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+def test_analysing_a_prefix_gives_the_same_answer_as_the_whole_match(
+    seed: int,
+    matches: dict[int, list[MatchEvent]],
+) -> None:
+    """The live feed analyses the match as it is played, so this must hold.
+
+    A live feed does not hand the analyst the finished match. It hands it
+    the part that has happened so far, once per stretch, and the insight
+    appears when it happens. So the analyst's answer for a stretch of the
+    match has to be the answer it would have given with the whole log in
+    hand -- otherwise the feed a judge watches in the browser is not the
+    feed the project claims to produce.
+
+    This is the property the cooldown order protects: the cooldown is
+    first-wins, so applying it to the drafts in the order the rules happen
+    to produce them makes the answer depend on how much of the match had
+    been seen when the analysis ran.
+    """
+    events = matches[seed]
+    analyst = MatchAnalyst(team_names=team_names(seed))
+    span = analyst.thresholds.feed_interval_ms
+
+    whole = analyst.select_for_feed(analyst.analyse(events))
+    expected = {
+        candidate.match_clock_ms // span: _content(candidate)
+        for candidate in whole
+    }
+
+    prefix: list[MatchEvent] = []
+    index = 0
+    bucket = 0
+    produced: dict[int, tuple] = {}
+    while index < len(events):
+        boundary = bucket * span
+        while index < len(events) and events[index].match_clock_ms < boundary + span:
+            prefix.append(events[index])
+            index += 1
+        candidates = analyst.analyse(prefix)
+        for candidate in analyst.select_for_feed(
+            [c for c in candidates if c.match_clock_ms // span == bucket]
+        ):
+            produced.setdefault(bucket, _content(candidate))
+        bucket += 1
+
+    assert produced == expected, (
+        f"seed {seed}: the live feed and the whole-match feed disagree"
+    )
