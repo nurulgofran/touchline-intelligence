@@ -24,7 +24,7 @@ Microsoft Agent Framework workflow, one Azure Container App — no mirror, no se
 | **Microsoft Foundry** | The one model provider, used by the deployed demo and by local development. `FoundryChatClient` against a Foundry project endpoint, with the model deployment created and managed by the Azure CLI script in [`scripts/provision-foundry.sh`](./scripts/provision-foundry.sh). The provider badge shows the actual provider of the last call — "Microsoft Foundry" plus a live/fallback state chip. |
 | **Microsoft Agent Framework** | The orchestration runtime. A `WorkflowBuilder` graph of typed executors — Ingest → Analyst → Explainer → Grounding → Narrator → Personalizer — over one shared state store, with per-executor events powering the agent-trace view and checkpointing for recovery. |
 | **A2A (Agent2Agent)** | The Explainer and Narrator are exposed as A2A servers with published agent cards (`/.well-known/agent-card.json`); the Narrator calls the Explainer over A2A HTTP+JSON. |
-| **Azure Container Apps** | The only host. The container image is published as a **public** GitHub Container Registry package and pulled **anonymously**, so no registry credential is stored in the deployment. Deployed with a system-assigned managed identity, `minReplicas: 1` so the demo URL is always on with no cold start, `maxReplicas: 1` so the in-process shared state stays consistent, liveness and readiness probes on `/healthz`, and an external ingress carrying the live WebSocket feed. Provisioned by [`scripts/provision-aca.sh`](./scripts/provision-aca.sh) with the Azure CLI. |
+| **Azure Container Apps** | The only host. The container image is published as a **public** GitHub Container Registry package and pulled **anonymously**, so no registry credential is stored in the deployment. The app reaches Foundry through a **user-assigned managed identity** — the Consumption environment refuses a system-assigned one — with `minReplicas: 1` so the demo URL is always on with no cold start, `maxReplicas: 1` so the in-process shared state stays consistent, liveness and readiness probes on `/healthz`, and an external ingress carrying the live WebSocket feed. Provisioned by [`scripts/provision-aca.sh`](./scripts/provision-aca.sh) with the Azure CLI. |
 | **GitHub CLI / GitHub SDK** | Repo automation, CI wiring, release and submission checklists. |
 | **GitHub Copilot** | Used to build the project (agent mode) — and named in the pitch per the category description. *Stretch: a Copilot-backed agent inside the workflow via `agent_framework.github.GitHubCopilotAgent`.* |
 | **Azure Database for PostgreSQL** *(Day 6, bonus)* | Durable store behind the shared state — event log and agent handoff trace. Writes are best-effort; the live path never depends on it. |
@@ -151,8 +151,16 @@ The footprint itself:
 | Foundry account | `touchlinefoundry` | `AIServices`, `germanywestcentral` |
 | Foundry project | `touchline` | Project endpoint `https://touchline.services.ai.azure.com/api/projects/touchline` |
 | Model deployment | `gpt-5-mini` | `gpt-5-mini` / `2025-08-07`, `GlobalStandard`, capacity 10 |
+| Managed identity | `touchline-identity` | User-assigned; "Foundry User" on the Foundry account, and the image pull |
 | Container Apps env | `touchline-env` | `germanywestcentral`, with an explicit Log Analytics workspace |
-| Container App | `touchline-app` | `minReplicas: 1`, `maxReplicas: 1`, system-assigned managed identity |
+| Container App | `touchline-app` | `minReplicas: 1`, `maxReplicas: 1`, the managed identity attached |
+
+One thing worth knowing if you read the scripts. The identity is **user-assigned**, not
+system-assigned, and that is not a preference: the Consumption environment refuses a
+system-assigned identity outright (`ExpressEnvironmentFeatureNotSupported`), and a user-assigned
+one it accepts — for the app's access to Foundry and for the image pull alike. The identity's client
+id reaches the app as `AZURE_CLIENT_ID`, and `DefaultAzureCredential()` already defaults its
+managed-identity leg to that variable, so the code calls it the same way locally and in Azure.
 
 Two things are worth knowing if you read the scripts. First, **the region is a policy, not a
 preference** — the subscription carries an "Allowed resource deployment regions" assignment that

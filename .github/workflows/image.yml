@@ -8,6 +8,15 @@ name: Build image and CI
 #              Apps pulls it anonymously and no registry credential exists.
 #
 # The GHCR package name must be lowercase: ghcr.io/nurulgofran/touchline-intelligence
+#
+# The package is published **public**, which is what lets Azure Container
+# Apps pull it anonymously -- the deployed app has no registry credential at
+# all. scripts/build-image.sh publishes the same package by the same route
+# when this workflow cannot run.
+#
+# On this account the Actions runner is billing-locked and these jobs refuse
+# to start, so the checks and the build are run from the same commands
+# locally.
 
 on:
   push:

@@ -32,7 +32,7 @@ import websockets
 EXPECTED_FRAMES = {"hello", "provider", "clock", "events", "momentum", "trace"}
 
 #: The WebSocket path the studio connects to.
-WS_PATH = "/ws/live"
+WS_PATH = "/ws/match"
 
 
 class Report:
@@ -87,12 +87,18 @@ async def check_rest(client: httpx.AsyncClient, base: str, report: Report) -> No
     if response.status_code == 200:
         health = response.json()
         provider = health.get("provider", {})
-        name = provider.get("provider") or provider.get("name") or "?"
-        state = provider.get("state") or provider.get("status") or "?"
+        configured = provider.get("configured_provider")
+        served = provider.get("last_call_provider")
+        state = provider.get("last_call_state")
         report.check(
             "the health endpoint names the provider",
-            name != "?",
-            f"provider={name} state={state}",
+            bool(configured) and bool(served),
+            f"configured={configured} served={served} state={state}",
+        )
+        report.check(
+            "the last call was served by the configured provider",
+            configured == served,
+            f"{served} ({state})",
         )
 
     response = await client.get(f"{base}/.well-known/agent-card.json", timeout=30.0)

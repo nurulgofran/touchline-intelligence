@@ -10,28 +10,43 @@
 #   - Azure CLI 2.80.0 or newer
 #   - az login completed
 #   - The Foundry account already provisioned (scripts/provision-foundry.sh)
+#   - The image published (scripts/build-image.sh)
+#
+# The identity
+# ------------
+# The app reaches Foundry through a **user-assigned managed identity** and
+# nothing else: no key is in the deployment, in the repository, or anywhere
+# else. The Consumption (Express) environment refuses a *system-assigned*
+# identity -- it answers `ExpressEnvironmentFeatureNotSupported` -- and a
+# user-assigned one it accepts, for the app's own access to Foundry and for
+# the registry pull alike.
+#
+# The user-assigned identity's client id goes into the app as AZURE_CLIENT_ID.
+# That is enough: azure-identity's DefaultAzureCredential already defaults its
+# managed-identity leg to that variable, so the code keeps calling
+# DefaultAzureCredential() and the credential source changes under it --
+# `az login` on a laptop, the Container App's identity in Azure.
 #
 # The image path
 # --------------
-# The image is built in Azure, by ACR Tasks, from the same Dockerfile the CI
-# workflow builds (scripts/build-image.sh). The registry is in the same
-# subscription as the Container App, so the pull authenticates with the app's
-# **system-assigned managed identity** against the ACR token service -- the
-# app is given the AcrPull role on the registry scope and no registry
-# credential is stored in the deployment. There is no admin password, no
-# secret reference, and no PAT anywhere in the chain.
+# The image is published as a **public** GitHub Container Registry package
+# (scripts/build-image.sh) and Azure Container Apps pulls it **anonymously**.
+# There is no registry credential anywhere in the chain: no admin password,
+# no secret reference, no PAT, and no registry configuration on the app at
+# all. A public package is read the same way a public Docker Hub image is.
 #
-# The GitHub Actions route to a public GHCR package is kept in
-# .github/workflows/image.yml for the day the account's billing lock lifts; it
-# needs no change to the Dockerfile and needs no registry credential either,
-# because a public package is pulled anonymously.
+# Why not an Azure Container Registry in the same subscription? The pull
+# would need a credential, because registry-wide anonymous pull on ACR needs
+# the Premium tier, which is $1.67 a day. The public package costs nothing.
 #
 # Usage:
 #   scripts/provision-aca.sh
 #
 # Overrides (all optional):
-#   RG, ENV, APP, LOCATION, IMAGE, ACR, ACCOUNT, PROJECT, DEPLOYMENT, HOSTNAME
-#   Set HOSTNAME to bind a custom domain; leave it unset to use the default
+#   RG, ENV, APP, LOCATION, IMAGE, ACCOUNT, PROJECT, DEPLOYMENT
+#   IDENTITY       the user-assigned managed identity to create or reuse
+#   CUSTOM_HOST   the custom domain to bind, e.g. demo.nurulgofran.dev
+#   Set CUSTOM_HOST to bind a custom domain; leave it unset to use the default
 #   *.azurecontainerapps.io FQDN.
 
 set -euo pipefail
@@ -40,16 +55,18 @@ RG="${RG:-touchline-rg}"
 ENV="${ENV:-touchline-env}"
 APP="${APP:-touchline-app}"
 LOCATION="${LOCATION:-germanywestcentral}"
-ACR="${ACR:-touchlineacr}"
-IMAGE="${IMAGE:-touchlineacr.azurecr.io/touchline-intelligence:v1}"
+IMAGE="${IMAGE:-ghcr.io/nurulgofran/touchline-intelligence:v1}"
 ACCOUNT="${ACCOUNT:-touchlinefoundry}"
 PROJECT="${PROJECT:-touchline}"
 DEPLOYMENT="${DEPLOYMENT:-gpt-5-mini}"
-HOSTNAME="${HOSTNAME:-}"
+CUSTOM_HOST="${CUSTOM_HOST:-}"
+IDENTITY="${IDENTITY:-touchline-identity}"
 
-# The registry the app pulls from. Set REGISTRY_SERVER empty for an anonymous
-# pull from a public package (the GHCR route); leave it set for the ACR route.
-REGISTRY_SERVER="${REGISTRY_SERVER:-touchlineacr.azurecr.io}"
+# The registry the app pulls from. Empty means an anonymous pull from a
+# public package, which is the deployment's route: the registry flags are
+# omitted entirely and no credential is stored.
+REGISTRY_SERVER="${REGISTRY_SERVER:-}"
+ACR="${ACR:-touchlineacr}"
 
 # minReplicas 1  -> the demo URL never scales to zero, so a judge never waits on
 #                    a cold start. This is the cost driver and it is deliberate.
@@ -86,8 +103,8 @@ SUB="$(az account show --query id -o tsv)"
 SUB_NAME="$(az account show --query name -o tsv)"
 note "subscription: $SUB_NAME ($SUB)"
 
-# The role assignment below scopes to the Foundry account's resource group, and
-# a managed identity can only be granted a role on a resource in its own
+# The role assignments below scope to resources in this subscription, and a
+# managed identity can only be granted a role on a resource in its own
 # subscription. Foundry and Container Apps therefore have to live together.
 if ! az cognitiveservices account show -n "$ACCOUNT" -g "$RG" >/dev/null 2>&1; then
     echo "Foundry account '$ACCOUNT' not found in '$RG'." >&2
@@ -127,82 +144,78 @@ LAW_KEY="$(az monitor log-analytics workspace get-shared-keys -g "$RG" -n "$LAW"
 if az containerapp env show -n "$ENV" -g "$RG" >/dev/null 2>&1; then
     note "$ENV already exists - leaving it alone"
 else
-    az containerapp env create -n "$ENV" -g "$RG" -l "$LOCATION" \
-        --logs-workspace-id "$LAW_ID" --logs-workspace-key "$LAW_KEY" \
-        --output none
+    # The first attempt on a fresh subscription fails with "There is not
+    # enough space on the disk" and leaves the environment behind in a Failed
+    # state. Deleting it and asking again succeeds -- the second allocation
+    # finds the space the first one was holding.
+    if ! az containerapp env create -n "$ENV" -g "$RG" -l "$LOCATION" \
+            --logs-workspace-id "$LAW_ID" --logs-workspace-key "$LAW_KEY" \
+            --output none 2>/dev/null; then
+        note "the first attempt failed - deleting it and trying once more"
+        az containerapp env delete -n "$ENV" -g "$RG" --yes --output none 2>/dev/null || true
+        az containerapp env create -n "$ENV" -g "$RG" -l "$LOCATION" \
+            --logs-workspace-id "$LAW_ID" --logs-workspace-key "$LAW_KEY" \
+            --output none
+    fi
     note "created $ENV"
 fi
 
-# --- the registry ------------------------------------------------------------
-#
-# The image is built in Azure by ACR Tasks (scripts/build-image.sh) and pushed
-# to this registry. The registry is in the same subscription as the Container
-# App, so the pull authenticates with the app's managed identity against the
-# ACR token service: the app gets the AcrPull role on the registry scope and
-# no registry credential is stored in the deployment.
+ENV_ID="/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.App/managedEnvironments/$ENV"
 
-say "Container registry"
+# --- the managed identity ---------------------------------------------------
 
-if [ -n "$REGISTRY_SERVER" ]; then
-    if ! az acr show -g "$RG" -n "$ACR" >/dev/null 2>&1; then
-        az acr create -g "$RG" -n "$ACR" --sku Basic -l "$LOCATION" \
-            --admin-enabled false --output none
-        note "created $ACR"
-    else
-        note "$ACR already exists"
-    fi
+say "Managed identity"
 
-    if ! az acr repository show --name "$ACR" --repository "${IMAGE##*/}" >/dev/null 2>&1; then
-        note "the image is not in the registry yet - building it with ACR Tasks"
-        scripts/build-image.sh
-    else
-        note "image already in the registry"
-    fi
+if az identity show -g "$RG" -n "$IDENTITY" >/dev/null 2>&1; then
+    note "$IDENTITY already exists"
+else
+    az identity create -g "$RG" -n "$IDENTITY" --output none
+    note "created $IDENTITY"
 fi
 
+UAI_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query id -o tsv)"
+UAI_CLIENT="$(az identity show -g "$RG" -n "$IDENTITY" --query clientId -o tsv)"
+UAI_PRINCIPAL="$(az identity show -g "$RG" -n "$IDENTITY" --query principalId -o tsv)"
+note "client id: $UAI_CLIENT"
+
 # --- the application ---------------------------------------------------------
-#
-# --registry-identity system: the pull uses the app's system-assigned managed
-# identity, so there is no --registry-username and no --registry-password.
-# Leave REGISTRY_SERVER empty for an anonymous pull from a public package
-# (the GHCR route), where the registry flags are omitted entirely.
 
 say "Container App"
+
+DOMAIN="$(az containerapp env show -n "$ENV" -g "$RG" \
+    --query "properties.defaultDomain" -o tsv)"
+FQDN="$APP.$DOMAIN"
+note "url: https://$FQDN"
+
+REGISTRY_ARGS=()
+if [ -n "$REGISTRY_SERVER" ]; then
+    # The pull authenticates with the managed identity against the registry's
+    # token service, so there is no --registry-username and no
+    # --registry-password, and the deployment holds no registry credential.
+    REGISTRY_ARGS=(--registry-server "$REGISTRY_SERVER" --registry-identity "$UAI_ID")
+    note "pulling from $REGISTRY_SERVER with the managed identity"
+fi
 
 if az containerapp show -n "$APP" -g "$RG" >/dev/null 2>&1; then
     note "$APP already exists - recreating so the image and settings are current"
     az containerapp delete -n "$APP" -g "$RG" --yes --output none
 fi
 
-REGISTRY_ARGS=()
-if [ -n "$REGISTRY_SERVER" ]; then
-    REGISTRY_ARGS=(--registry-server "$REGISTRY_SERVER" --registry-identity system)
-fi
-
 az containerapp create \
     -n "$APP" -g "$RG" --environment "$ENV" \
+    --workload-profile-name Consumption \
     --image "$IMAGE" \
-    "${REGISTRY_ARGS[@]}" \
+    ${REGISTRY_ARGS[@]+"${REGISTRY_ARGS[@]}"} \
     --target-port "$TARGET_PORT" --ingress external --transport auto \
     --min-replicas "$MIN_REPLICAS" --max-replicas "$MAX_REPLICAS" \
     --cpu "$CPU" --memory "$MEMORY" \
-    --env-vars "FOUNDRY_PROJECT_ENDPOINT=$PROJECT_ENDPOINT" "FOUNDRY_MODEL=$DEPLOYMENT" \
-    --system-assigned \
+    --env-vars "FOUNDRY_PROJECT_ENDPOINT=$PROJECT_ENDPOINT" \
+              "FOUNDRY_MODEL=$DEPLOYMENT" \
+              "TOUCHLINE_PUBLIC_URL=https://$FQDN" \
+              "AZURE_CLIENT_ID=$UAI_CLIENT" \
+    --user-assigned "$UAI_ID" \
     --output none
 note "created $APP"
-
-FQDN="$(az containerapp show -n "$APP" -g "$RG" --query "properties.configuration.ingress.fqdn" -o tsv)"
-note "url: https://$FQDN"
-
-# The agent card publishes the address the service is reachable at, and the
-# A2A client dials it. Neither can be guessed before the app exists, so the
-# public URL is set once the FQDN is known and the revision is restarted.
-# Without it the card would publish http://localhost:8000, which is right in
-# a dev shell and wrong on the demo URL.
-az containerapp update -n "$APP" -g "$RG" \
-    --set-env-vars "TOUCHLINE_PUBLIC_URL=https://$FQDN" \
-    --output none
-note "public url set to https://$FQDN"
 
 # --- health probes -----------------------------------------------------------
 #
@@ -224,6 +237,7 @@ properties:
   template:
     containers:
       - name: $CONTAINER_NAME
+        image: $IMAGE
         probes:
           - type: Liveness
             httpGet:
@@ -254,84 +268,63 @@ else
     note "$PROBES probes applied"
 fi
 
-# --- managed identity -> Foundry --------------------------------------------
+# --- role assignments --------------------------------------------------------
 #
 # "Foundry User" (formerly "Azure AI User") is the role the Foundry
 # documentation prescribes for a Foundry project. The Cognitive Services*
-# roles are for AI Services resources accessed directly and do not apply here.
+# roles are for AI Services resources accessed directly and do NOT apply here.
 
-say "Managed identity and role assignment"
+say "Role assignments"
 
-PRINCIPAL="$(az containerapp show -n "$APP" -g "$RG" --query identity.principalId -o tsv)"
-note "principal: $PRINCIPAL"
-
-# AcrPull on the registry scope, so the image is pulled with the identity
-# rather than with a stored credential. The first revision cannot pull until
-# this role exists, so the revision is forced afterwards -- see below.
-if [ -n "$REGISTRY_SERVER" ]; then
-    ACR_SCOPE="/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ContainerRegistry/registries/$ACR"
-    if az role assignment list --scope "$ACR_SCOPE" --assignee-object-id "$PRINCIPAL" \
-            --query "[?contains(roleName, 'AcrPull')].id" -o tsv 2>/dev/null | grep -q .; then
-        note "AcrPull already assigned"
+assign() {
+    local role="$1" scope="$2"
+    if az role assignment list --scope "$scope" --assignee-object-id "$UAI_PRINCIPAL" \
+            --query "[?contains(roleName, '$role')].id" -o tsv 2>/dev/null | grep -q .; then
+        note "$role already assigned"
     else
         az role assignment create \
-            --role "AcrPull" \
-            --assignee-object-id "$PRINCIPAL" --assignee-principal-type ServicePrincipal \
-            --scope "$ACR_SCOPE" \
+            --role "$role" \
+            --assignee-object-id "$UAI_PRINCIPAL" --assignee-principal-type ServicePrincipal \
+            --scope "$scope" \
             --output none
-        note "assigned AcrPull"
+        note "assigned $role"
     fi
+}
+
+assign "Foundry User" \
+    "/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.CognitiveServices/accounts/$ACCOUNT"
+
+if [ -n "$REGISTRY_SERVER" ]; then
+    assign "AcrPull" \
+        "/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ContainerRegistry/registries/$ACR"
 fi
 
-SCOPE="/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.CognitiveServices/accounts/$ACCOUNT"
+cat <<EOF
+    If the app gets 401/403 from Foundry, work this order:
+      1. Wait and retry. The managed-identity back end caches tokens per
+         resource URI for up to ~24h, so a token minted before the role
+         existed keeps its old permissions until it expires.
+      2. Force a fresh token by restarting the revision:
+           az containerapp revision restart -n "$APP" -g "$RG" --revision <name>
+      3. Only then is the role wrong - try "Cognitive Services OpenAI User"
+         on the same scope.
+EOF
 
-if az role assignment list --scope "$SCOPE" --assignee-object-id "$PRINCIPAL" \
-        --query "[?contains(roleName, 'Foundry User')].id" -o tsv 2>/dev/null | grep -q .; then
-    note "Foundry User already assigned"
-else
-    az role assignment create \
-        --role "Foundry User" \
-        --assignee-object-id "$PRINCIPAL" --assignee-principal-type ServicePrincipal \
-        --scope "$SCOPE" \
-        --output none
-    note "assigned Foundry User"
-fi
-
-# --- the revision ------------------------------------------------------------
-#
-# The revisions created above were built before AcrPull existed on the app's
-# identity, so their pull was refused. A new revision is created now that the
-# identity can pull; it is the one that serves the demo.
+# --- wait for it to serve ----------------------------------------------------
 
 say "Revision"
 
-az containerapp update -n "$APP" -g "$RG" --image "$IMAGE" --output none
-note "new revision created"
-
-# Wait for it to come up. The app analyses the match in the background from
-# the moment it starts, so a healthy revision means the demo is live.
-for _ in $(seq 1 30); do
+# The container starts and analyses the match in the background, so a running
+# revision with a warm replica is what "the demo is live" means.
+for _ in $(seq 1 40); do
     STATE="$(az containerapp revision list -n "$APP" -g "$RG" \
-        --query "[?active].properties.runningState" -o tsv 2>/dev/null | head -1)"
+        --query "[?properties.active].properties.runningState" -o tsv 2>/dev/null | head -1)"
     if [ "${STATE:-}" = "Running" ]; then
         note "revision running"
         break
     fi
     sleep 10
 done
-
-cat <<EOF
-    If the app gets 401/403 from Foundry, work this order:
-      1. Wait and retry. The managed-identity back end caches tokens per resource
-         URI for up to ~24h, so a token minted before the role existed keeps its
-         old permissions until it expires.
-      2. Force a fresh token by restarting the revision or redeploying.
-      3. Only then is the role wrong - try "Cognitive Services OpenAI User" on
-         the same scope:
-           az role assignment create --role "Cognitive Services OpenAI User" \\
-             --assignee-object-id "$PRINCIPAL" \\
-             --assignee-principal-type ServicePrincipal --scope "$SCOPE"
-EOF
 
 # --- custom domain -----------------------------------------------------------
 #
@@ -343,20 +336,20 @@ EOF
 
 say "Custom domain"
 
-if [ -n "$HOSTNAME" ]; then
+if [ -n "$CUSTOM_HOST" ]; then
     VERIFY_ID="$(az containerapp show -n "$APP" -g "$RG" \
         --query "properties.customDomainVerificationId" -o tsv)"
     cat <<EOF
     Add these DNS records, then re-run this script to bind:
-        CNAME  $HOSTNAME  ->  $FQDN
-        TXT    asuid.$HOSTNAME  ->  $VERIFY_ID
+        CNAME  $CUSTOM_HOST  ->  $FQDN
+        TXT    asuid.$CUSTOM_HOST  ->  $VERIFY_ID
 EOF
     az containerapp hostname bind -n "$APP" -g "$RG" \
-        --hostname "$HOSTNAME" --environment "$ENV" --validation-method CNAME \
+        --hostname "$CUSTOM_HOST" --environment "$ENV" --validation-method CNAME \
         --output none || true
     note "bind attempted - the managed certificate is issued asynchronously"
 else
-    note "HOSTNAME not set - using the default FQDN"
+    note "CUSTOM_HOST not set - using the default FQDN"
 fi
 
 # --- report ------------------------------------------------------------------
@@ -368,6 +361,7 @@ cat <<EOF
     replicas       : min $MIN_REPLICAS / max $MAX_REPLICAS
     probe endpoint : https://$FQDN/healthz
     foundry model  : $DEPLOYMENT
+    identity       : $IDENTITY (user-assigned, keyless)
 
     Watch the spend. The container costs about \$15 over the 16 days to the end
     of judging, but the retail price list also carries an "Environment Management
