@@ -1,0 +1,27 @@
+# Keep the build context small and keep secrets out of the image.
+.git
+.github
+.gitignore
+.venv
+venv
+__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+node_modules
+dist
+.vite
+data
+artifacts
+.env
+.env.*
+*.pem
+*.key
+secrets
+tests
+.DS_Store
+*.log
+PLAN.md
+docs

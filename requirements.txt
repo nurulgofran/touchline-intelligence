@@ -1,0 +1,24 @@
+# Runtime dependencies for the deployed service.
+#
+# Notes on provider packages:
+#   - `agent-framework-openai` and the `openai` SDK are pulled in transitively by
+#     `agent-framework-foundry` -- the Foundry chat client is built on the OpenAI
+#     transport -- so `openai` must NOT be removed from the lockfile even though no
+#     OpenAI-compatible *endpoint* is used by this project.
+#   - The `agent-framework` meta-package is deliberately avoided: it installs every
+#     provider (Azure AI, Anthropic, Bedrock, Ollama, ...) and its transitive tree.
+#     Only the specific provider packages below are needed.
+agent-framework-core==1.22.0
+agent-framework-openai==1.17.0
+agent-framework-foundry==1.15.0
+agent-framework-a2a==1.0.0b261015
+a2a-sdk>=1.0.0
+azure-identity>=1.26.0
+azure-ai-projects>=2.2.0,<2.8.0
+fastapi>=0.115
+uvicorn[standard]>=0.32
+pydantic>=2.9
+httpx>=0.27
+python-dotenv>=1.0
+numpy>=1.26
+opencv-python-headless>=4.10

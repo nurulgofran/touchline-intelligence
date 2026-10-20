@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "touchline-intelligence"
+version = "0.1.0"
+description = "Synthetic match insights engine: seeded simulator, shared state, and grounded narrative providers."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+dependencies = ["pydantic>=2.9"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6", "numpy>=1.26"]
+
+[project.scripts]
+touchline-sim = "touchline.sim.generator:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/touchline"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/touchline", "schemas", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# UP042 wants `enum.StrEnum`; the project contract pins the enums to
+# `class X(str, Enum)` so that the values serialise as plain strings.
+ignore = ["RUF001", "RUF002", "RUF003", "UP042"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_ignores = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+packages = ["touchline"]

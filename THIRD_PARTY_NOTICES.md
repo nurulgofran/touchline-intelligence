@@ -7,16 +7,16 @@ repository's code or on the hackathon submission.
 
 | Project | Licence | Use |
 |---|---|---|
-| [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (`agent-framework`, `agent-framework-openai`, `agent-framework-a2a`) | MIT | Orchestration runtime, agent definitions, A2A hosting |
-| [Microsoft Foundry / Azure OpenAI SDKs](https://learn.microsoft.com/azure/ai-foundry/) | MIT / Apache-2.0 | Deployed model inference and Foundry project integration |
+| [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (`agent-framework-core`, `agent-framework-foundry`, `agent-framework-openai`, `agent-framework-a2a`) | MIT | Orchestration runtime, agent definitions, the Foundry chat client, A2A hosting |
+| [Microsoft Foundry / Azure AI SDKs](https://learn.microsoft.com/azure/ai-foundry/) (`azure-ai-projects`, `azure-ai-inference`) | MIT / Apache-2.0 | Model inference and Foundry project integration — the deployed demo *and* local development. Provisioned by `scripts/provision-foundry.sh` with the Azure CLI |
 | [A2A Protocol SDK](https://github.com/a2aproject/a2a-python) (`a2a-sdk`) | Apache-2.0 | A2A agent card, task store, and transport bindings |
 | [OpenCV](https://opencv.org) (`opencv-python-headless`) | Apache-2.0 | Real-time video tracking for the auto-eventing path |
 | [NumPy](https://numpy.org) | BSD-3-Clause | Numeric work in the metrics and tracker |
 | [FastAPI](https://fastapi.tiangolo.com) | MIT | HTTP API and WebSocket transport |
 | [Uvicorn](https://www.uvicorn.org) | BSD-3-Clause | ASGI server |
 | [Pydantic](https://docs.pydantic.dev) | MIT | Event, insight, and overlay schemas |
-| [openai-python](https://github.com/openai/openai-python) | Apache-2.0 | OpenAI-compatible chat client (local dev + resilience fallback) |
-| [Azure Identity](https://github.com/Azure/azure-sdk-for-python) | MIT | Managed-identity / key auth for Foundry |
+| [openai-python](https://github.com/openai/openai-python) | Apache-2.0 | Chat transport for the Microsoft Foundry client — `agent-framework-foundry` depends on `agent-framework-openai`, which depends on `openai`. No OpenAI-compatible third-party endpoint is used |
+| [Azure Identity](https://github.com/Azure/azure-sdk-for-python) | MIT | Managed-identity / key auth for Foundry, Azure Container Apps, and Azure Container Registry |
 | [SQLAlchemy](https://www.sqlalchemy.org) / [psycopg](https://www.psycopg.org) | MIT / LGPL-3.0 | Optional durable store for the event log and handoff trace |
 | [pytest](https://pytest.org) | MIT | Test suite |
 | [mypy](https://mypy-lang.org) / [Ruff](https://docs.astral.sh/ruff) | MIT | Type checking and linting |
@@ -26,6 +26,14 @@ repository's code or on the hackathon submission.
 | [Tailwind CSS](https://tailwindcss.com) | MIT | Frontend styling |
 
 Transitive dependencies carry their own licences, as published with each package.
+
+## A note on the `openai-python` dependency
+
+`openai-python` is a **transitive dependency of the Foundry path, not a second model provider.**
+`agent-framework-foundry` (which provides `FoundryChatClient`) requires `agent-framework-openai`,
+which requires `openai>=2.25.0`; the Foundry chat client is built on the OpenAI chat transport.
+The project uses no OpenAI-compatible *endpoint* — the SDK is simply the transport underneath the
+Microsoft Foundry client. It must not be removed from the lockfile.
 
 ## Data, media, and trademarks
 

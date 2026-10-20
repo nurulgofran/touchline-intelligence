@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://touchline.local/schemas/overlay.schema.json",
+  "title": "Overlay",
+  "description": "A single timed on-screen overlay rendered by the broadcast UI.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "title": "Schema Version",
+      "description": "Version of this overlay contract.",
+      "type": "string",
+      "default": "1.0"
+    },
+    "overlay_id": {
+      "title": "Overlay Id",
+      "description": "Stable identifier of the overlay.",
+      "type": "string"
+    },
+    "type": {
+      "$ref": "#/$defs/OverlayType"
+    },
+    "start_ms": {
+      "title": "Start Ms",
+      "description": "Overlay appears at this match clock.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "end_ms": {
+      "title": "End Ms",
+      "description": "Overlay disappears at this match clock.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "match_clock_ms": {
+      "title": "Match Clock Ms",
+      "description": "Clock the overlay is anchored to.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5400000
+    },
+    "title": {
+      "title": "Title",
+      "description": "Short headline shown above the body.",
+      "type": "string"
+    },
+    "body": {
+      "title": "Body",
+      "description": "The narrative text of the overlay.",
+      "type": "string"
+    },
+    "metrics": {
+      "title": "Metrics",
+      "description": "The numbers the narrative rests on.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MetricValue"
+      }
+    },
+    "cited_event_ids": {
+      "title": "Cited Event Ids",
+      "description": "Event ids the narrative rests on.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "locale": {
+      "title": "Locale",
+      "description": "Language of the rendered text.",
+      "type": "string",
+      "default": "en"
+    },
+    "confidence": {
+      "title": "Confidence",
+      "description": "Confidence in the narrative, between 0 and 1.",
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "default": 0.5
+    }
+  },
+  "required": [
+    "schema_version",
+    "overlay_id",
+    "type",
+    "start_ms",
+    "end_ms",
+    "match_clock_ms",
+    "title",
+    "body",
+    "metrics",
+    "cited_event_ids"
+  ],
+  "$defs": {
+    "OverlayType": {
+      "title": "OverlayType",
+      "description": "What kind of overlay this is, which decides how the UI renders it.",
+      "type": "string",
+      "enum": [
+        "TACTICAL",
+        "STAT",
+        "NARRATIVE",
+        "ALERT",
+        "RECAP"
+      ]
+    },
+    "MetricValue": {
+      "title": "MetricValue",
+      "description": "A single number shown next to an insight, with its unit and a label.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "description": "Machine name of the metric, e.g. 'pass_accuracy'.",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "unit": {
+          "title": "Unit",
+          "description": "Unit of measurement, e.g. '%' or 'm'.",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "description": "Human-readable label, translated per locale.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "unit",
+        "label"
+      ]
+    }
+  }
+}
