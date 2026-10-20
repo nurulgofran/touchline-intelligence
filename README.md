@@ -83,9 +83,16 @@ lives in `~/.touchline-secrets.env` (mode 600, outside the repo).
 The studio is the demo: a live match on a pitch, the momentum curve, the insights as they are
 explained, and the agent trace showing every hand-off.
 
-**Demo URL: `demo.nurulgofran.dev`** — a custom domain bound to the Azure Container App's
-generated FQDN, which is `https://touchline-app.icywave-bfcbf183.germanywestcentral.azurecontainerapps.io`
-and works on its own whatever the domain does. The container app is provisioned by
+**Demo URL: `https://touchline-app.icywave-bfcbf183.germanywestcentral.azurecontainerapps.io`**
+
+That is the published URL, and it is the only one. Azure Container Apps' **Consumption
+(Express) environment does not support custom domains** — the control plane refuses the binding
+outright with *"Custom Domains is not supported for container app … on express environments"*, and
+its hostname-analysis endpoint answers `500` for every hostname, including hosts inside the
+environment's own DNS suffix. That is a property of the environment tier, not of the DNS: no
+CNAME or TXT record makes it work. A custom domain would need a Dedicated (workload-profiles)
+environment, which is a different hosting tier and a different bill — so the app's own FQDN is
+the published URL. The container app is provisioned by
 [`scripts/provision-aca.sh`](./scripts/provision-aca.sh); the studio also runs locally:
 
 ```bash

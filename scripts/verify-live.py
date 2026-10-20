@@ -8,7 +8,8 @@ WebSocket frames the studio actually renders, and the studio itself served
 from the same origin.
 
 Usage:
-    python scripts/verify-live.py https://demo.nurulgofran.dev
+    python scripts/verify-live.py \
+        https://<app>.<env>.<region>.azurecontainerapps.io
     python scripts/verify-live.py \
         https://<app>.<env>.<region>.azurecontainerapps.io --wait 180
 

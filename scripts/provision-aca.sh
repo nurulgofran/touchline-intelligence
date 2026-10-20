@@ -41,9 +41,18 @@
 # Overrides (all optional):
 #   RG, ENV, APP, LOCATION, IMAGE, ACCOUNT, PROJECT, DEPLOYMENT
 #   IDENTITY       the user-assigned managed identity to create or reuse
-#   CUSTOM_HOST   the custom domain to bind, e.g. demo.nurulgofran.dev
-#   Set CUSTOM_HOST to bind a custom domain; leave it unset to use the default
-#   *.azurecontainerapps.io FQDN.
+#   CUSTOM_HOST   a custom domain to bind, e.g. demo.example.com
+#
+# Custom domains
+# --------------
+# CUSTOM_HOST only works on a Dedicated (workload-profiles) environment. The
+# Consumption (Express) environment this script provisions does not support
+# them at all, and the control plane says so plainly: "Custom Domains is not
+# supported for container app ... on express environments". Its
+# hostname-analysis endpoint answers 500 for every hostname, including hosts
+# inside the environment's own DNS suffix, so the failure is the environment
+# tier and not the DNS. The script detects the tier and reports it instead of
+# attempting a binding that cannot succeed.
 
 set -euo pipefail
 
@@ -341,15 +350,40 @@ done
 
 # --- custom domain -----------------------------------------------------------
 #
-# demo.nurulgofran.dev is a subdomain, so the DNS records are a CNAME pointing
-# directly at the app's generated FQDN, plus a TXT record at asuid.demo holding
-# the app's customDomainVerificationId. A CNAME that points at an intermediary
-# (a proxying CDN, say) blocks certificate issuance, as does a CAA record that
+# A custom domain needs a Dedicated (workload-profiles) environment. This
+# script provisions a Consumption (Express) environment, where the control
+# plane refuses custom domains outright:
+#
+#   'Custom Domains' is not supported for container app '<app>' on express
+#   environments. Please remove
+#   'properties.configuration.ingress.customDomains' from the request.
+#
+# Its hostname-analysis endpoint answers 500 for every hostname, including
+# hosts inside the environment's own DNS suffix, which is how the tier limit
+# surfaces before that message does. So the tier is checked first and the
+# binding is only attempted where it can succeed.
+#
+# Where it can succeed the DNS is a CNAME pointing directly at the app's
+# generated FQDN, plus a TXT record at asuid.<host> holding the app's
+# customDomainVerificationId. A CNAME that points at an intermediary (a
+# proxying CDN, say) blocks certificate issuance, as does a CAA record that
 # does not allow digicert.com.
 
 say "Custom domain"
 
-if [ -n "$CUSTOM_HOST" ]; then
+PROFILE_TYPE="$(az containerapp env show -n "$ENV" -g "$RG" \
+    --query "properties.workloadProfiles[0].workloadProfileType" -o tsv 2>/dev/null || true)"
+
+if [ -z "$CUSTOM_HOST" ]; then
+    note "CUSTOM_HOST not set - the published URL is the app's own FQDN"
+elif [ "$PROFILE_TYPE" = "Consumption" ]; then
+    note "the environment is a Consumption (Express) environment"
+    note "custom domains are not supported there - the control plane refuses the"
+    note "binding with \"'Custom Domains' is not supported for container app ... on"
+    note "express environments\". That is the environment tier, not the DNS: no"
+    note "CNAME or TXT record makes it work."
+    note "the published URL stays https://$FQDN"
+else
     VERIFY_ID="$(az containerapp show -n "$APP" -g "$RG" \
         --query "properties.customDomainVerificationId" -o tsv)"
     cat <<EOF
@@ -361,8 +395,6 @@ EOF
         --hostname "$CUSTOM_HOST" --environment "$ENV" --validation-method CNAME \
         --output none || true
     note "bind attempted - the managed certificate is issued asynchronously"
-else
-    note "CUSTOM_HOST not set - using the default FQDN"
 fi
 
 # --- report ------------------------------------------------------------------
