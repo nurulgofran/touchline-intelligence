@@ -171,6 +171,7 @@ class LiveMatchEngine:
         mode: str = "analyst",
         audience: Audience | None = None,
         stretch_ms: int | None = None,
+        rewrite_concurrency: int = 4,
     ) -> None:
         """Create the engine.
 
@@ -188,6 +189,10 @@ class LiveMatchEngine:
             stretch_ms: How much match time one stretch covers. The
                 analyst's own feed interval is used when absent, so the
                 stretches line up with the feed exactly.
+            rewrite_concurrency: How many insights are rewritten at once
+                when the reader changes. Four is enough to turn a minute
+                of waiting into a few seconds without turning into a
+                burst of requests the model deployment would refuse.
         """
         from touchline.providers.clients import build_client
 
@@ -209,6 +214,7 @@ class LiveMatchEngine:
 
         self._analyst = MatchAnalyst(team_names=self._team_names)
         self._stretch_ms = stretch_ms or self._analyst.thresholds.feed_interval_ms
+        self._rewrite_concurrency = max(1, int(rewrite_concurrency))
 
         # The shared state of one match: the event log grows, the ledger of
         # hand-offs grows, and the set of insights already handed to the
@@ -457,21 +463,34 @@ class LiveMatchEngine:
             self._mode = audience.mode.value
             self._revision += 1
 
-            overlays: list[Overlay] = []
+            # The rewrites are independent of one another -- each is one
+            # insight, one audience, one model call -- so they are run
+            # together rather than one after the other. Done one at a time,
+            # a language change took the better part of a minute, and the
+            # person who asked for it was left watching a spinner.
+            jobs: list[tuple[Any, Any]] = []
             for result in self._results:
                 for candidate in result.candidates:
                     narration = result.narration_for(candidate.candidate_id)
                     if narration is None:
                         continue
-                    overlays.append(
-                        await self._personalizer.personalise(
-                            candidate,
-                            narration,
-                            audience=audience,
-                            events=self._cited_events(candidate),
-                            revision=self._revision,
-                        )
+                    jobs.append((candidate, narration))
+
+            limit = asyncio.Semaphore(self._rewrite_concurrency)
+
+            async def rewrite(candidate: Any, narration: Any) -> Overlay:
+                async with limit:
+                    return await self._personalizer.personalise(
+                        candidate,
+                        narration,
+                        audience=audience,
+                        events=self._cited_events(candidate),
+                        revision=self._revision,
                     )
+
+            overlays: list[Overlay] = list(
+                await asyncio.gather(*(rewrite(c, n) for c, n in jobs))
+            )
             self._overlays = overlays
             self._recap = self._build_recap()
             if self._recap is not None:

@@ -63,7 +63,8 @@ and no fallback deployment.
 
 The demo URL below is a live deployment, not a recording:
 
-- **132 model calls, 0 template fallbacks.** The badge reads *Microsoft Foundry · live*.
+- **Every model call served by Foundry; none by the template engine.** The badge reads
+  *Microsoft Foundry · live*, and the counter behind it has never fallen back.
 - **45 explained moments** from 1,051 synthetic events over 90 minutes.
 - **340 typed hand-offs** between the stages, every one visible in the agent trace.
 - **The vision tracker, scored against ground truth:** 100% precision, 85.4% recall,

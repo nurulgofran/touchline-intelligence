@@ -63,6 +63,68 @@ def engine() -> LiveMatchEngine:
     return asyncio.run(build())
 
 
+
+class _CountingPersonalizer:
+    """A Personaliser that records how many rewrites run at once."""
+
+    def __init__(self) -> None:
+        self.running = 0
+        self.peak = 0
+        self.calls = 0
+
+    async def personalise(self, candidate, narration, **kwargs):
+        self.running += 1
+        self.calls += 1
+        self.peak = max(self.peak, self.running)
+        try:
+            await asyncio.sleep(0.02)
+            from touchline.agents.audience import project_candidate
+            from touchline.providers import template
+
+            projected = project_candidate(
+                candidate,
+                kwargs.get("audience"),
+                kwargs.get("events", []),
+                team_names={},
+            )
+            return template.build_overlay(
+                projected,
+                title="t",
+                body="b",
+                locale=kwargs.get("audience").locale,
+                mode=kwargs.get("audience").mode.value,
+                revision=kwargs.get("revision", 0),
+            )
+        finally:
+            self.running -= 1
+
+
+def test_a_reader_change_rewrites_the_insights_together() -> None:
+    """The rewrites run at the same time, not one after the other.
+
+    A reader change is one model call per insight. Done one at a time, a
+    language change took the better part of a minute and the person who
+    asked for it was left watching a spinner. They are independent of one
+    another, so they run together -- within a limit, because a burst of
+    requests is a burst the model deployment may refuse.
+    """
+    from touchline.live.engine import LiveMatchEngine
+    from touchline.models.audience import Audience, AudienceMode
+
+    async def run():
+        engine = LiveMatchEngine(seed=SEED, client=TemplateChatClient())
+        assert await engine.wait_for(engine.duration_ms, timeout=180)
+        counter = _CountingPersonalizer()
+        engine._personalizer = counter
+        await engine.set_audience(Audience(mode=AudienceMode.FAN, locale="de"))
+        await engine.close()
+        return counter
+
+    counter = asyncio.run(run())
+    assert counter.calls > 1, "there was nothing to rewrite"
+    assert counter.peak > 1, "the rewrites ran one after the other"
+
+
 def test_the_live_feed_is_the_batch_feed(engine: LiveMatchEngine) -> None:
     """The live feed and the whole-match feed carry the same insights.
 

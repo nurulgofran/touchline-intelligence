@@ -38,8 +38,9 @@ PROVIDER  Microsoft Foundry  ● LIVE
 That is not a label — it is the provider that served the most recent model call, read
 back from the service. `live` means Foundry. If the service had to fall back to the
 template engine, the badge would say **Template engine** with an amber **fallback**
-chip, and that would be visible rather than hidden. The deployed demo has made **132
-model calls with 0 fallbacks**.
+chip, and that would be visible rather than hidden. The deployed demo has made
+**hundreds of model calls with 0 fallbacks** — the counter on `/healthz` is the
+live figure, and it grows every time somebody uses the demo.
 
 You can confirm the same thing from a terminal:
 
@@ -54,12 +55,16 @@ curl -s https://touchline-app.icywave-bfcbf183.germanywestcentral.azurecontainer
     "configured_provider": "Microsoft Foundry",
     "last_call_provider": "Microsoft Foundry",
     "last_call_state": "live",
-    "call_count": 132,
+    "call_count": 500,
     "fallback_count": 0
   },
   "match": {"seed": 42, "computed_ms": 5400000, "insights": 45}
 }
 ```
+
+(`call_count` is live — it grows every time the demo is used. `fallback_count`
+is the one that matters: it is the number of times the template engine had to
+answer instead of Foundry, and it is zero.)
 
 ## Driving the match
 
