@@ -33,13 +33,38 @@ from typing import Any
 from touchline.models.insights import InsightCandidate
 
 __all__ = [
+    "LANGUAGE_NAMES",
     "TASK_EXPLAIN",
     "TASK_NARRATE",
     "TASK_PERSONALISE",
     "Payload",
     "decode_payload",
     "encode_payload",
+    "language_brief",
 ]
+
+#: The language a locale code stands for. A model asked to write in "de"
+#: does not reliably work out that this means German, especially with an
+#: English reading in front of it, so the prompts carry the name as well as
+#: the code.
+LANGUAGE_NAMES: dict[str, str] = {
+    "en": "English",
+    "de": "German",
+    "bn": "Bengali",
+}
+
+
+def language_brief(locale: str) -> str:
+    """The name of the language a locale code stands for.
+
+    Args:
+        locale: A locale code.
+
+    Returns:
+        The language's name, or the code itself when it is not one this
+        project speaks.
+    """
+    return LANGUAGE_NAMES.get(locale, locale)
 
 #: The agent asks for a reading: why the insight matters, and what it rests on.
 TASK_EXPLAIN = "explain"

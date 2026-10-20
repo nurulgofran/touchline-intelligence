@@ -53,6 +53,7 @@ from touchline.providers import template
 from touchline.providers.payload import (
     TASK_PERSONALISE,
     encode_payload,
+    language_brief,
     parse_json_object,
 )
 
@@ -81,7 +82,10 @@ The five audiences:
 - metric_lens: writes about one number and what it says.
 
 Rules:
-- Write in the language named in the payload.
+- Write in the language named in the LANGUAGE line of the payload. That line
+  names the language; the LOCALE line is only its code. Write the title and
+  the body in that language, even though the reading you are given is in
+  English. Do not answer in English unless the LANGUAGE line says English.
 - Match the mode. The MODE line names the audience you are writing for.
 - The title is at most 60 characters. The body is at most 220 characters.
 - Do not repeat the numbers. The headline and the figures are added to the
@@ -244,6 +248,7 @@ class PersonalizerAgent:
             mode=resolved_mode,
             reading=narration.body,
             extra={
+                "LANGUAGE": language_brief(resolved_locale),
                 "NARRATION_TITLE": narration.title,
                 "AUDIENCE_MODE": resolved_mode,
                 "AUDIENCE_SIDE": resolved.side.value if resolved.side else "-",

@@ -109,7 +109,7 @@ class CDP:
                 {"id": message_id, "method": method, "params": params or {}}
             )
         )
-        response = await asyncio.wait_for(future, timeout=60)
+        response = await asyncio.wait_for(future, timeout=240)
         if "error" in response:
             raise RuntimeError(f"{method} failed: {response['error']}")
         return response.get("result", {})
@@ -349,8 +349,8 @@ def click(text: str) -> str:
 
 
 # The same, but it waits for the control to appear. A control that is not
-# there yet is not a failure -- it is a wait -- and the feed is briefly empty
-# while the service re-narrates.
+# there yet is not a failure -- it is a wait -- and the feed is briefly
+# empty while the service re-narrates.
 CLICK_WAITING = """
 (async () => {{
   const wanted = {text};
@@ -369,28 +369,54 @@ def click_when_ready(text: str) -> str:
     return CLICK_WAITING.format(text=json.dumps(text))
 
 
-# The server re-narrates when the reader changes, and the panel says so
-# while it does. Waiting for that to finish keeps the take free of a
-# half-rewritten card.
-SETTLED = """
+# Switch the language and wait for the card to be rewritten. The body is
+# compared rather than the title, because a title can be the same word in two
+# languages. It is all one script, so the text it compares against is the
+# text that was on screen a moment earlier.
+SWITCH_LANGUAGE = """
 (async () => {{
-  let last = -1;
-  let stable = 0;
-  for (let i = 0; i < 240; i += 1) {{
-    const busy = document.body.innerText.includes('rewriting the feed');
-    const count = document.querySelectorAll('article').length;
-    if (!busy && count === last) {{
-      stable += 1;
-      if (stable >= 8) break;
-    }} else {{
-      stable = 0;
-    }}
-    last = count;
+  const card = document.querySelector('article');
+  const body = card ? card.querySelector('p') : null;
+  const before = body ? body.textContent.trim() : '';
+  const button = [...document.querySelectorAll('button')]
+    .find((b) => b.textContent.includes('Deutsch'));
+  if (!button) return false;
+  button.click();
+  for (let i = 0; i < 160; i += 1) {{
     await new Promise((r) => setTimeout(r, 250));
+    const busy = document.body.innerText.includes('rewriting the feed');
+    const now_card = document.querySelector('article');
+    const now_body = now_card ? now_card.querySelector('p') : null;
+    const now = now_body ? now_body.textContent.trim() : '';
+    if (!busy && now && now !== before) return true;
   }}
-  return true;
+  return false;
 }})()
 """
+
+
+async def wait_for_idle(cdp: CDP, quiet_ms: int = 200, timeout: float = 150.0) -> bool:
+    """Wait for the page's main thread to go quiet.
+
+    A re-narration arrives as a burst of overlay frames, and each one
+    re-renders the feed. While that is going on, anything sent to the page
+    queues behind it and comes back seconds late -- a click that should take
+    a millisecond takes twenty. So the wait measures the round trip rather
+    than guessing at it, and it wants three quiet samples in a row, because
+    a burst has gaps in it.
+    """
+    deadline = time.time() + timeout
+    quiet = 0
+    while time.time() < deadline:
+        started = time.time()
+        with contextlib.suppress(RuntimeError):
+            await cdp.evaluate("1")
+        elapsed = (time.time() - started) * 1000
+        quiet = quiet + 1 if elapsed < quiet_ms else 0
+        if quiet >= 3:
+            return True
+        await asyncio.sleep(0.4)
+    return False
 
 
 async def reset_audience(cdp: CDP) -> None:
@@ -401,12 +427,7 @@ async def reset_audience(cdp: CDP) -> None:
     """
     for label in ("Analyst", "English"):
         await cdp.evaluate(CLICK.format(text=json.dumps(label)))
-        await cdp.evaluate(SETTLED)
-
-
-def click_and_wait(text: str) -> list[str]:
-    """Click something and then wait for the studio to finish re-narrating."""
-    return [CLICK.format(text=json.dumps(text)), SETTLED]
+        await wait_for_idle(cdp)
 
 
 FOCUS_EVENT = """
@@ -420,20 +441,21 @@ FOCUS_EVENT = """
 """
 
 
-SEEK_TO_END = """
-(() => {
-  const scrubber = document.querySelector('input.scrubber');
-  if (!scrubber) return false;
-  const setter = Object.getOwnPropertyDescriptor(
-    window.HTMLInputElement.prototype, 'value').set;
-  setter.call(scrubber, scrubber.max);
-  scrubber.dispatchEvent(new Event('input', {bubbles: true}));
-  scrubber.dispatchEvent(new Event('pointerup', {bubbles: true}));
-  scrubber.dispatchEvent(new Event('change', {bubbles: true}));
-  scrubber.dispatchEvent(new Event('keyup', {bubbles: true}));
-  scrubber.blur();
-  return true;
-})()
+# Run the match out to full time with the control the interface offers.
+# "Next key moment" walks the clock to the last insight and the recap, and
+# it is the button a judge would press.
+SPRINT_TO_END = """
+(async () => {{
+  const find = () => [...document.querySelectorAll('button')]
+    .find((x) => x.textContent.includes('Next key moment'));
+  for (let i = 0; i < 120; i += 1) {{
+    const button = find();
+    if (!button || button.disabled) return i;
+    button.click();
+    await new Promise((r) => setTimeout(r, 120));
+  }}
+  return -1;
+}})()
 """
 
 
@@ -484,6 +506,39 @@ async def limit_insight(cdp: CDP, text: str, limit: int = 150) -> str:
         "__TEXT__", json.dumps(text)
     )
     return await cdp.evaluate(script)
+
+
+# Is the card on screen still the one the English was taken from?
+SAME_CARD = """
+(() => {{
+  const wanted = __ID__;
+  if (!wanted) return true;
+  const card = document.querySelector('article');
+  if (!card) return false;
+  return card.textContent.includes(wanted);
+}})()
+"""
+
+
+READ_OVERLAY_ID = """
+(() => {{
+  const card = document.querySelector('article');
+  if (!card) return '';
+  const id = [...card.querySelectorAll('span')]
+    .find((s) => s.textContent.startsWith('ovl-'));
+  return id ? id.textContent.trim() : '';
+}})()
+"""
+
+
+READ_BODY = """
+(() => {{
+  const card = document.querySelector('article');
+  if (!card) return '';
+  const body = card.querySelector('p');
+  return body ? body.textContent.trim() : '';
+}})()
+"""
 
 
 READ_BADGE = """
@@ -712,6 +767,9 @@ async def record(
             if shot.action is not None:
                 steps = shot.action if isinstance(shot.action, list) else [shot.action]
                 for step in steps:
+                    if callable(step):
+                        await step(cdp)
+                        continue
                     result = await cdp.evaluate(step)
                     if result is False:
                         print(f"    note: a step of '{shot.name}' found nothing")
@@ -743,6 +801,10 @@ async def record(
         pump_task.cancel()
     finally:
         if cdp:
+            # Leave the deployment the way a judge should find it, even if
+            # the take fell over half way through.
+            with contextlib.suppress(Exception):
+                await reset_audience(cdp)
             await cdp.close()
         writer.close()
         chrome_process.terminate()
@@ -879,28 +941,15 @@ def build_timeline() -> Timeline:
             name="read it as my team",
             caption="The same moment, rewritten for one side — over the same events.",
             action=[
-                *click_and_wait("My team"),
+                click_when_ready("My team"),
+                wait_for_idle,
                 click_when_ready("Riverside United"),
-                SETTLED,
+                wait_for_idle,
             ],
             settle=2.0,
             hold=4.0,
         )
     )
-    timeline.add(
-        Shot(
-            name="read it as one player",
-            caption="Or for one player — one person's actions in the same window.",
-            action=[
-                *click_and_wait("Player focus"),
-                PICK_PLAYER,
-                SETTLED,
-            ],
-            settle=2.0,
-            hold=4.5,
-        )
-    )
-
     # 1:00 - the language. The caption carries the English of the moment that
     # is on screen in another language, so nothing is shown without English
     # beside it.
@@ -912,17 +961,29 @@ def build_timeline() -> Timeline:
         text = await cdp.evaluate(READ_INSIGHT)
         excerpt = await limit_insight(cdp, text)
         captured["english"] = excerpt
+        captured["body"] = await cdp.evaluate(READ_BODY)
+        captured["id"] = await cdp.evaluate(READ_OVERLAY_ID)
         return ""
 
     async def show_english(cdp: CDP) -> str:
         english = captured.get("english", "")
-        return f"In English: {english}" if english else ""
+        if not english:
+            return ""
+        script = SAME_CARD.replace("__ID__", json.dumps(captured.get("id", "")))
+        if not await cdp.evaluate(script):
+            # A different moment is on screen now, so the caption cannot
+            # claim to be its translation.
+            return (
+                "The interface is English. "
+                "The explanation is rewritten in the reader's language."
+            )
+        return f"In English: {english}"
 
     timeline.add(
         Shot(
             name="the same moment in Deutsch",
             caption=grab_english,
-            action=click_and_wait("Deutsch"),
+            action=[SWITCH_LANGUAGE, wait_for_idle],
             caption_after=show_english,
             settle=1.5,
             hold=5.0,
@@ -934,7 +995,7 @@ def build_timeline() -> Timeline:
         Shot(
             name="full time",
             caption="Full time — the recap, from the same 90 minutes of events.",
-            action=SEEK_TO_END,
+            action=[SPRINT_TO_END, wait_for_idle],
             settle=3.0,
             hold=4.5,
         )

@@ -33,6 +33,7 @@ from touchline.providers.base import (
     ProviderName,
     ProviderUnavailable,
 )
+from touchline.providers.payload import language_brief
 
 #: How long an overlay stays on screen.
 OVERLAY_DURATION_MS = 8_000
@@ -127,16 +128,6 @@ _REQUEST_OPTIONS: dict[str, Any] = {
 REQUEST_OPTIONS: dict[str, Any] = _REQUEST_OPTIONS
 
 
-def _language_brief(locale: str) -> str:
-    """Describe the requested language to the model, by name."""
-    names = {
-        "en": "English",
-        "de": "German",
-        "bn": "Bengali",
-    }
-    return names.get(locale, locale)
-
-
 def _metric_lines(candidate: InsightCandidate) -> str:
     if not candidate.metrics:
         return "(none)"
@@ -147,7 +138,7 @@ def _metric_lines(candidate: InsightCandidate) -> str:
 
 def _build_prompt(candidate: InsightCandidate, locale: str, mode: str) -> str:
     brief = _MODE_BRIEF.get(mode, _MODE_BRIEF["analyst"])
-    language = _language_brief(locale)
+    language = language_brief(locale)
     return (
         f"KIND: {candidate.kind.value}\n"
         f"HEADLINE: {candidate.headline}\n"

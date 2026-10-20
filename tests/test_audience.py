@@ -15,6 +15,7 @@ by the same registry over the same events.
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import pytest
 
@@ -371,6 +372,47 @@ def test_the_payload_carries_the_audience(
     assert decoded.extra["audience_side"] == "HOME"
     assert decoded.extra["audience_metric"] == "xg"
     assert decoded.candidate.metrics == projected.metrics
+
+
+class _RecordingClient:
+    """The template engine, with every prompt it is given kept."""
+
+    def __init__(self) -> None:
+        self.prompts: list[str] = []
+
+    async def get_response(self, messages: Any, **kwargs: Any) -> Any:
+        from touchline.providers.clients import _assistant_response, _last_user_text
+
+        self.prompts.append(_last_user_text(messages))
+        return _assistant_response('{"title": "T", "body": "B"}')
+
+
+def test_the_personaliser_names_the_language_it_wants(
+    match: tuple[list, dict, InsightCandidate, list],
+) -> None:
+    """The prompt names the language, not only its code.
+
+    A payload that says ``LOCALE: de`` and nothing else does not reliably
+    get German out of a model that is looking at an English reading and
+    English instructions. The name has to be in there, or the language
+    switch quietly does nothing.
+    """
+    _, names, candidate, cited = match
+    client = _RecordingClient()
+    agent = PersonalizerAgent(client, team_names=names)
+    narration = _narration(candidate)
+    asyncio.run(
+        agent.personalise(
+            candidate,
+            narration,
+            audience=Audience(mode=AudienceMode.ANALYST, locale="de"),
+            events=cited,
+        )
+    )
+    assert client.prompts, "the Personaliser sent no prompt"
+    prompt = client.prompts[0]
+    assert "LANGUAGE: German" in prompt
+    assert "LOCALE: de" in prompt
 
 
 def test_the_audience_key_is_stable() -> None:
