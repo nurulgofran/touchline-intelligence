@@ -25,6 +25,7 @@ Microsoft Agent Framework workflow, one Azure Container App — no mirror, no se
 | **Microsoft Agent Framework** | The orchestration runtime. A `WorkflowBuilder` graph of typed executors — Ingest → Analyst → Explainer → Grounding → Narrator → Personalizer — over one shared state store, with per-executor events powering the agent-trace view and checkpointing for recovery. |
 | **A2A (Agent2Agent)** | The Explainer and Narrator are exposed as A2A servers with published agent cards (`/.well-known/agent-card.json`); the Narrator calls the Explainer over A2A HTTP+JSON. |
 | **Azure Container Apps** | The only host. The container image is pulled from an **Azure Container Registry** in the same subscription, with the app's **user-assigned managed identity** (`AcrPull` on the registry scope) — the registry's admin user is disabled and the deployment holds no registry credential at all. The Consumption environment refuses a system-assigned identity outright (`ExpressEnvironmentFeatureNotSupported`) and accepts a user-assigned one, for the app's access to Foundry and for the image pull alike. `minReplicas: 1` so the demo URL is always on with no cold start, `maxReplicas: 1` so the in-process shared state stays consistent, liveness and readiness probes on `/healthz`, and an external ingress carrying the live WebSocket feed. Provisioned by [`scripts/provision-aca.sh`](./scripts/provision-aca.sh) with the Azure CLI. |
+| **Azure Container Registry** | The image registry, in the same subscription as the app. The Container App pulls from it with its managed identity (`AcrPull` on the registry scope), so the deployment holds no registry credential and the registry's own admin user is disabled. The image is built for `linux/amd64` and written in the OCI media types, because that is what the Container Apps runtime takes. |
 | **GitHub CLI / GitHub SDK** | Repo automation, CI wiring, release and submission checklists. |
 | **GitHub Copilot** | Used to build the project (agent mode) — and named in the pitch per the category description. *Stretch: a Copilot-backed agent inside the workflow via `agent_framework.github.GitHubCopilotAgent`.* |
 | **Azure Database for PostgreSQL** *(Day 6, bonus)* | Durable store behind the shared state — event log and agent handoff trace. Writes are best-effort; the live path never depends on it. |
@@ -49,7 +50,9 @@ sim/generator.py ──► metrics/analyst.py ──► agents/explainer.py ─�
   metric from the event log and vetoes any claim that does not hold up.
 - **Failure recovery:** per-call timeouts and exponential backoff, a template provider that keeps
   the live feed running when inference is unavailable (and the badge flips to a visible `fallback`
-  state), and a veto that re-routes a rejected draft back to the Explainer.
+  state), a veto that re-routes a rejected draft back to the Explainer, and a live analysis that
+  skips a stretch it cannot explain rather than stopping there — the loss is recorded in the trace,
+  and the rest of the match is still analysed.
 - **Provider routing:** one provider interface, two implementations — **Microsoft Foundry** (the
   only model provider, used by the deployed demo *and* by local development) and a **template
   provider** that needs no model at all.
