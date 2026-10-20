@@ -31,3 +31,10 @@ artifacts/
 
 # --- Generated match output (synthetic, regenerable from a seed) ---
 data/
+
+# --- Local working documents ---
+#
+# The build plan and the working agreements are the builder's own notes. They
+# stay on this machine and out of the public repository.
+PLAN.md
+CLAUDE.md

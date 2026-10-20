@@ -82,7 +82,7 @@ explained, and the agent trace showing every hand-off.
 
 **Demo URL: `demo.nurulgofran.dev`** — a custom domain bound to the Azure Container App's
 generated FQDN (`<app>.<env-id>.<region>.azurecontainerapps.io`, which works on its own and is the
-fallback). See [`PLAN.md`](./PLAN.md) §7. The container app is provisioned by
+fallback). The container app is provisioned by
 [`scripts/provision-aca.sh`](./scripts/provision-aca.sh); until it is deployed, the studio runs
 locally:
 
@@ -150,7 +150,7 @@ and to the Container App's managed identity for the deployment.
 
 ## Status
 
-Work in progress. The full build plan is in [`PLAN.md`](./PLAN.md), the official brief in
+Work in progress. The official brief is in
 [`inside-the-game-hackathon-description.md`](./inside-the-game-hackathon-description.md), and the
 original concept in [`inside-the-game-hackathon-plan.md`](./inside-the-game-hackathon-plan.md).
 
