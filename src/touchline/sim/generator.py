@@ -38,7 +38,9 @@ from touchline.models.events import (
     EventType,
     MatchEvent,
     TeamSide,
+    meta_int,
 )
+from touchline.sim.players import PlayerTracker
 from touchline.sim.teams import Club, Player, build_teams
 
 #: Metres represented by one percentage point of pitch length / width.
@@ -129,6 +131,9 @@ class _MatchSimulator:
             TeamSide.AWAY: list(self.away.substitutes()),
         }
         self.possession_index = 0
+        #: The restart a possession has just been given: who takes it, and
+        #: where, in that side's own frame.
+        self._restart: tuple[TeamSide, float, float] | None = None
         self.cards_issued = 0
         self.corners_issued = 0
         self.free_kicks_issued = 0
@@ -136,6 +141,9 @@ class _MatchSimulator:
         self.action_counter = 0
         self.goals_scored = 0
         self.actions_since_goal = 99
+        # The player model runs on its own random stream, so adding it did
+        # not change a single event in the log.
+        self.tracker = PlayerTracker(self.home, self.away, seed)
 
     # -- helpers ----------------------------------------------------------
 
@@ -194,6 +202,37 @@ class _MatchSimulator:
         dx = (x2 - x1) * M_PER_X_PCT
         dy = (y2 - y1) * M_PER_Y_PCT
         return math.hypot(dx, dy)
+
+    @staticmethod
+    def _corner_spot(fy: float) -> tuple[float, float]:
+        """The corner flag a corner is taken from, in the attacker's frame.
+
+        A corner is taken from the flag nearest where the ball left play, so
+        the corner's own position is the flag -- not the spot the ball went
+        out at, which is recorded separately on the ball-out event. ``fy`` is
+        the lateral position of the ball-out in the attacking team's frame, so
+        it picks which of the two flags at the attacking end is used.
+        """
+        return (100.0, 0.0 if fy < 50.0 else 100.0)
+
+    def _corner_cross(self, fy: float) -> tuple[float, float]:
+        """Where a corner is crossed to, in the attacker's frame.
+
+        A corner is taken from the flag and delivered into the box, not
+        played along the goal line. The cross lands somewhere between the
+        penalty spot and the six-yard box, which is where the next action
+        starts -- so a corner produces a chance from a plausible range
+        instead of a shot from the byline.
+        """
+        rng = self.rng
+        cross_x = rng.uniform(84.0, 93.0)
+        # The cross leans towards the middle of the pitch.
+        cross_y = _clamp(
+            50.0 + (fy - 50.0) * rng.uniform(0.2, 0.6) + rng.gauss(0, 5.0),
+            30.0,
+            70.0,
+        )
+        return (cross_x, cross_y)
 
     # -- offensive actions ------------------------------------------------
 
@@ -371,16 +410,23 @@ class _MatchSimulator:
             )
             actions.append(foul)
             self.fouls_issued += 1
+            # The free kick is taken by ``side``, so it is positioned in
+            # ``side``'s own frame -- the spot the ball is at, measured from
+            # the team that won it. The defender's frame is used for the foul
+            # itself, because the foul is the defender's event.
             free_kick = self._new(
                 EventType.FREE_KICK,
                 side,
                 player=victim,
-                x=round(dx, 2),
-                y=round(dy, 2),
-                metadata={"distance_m": round(self._distance(dx, dy, 100.0, 50.0), 2)},
+                x=round(fx, 2),
+                y=round(fy, 2),
+                metadata={"distance_m": round(self._distance(fx, fy, 100.0, 50.0), 2)},
             )
             actions.append(free_kick)
             self.free_kicks_issued += 1
+            # The free kick is taken by the team that was fouled, so they
+            # keep the ball: the next possession is theirs, from this spot.
+            self._restart = (side, fx, fy)
             if self.cards_issued == 0 or rng.random() < 0.18:
                 card_type = CardType.RED if rng.random() < 0.06 else CardType.YELLOW
                 actions.append(
@@ -491,16 +537,29 @@ class _MatchSimulator:
             )
         )
         if fx > 60.0 and rng.random() < 0.7:
+            corner_x, corner_y = self._corner_spot(fy)
+            cross_x, cross_y = self._corner_cross(fy)
             actions.append(
                 self._new(
                     EventType.CORNER,
                     side,
-                    x=round(fx, 2),
-                    y=round(fy, 2),
-                    metadata={"delivery_side": "left" if fy < 50 else "right"},
+                    x=corner_x,
+                    y=corner_y,
+                    end_x=round(cross_x, 2),
+                    end_y=round(cross_y, 2),
+                    metadata={
+                        "delivery_side": "left" if fy < 50 else "right",
+                        "cross_distance_m": round(
+                            self._distance(corner_x, corner_y, cross_x, cross_y), 2
+                        ),
+                    },
                 )
             )
             self.corners_issued += 1
+            # The corner is taken by the side that won it, and the ball is
+            # crossed into the box: the next possession starts where the
+            # cross lands.
+            self._restart = (side, cross_x, cross_y)
 
     def _ball_out(
         self, actions: list[_Action], side: TeamSide, fx: float, fy: float
@@ -518,27 +577,43 @@ class _MatchSimulator:
             )
         )
         if fx > 62.0 and rng.random() < 0.55:
+            corner_x, corner_y = self._corner_spot(fy)
+            cross_x, cross_y = self._corner_cross(fy)
             actions.append(
                 self._new(
                     EventType.CORNER,
                     side,
-                    x=round(fx, 2),
-                    y=round(fy, 2),
-                    metadata={"delivery_side": "left" if fy < 50 else "right"},
+                    x=corner_x,
+                    y=corner_y,
+                    end_x=round(cross_x, 2),
+                    end_y=round(cross_y, 2),
+                    metadata={
+                        "delivery_side": "left" if fy < 50 else "right",
+                        "cross_distance_m": round(
+                            self._distance(corner_x, corner_y, cross_x, cross_y), 2
+                        ),
+                    },
                 )
             )
             self.corners_issued += 1
+            self._restart = (side, cross_x, cross_y)
         else:
+            # The throw-in is taken by the other side, so the spot it is taken
+            # from is in that side's frame, not this one's.
+            thrower = self._other(side)
+            abs_x, abs_y = self._absolute(fx, fy, side)
+            tx, ty = self._frame(abs_x, abs_y, thrower)
             actions.append(
                 self._new(
                     EventType.RECOVERY,
-                    self._other(side),
-                    x=round(fx, 2),
-                    y=round(fy, 2),
+                    thrower,
+                    x=round(tx, 2),
+                    y=round(ty, 2),
                     outcome="won",
                     metadata={"restart": "throw-in"},
                 )
             )
+            self._restart = (thrower, tx, ty)
 
     # -- possessions ------------------------------------------------------
 
@@ -548,10 +623,19 @@ class _MatchSimulator:
         actions: list[_Action] = []
         pressure = rng.uniform(0.05, 0.85)
 
-        fx, fy = self._frame(self.ball_x, self.ball_y, side)
-        if rng.random() < 0.55:
-            fx = rng.uniform(6.0, 40.0)
-            fy = rng.uniform(5.0, 95.0)
+        restart = self._restart
+        # The restart has been taken; whatever ends this possession decides
+        # who has the ball next.
+        self._restart = None
+        if restart is not None and restart[0] is side:
+            # A restart is taken where the ball was put down, so the
+            # possession starts there rather than somewhere new.
+            fx, fy = restart[1], restart[2]
+        else:
+            fx, fy = self._frame(self.ball_x, self.ball_y, side)
+            if rng.random() < 0.55:
+                fx = rng.uniform(6.0, 40.0)
+                fy = rng.uniform(5.0, 95.0)
 
         steps = 0
         while steps < max_actions:
@@ -658,23 +742,39 @@ class _MatchSimulator:
 
             possessions.append(possession)
             count += len(actions)
-            side = self._other(side)
+            # Possession normally changes hands. It does not when the last
+            # possession ended in a restart -- a free kick, a corner, a
+            # throw-in -- because the side awarded the restart keeps the ball.
+            if self._restart is not None:
+                side = self._restart[0]
+                self._restart = None
+            else:
+                side = self._other(side)
 
         return possessions
 
     # -- clock ------------------------------------------------------------
 
     @staticmethod
-    def _timed(
+    def _scale(
         possessions: list[_Possession], start_ms: int, end_ms: int
-    ) -> list[tuple[int, _Action]]:
-        """Place every action on the clock, in possession-sized clusters."""
+    ) -> float:
+        """Milliseconds of match clock per unit of event weight."""
         total_weight = sum(
             sum(a.weight for a in p.actions) + _POSSESSION_OVERHEAD for p in possessions
         )
         if total_weight <= 0:
+            return 0.0
+        return (end_ms - start_ms) / total_weight
+
+    @staticmethod
+    def _timed(
+        possessions: list[_Possession], start_ms: int, end_ms: int
+    ) -> list[tuple[int, _Action]]:
+        """Place every action on the clock, in possession-sized clusters."""
+        scale = _MatchSimulator._scale(possessions, start_ms, end_ms)
+        if scale <= 0:
             return []
-        scale = (end_ms - start_ms) / total_weight
         clock = float(start_ms)
         timed: list[tuple[int, _Action]] = []
         for possession in possessions:
@@ -683,6 +783,77 @@ class _MatchSimulator:
                 clock += action.weight * scale
             clock += _POSSESSION_OVERHEAD * scale
         return timed
+
+    # -- player movement ---------------------------------------------------
+
+    def _track_players(
+        self, possessions: list[_Possession], scale_ms: float
+    ) -> None:
+        """Run the player model over a half, and record the ground covered.
+
+        The distance each player covers during an action is written onto the
+        event as ``player_distance_m``, so the analyst reads it out of the log
+        instead of inferring it from the path of the ball. The log records
+        where the ball was; it does not record where the players were, and
+        the two are not the same thing.
+
+        The model is stepped over *time*, not over events: between one
+        action and the next the clock runs for several seconds, and during
+        those seconds everybody keeps moving.
+        """
+        tracker = self.tracker
+        previous_xy: tuple[float, float] | None = None
+        previous_possession: int | None = None
+        for possession in possessions:
+            for action in possession.actions:
+                if action.side is None:
+                    continue
+                if action.type is EventType.SUBSTITUTION:
+                    if action.player and action.target_player:
+                        tracker.substitute(
+                            action.target_player.player_id, action.player.player_id
+                        )
+                    continue
+                ball_x, ball_y = self._absolute(action.x, action.y, action.side)
+                actor = action.player.player_id if action.player else None
+                possession_index = meta_int(action.metadata, "possession")
+                # A restart puts the ball down somewhere new, and there is no
+                # path to walk: it was placed there, and the players close in.
+                if previous_xy is None or possession_index != previous_possession:
+                    from_xy = (ball_x, ball_y)
+                else:
+                    from_xy = previous_xy
+                covered = tracker.integrate(
+                    action.weight * scale_ms / 1000.0,
+                    from_xy,
+                    (ball_x, ball_y),
+                    actor,
+                )
+                previous_xy = (ball_x, ball_y)
+                previous_possession = possession_index
+                if action.end_x is not None and action.end_y is not None:
+                    end_x, end_y = self._absolute(
+                        action.end_x, action.end_y, action.side
+                    )
+                    if action.type is EventType.DRIBBLE:
+                        covered += tracker.carry_to(actor, end_x, end_y)
+                    elif action.type is EventType.PASS:
+                        # A completed pass is met by a team-mate; a pass that
+                        # was not completed is won by the other side.
+                        receiver = (
+                            action.side
+                            if action.outcome == "completed"
+                            else self._other(action.side)
+                        )
+                        tracker.receive(receiver, end_x, end_y)
+                    previous_xy = (end_x, end_y)
+                if actor is not None:
+                    action.metadata["player_distance_m"] = round(covered, 2)
+                    # The player's running total, so the log can say how far
+                    # a player has run in total and not just on this action.
+                    action.metadata["player_total_distance_m"] = round(
+                        tracker.covered_m(actor), 2
+                    )
 
     # -- assembly ---------------------------------------------------------
 
@@ -710,6 +881,17 @@ class _MatchSimulator:
 
         half_time_score = self._score_after(half_one)
         final_score = self._score_after(half_two)
+
+        # The player model runs over the same actions the clock does, so the
+        # ground a player covers is measured in the same match time the
+        # events are timestamped in.
+        self._track_players(
+            half_one, self._scale(half_one, 1, HALF_TIME_MS - 30_000)
+        )
+        self._track_players(
+            half_two,
+            self._scale(half_two, HALF_TIME_MS + 5_000, MATCH_DURATION_MS - 30_000),
+        )
 
         timed_one = self._timed(half_one, 1, HALF_TIME_MS - 30_000)
         timed_two = self._timed(
@@ -822,6 +1004,11 @@ class _MatchSimulator:
         """Copy the score of ``anchor`` onto ``action`` (for inserted events)."""
         action.score_home = anchor.score_home
         action.score_away = anchor.score_away
+        # Forced events are inserted after the possession has been stamped, so
+        # they have to inherit the possession index from their anchor.
+        possession = meta_int(anchor.metadata, "possession")
+        if possession is not None:
+            action.metadata.setdefault("possession", possession)
         return action
 
     def _force_card(self, possessions: list[_Possession]) -> list[_Possession]:
@@ -852,12 +1039,15 @@ class _MatchSimulator:
         for possession in possessions:
             for action in possession.actions:
                 if action.type is EventType.SHOT:
+                    corner_x, corner_y = self._corner_spot(action.y)
                     corner = self._new(
                         EventType.CORNER,
                         action.side,
-                        x=action.x,
-                        y=action.y,
-                        metadata={"delivery_side": "left"},
+                        x=corner_x,
+                        y=corner_y,
+                        metadata={
+                            "delivery_side": "left" if action.y < 50 else "right"
+                        },
                     )
                     self._restamp(corner, action)
                     possession.actions.insert(
@@ -872,12 +1062,26 @@ class _MatchSimulator:
         for possession in possessions:
             for action in possession.actions:
                 if action.type is EventType.TACKLE:
+                    fouled = action.side
+                    if fouled is None:
+                        taker = None
+                        kx, ky = action.x, action.y
+                    else:
+                        taker = self._other(fouled)
+                        # The tackle is positioned in the tackler's frame; the
+                        # free kick belongs to the team that was fouled, so its
+                        # position is converted into that team's frame.
+                        abs_x, abs_y = self._absolute(action.x, action.y, fouled)
+                        kx, ky = self._frame(abs_x, abs_y, taker)
                     free_kick = self._new(
                         EventType.FREE_KICK,
-                        self._other(action.side) if action.side else None,
-                        x=action.x,
-                        y=action.y,
-                        metadata={"restart": "foul"},
+                        taker,
+                        x=round(kx, 2),
+                        y=round(ky, 2),
+                        metadata={
+                            "restart": "foul",
+                            "distance_m": round(self._distance(kx, ky, 100.0, 50.0), 2),
+                        },
                     )
                     self._restamp(free_kick, action)
                     possession.actions.insert(
@@ -898,6 +1102,41 @@ def simulate(seed: int = 42) -> list[MatchEvent]:
         The ordered event list, from kick-off to full time.
     """
     return _MatchSimulator(seed).run()
+
+
+def simulate_with_tracker(
+    seed: int = 42,
+) -> tuple[list[MatchEvent], PlayerTracker]:
+    """Simulate a match and hand back the player model that ran with it.
+
+    The tracker holds the ground each player covered and where they ended
+    up, which is the ground truth the vision tracker is checked against.
+
+    Args:
+        seed: Any integer. The result is fully deterministic for a given seed.
+
+    Returns:
+        The event list, and the player tracker that produced it.
+    """
+    simulator = _MatchSimulator(seed)
+    return simulator.run(), simulator.tracker
+
+
+def team_names(seed: int = 42) -> dict[TeamSide, str]:
+    """The two clubs that play under a seed, by side.
+
+    The event log records which side did what but not what the clubs are
+    called, so this is how the analyst and the narrator are given the names
+    they put in a headline.
+
+    Args:
+        seed: Any integer. The same seed always yields the same two clubs.
+
+    Returns:
+        A mapping from home and away to the club's name.
+    """
+    home, away = build_teams(seed)
+    return {TeamSide.HOME: home.name, TeamSide.AWAY: away.name}
 
 
 def write_jsonl(events: list[MatchEvent], path: Path) -> None:

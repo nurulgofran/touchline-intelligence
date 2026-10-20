@@ -25,6 +25,7 @@ drift apart.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from enum import Enum
 from typing import Self
 
@@ -74,6 +75,53 @@ class CardType(str, Enum):
 
     YELLOW = "YELLOW"
     RED = "RED"
+
+
+#: The type of a free-form metadata value. Metadata is JSON, so the type of a
+#: value is only known at run time.
+MetadataValue = float | int | str | bool
+
+
+def meta_number(metadata: Mapping[str, MetadataValue], key: str) -> float | None:
+    """Read a number out of a free-form metadata mapping.
+
+    ``None`` comes back when the value is missing or is not a number, so a
+    caller can tell "no value here" from "a value of zero" -- the difference
+    matters wherever a metric falls back to another field.
+    """
+    value = metadata.get(key)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def meta_float(
+    metadata: Mapping[str, MetadataValue], key: str, default: float = 0.0
+) -> float:
+    """Read a number out of a free-form metadata mapping, with a fallback.
+
+    The default is used when the value is missing or is not a number, so a
+    metric that reads the log can never be handed a string where it expected a
+    distance in metres.
+    """
+    value = meta_number(metadata, key)
+    return default if value is None else value
+
+
+def meta_int(
+    metadata: Mapping[str, MetadataValue], key: str, default: int | None = None
+) -> int | None:
+    """Read a whole number out of a free-form metadata mapping.
+
+    The default is returned when the value is missing or is not an integer.
+    A float is not an integer here: the log writes indices as integers, and a
+    value that has been through a lossy conversion is better treated as
+    absent than silently rounded.
+    """
+    value = metadata.get(key)
+    if isinstance(value, bool) or not isinstance(value, int):
+        return default
+    return value
 
 
 class MatchEvent(BaseModel):
@@ -135,7 +183,7 @@ class MatchEvent(BaseModel):
     card: CardType | None = None
     score_home: int = Field(ge=0, description="Home score after this event.")
     score_away: int = Field(ge=0, description="Away score after this event.")
-    metadata: dict[str, float | int | str | bool] = Field(
+    metadata: dict[str, MetadataValue] = Field(
         default_factory=dict, description="Free-form, JSON-serialisable extras."
     )
 

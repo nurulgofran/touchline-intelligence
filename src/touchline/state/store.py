@@ -16,36 +16,18 @@ from __future__ import annotations
 import threading
 from collections import Counter
 
+from touchline.metrics.definitions import (
+    METRICS,
+    POSSESSION_EVENT_TYPES,
+    compute_metric,
+)
 from touchline.models.events import EventType, MatchEvent, TeamSide
 
-#: Event types that represent a side having the ball. The possession share is
-#: derived from these.
-POSSESSION_EVENT_TYPES: frozenset[EventType] = frozenset(
-    {
-        EventType.PASS,
-        EventType.DRIBBLE,
-        EventType.SHOT,
-        EventType.GOAL,
-        EventType.CORNER,
-        EventType.FREE_KICK,
-        EventType.RECOVERY,
-    }
-)
-
 #: The metrics that :meth:`MatchStateStore.recompute` knows how to reproduce.
-SUPPORTED_METRICS: frozenset[str] = frozenset(
-    {
-        "passes_completed",
-        "pass_accuracy",
-        "shots",
-        "goals",
-        "possession_pct",
-        "tackles",
-        "saves",
-        "max_speed_mps",
-        "total_distance_m",
-    }
-)
+#: The registry is the single source of truth: the analyst computes its
+#: numbers from it and the grounding step recomputes them from it, so a
+#: mismatch is a real disagreement rather than a difference of formula.
+SUPPORTED_METRICS: frozenset[str] = frozenset(METRICS)
 
 
 class MatchStateStore:
@@ -137,7 +119,12 @@ class MatchStateStore:
 
     # -- grounding --------------------------------------------------------
 
-    def recompute(self, metric_name: str, cited_event_ids: list[str]) -> float | None:
+    def recompute(
+        self,
+        metric_name: str,
+        cited_event_ids: list[str],
+        side: TeamSide | None = None,
+    ) -> float | None:
         """Recompute a named metric using **only** the cited events.
 
         This is the grounding primitive: a narrative claim states a metric and
@@ -148,6 +135,9 @@ class MatchStateStore:
         Args:
             metric_name: One of :data:`SUPPORTED_METRICS`.
             cited_event_ids: The events the claim rests on.
+            side: The side the metric is about. A filtered metric restricts
+                the cited events to that side; an attributed metric reports
+                that side's share of them.
 
         Returns:
             The recomputed value, or ``None`` when any cited id is unknown to
@@ -170,56 +160,7 @@ class MatchStateStore:
                     return None
                 cited.append(event)
 
-        return self._compute(metric_name, cited)
-
-    @staticmethod
-    def _compute(metric_name: str, cited: list[MatchEvent]) -> float:
-        """Compute one metric from an already-resolved list of events."""
-        if metric_name == "passes_completed":
-            return float(
-                sum(
-                    1
-                    for e in cited
-                    if e.type is EventType.PASS and e.outcome == "completed"
-                )
-            )
-
-        if metric_name == "pass_accuracy":
-            passes = [e for e in cited if e.type is EventType.PASS]
-            if not passes:
-                return 0.0
-            completed = sum(1 for e in passes if e.outcome == "completed")
-            return completed / len(passes)
-
-        if metric_name == "shots":
-            return float(sum(1 for e in cited if e.type is EventType.SHOT))
-
-        if metric_name == "goals":
-            return float(sum(1 for e in cited if e.type is EventType.GOAL))
-
-        if metric_name == "possession_pct":
-            relevant = [e for e in cited if e.type in POSSESSION_EVENT_TYPES]
-            if not relevant:
-                return 0.0
-            home = sum(
-                1 for e in relevant if e.side is TeamSide.HOME
-            )
-            return 100.0 * home / len(relevant)
-
-        if metric_name == "tackles":
-            return float(sum(1 for e in cited if e.type is EventType.TACKLE))
-
-        if metric_name == "saves":
-            return float(sum(1 for e in cited if e.type is EventType.SAVE))
-
-        if metric_name == "max_speed_mps":
-            speeds = [e.speed_mps for e in cited if e.speed_mps is not None]
-            return max(speeds) if speeds else 0.0
-
-        if metric_name == "total_distance_m":
-            return float(sum(e.distance_m or 0.0 for e in cited))
-
-        raise ValueError(f"unsupported metric {metric_name!r}")  # pragma: no cover
+        return compute_metric(metric_name, cited, side)
 
     # -- snapshots --------------------------------------------------------
 

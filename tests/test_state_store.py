@@ -130,12 +130,28 @@ def test_recompute_counts(store: MatchStateStore) -> None:
     assert store.recompute("saves", ["ev-000008"]) == 1.0
 
 
-def test_recompute_pass_accuracy_matches_the_hand_computed_fraction(
+def test_recompute_pass_accuracy_matches_the_hand_computed_percentage(
     store: MatchStateStore,
 ) -> None:
     passes = ["ev-000002", "ev-000003", "ev-000004", "ev-000009"]
-    # Three of the four cited passes were completed.
-    assert store.recompute("pass_accuracy", passes) == pytest.approx(3 / 4)
+    # Three of the four cited passes were completed, which is 75 per cent.
+    assert store.recompute("pass_accuracy", passes) == pytest.approx(75.0)
+
+
+def test_recompute_filters_by_the_side_it_is_asked_about(
+    store: MatchStateStore,
+) -> None:
+    passes = ["ev-000002", "ev-000003", "ev-000004", "ev-000009"]
+    # The away side attempted two of the cited passes and completed both.
+    assert store.recompute("passes", passes, TeamSide.AWAY) == 2.0
+    assert store.recompute("pass_accuracy", passes, TeamSide.AWAY) == pytest.approx(
+        100.0
+    )
+    # The home side attempted two and completed one.
+    assert store.recompute("passes", passes, TeamSide.HOME) == 2.0
+    assert store.recompute("pass_accuracy", passes, TeamSide.HOME) == pytest.approx(
+        50.0
+    )
 
 
 def test_recompute_pass_accuracy_with_no_passes(store: MatchStateStore) -> None:

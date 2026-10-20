@@ -127,6 +127,12 @@
           "title": "Label",
           "description": "Human-readable label, translated per locale.",
           "type": "string"
+        },
+        "side": {
+          "title": "Side",
+          "description": "Which side the number describes, when the insight is about one side. The grounding step recomputes the metric over the cited events for this side.",
+          "type": ["string", "null"],
+          "enum": ["HOME", "AWAY", null]
         }
       },
       "required": [
