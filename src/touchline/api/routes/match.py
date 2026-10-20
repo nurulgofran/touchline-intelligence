@@ -17,7 +17,12 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 
-from touchline.api.live import get_engine, list_seeds, provider_payload
+from touchline.api.live import (
+    get_engine,
+    list_seeds,
+    overlay_candidate_id,
+    provider_payload,
+)
 
 __all__ = ["router"]
 
@@ -62,7 +67,7 @@ async def insights(seed: int = Query(default=42)) -> dict[str, Any]:
         "computed_ms": engine.computed_ms,
         "insights": [
             {
-                "candidate_id": overlay.overlay_id,
+                "candidate_id": overlay_candidate_id(overlay.overlay_id),
                 "overlay_id": overlay.overlay_id,
                 "type": overlay.type.value,
                 "match_clock_ms": overlay.match_clock_ms,

@@ -41,6 +41,7 @@ __all__ = [
     "LiveSession",
     "get_engine",
     "list_seeds",
+    "overlay_candidate_id",
     "set_engine_hook",
 ]
 
@@ -310,7 +311,7 @@ class LiveSession:
                 {
                     "type": "overlay",
                     "clock_ms": overlay.match_clock_ms,
-                    "candidate_id": _candidate_id(overlay.overlay_id),
+                    "candidate_id": overlay_candidate_id(overlay.overlay_id),
                     "overlay": overlay.model_dump(mode="json"),
                 }
             )
@@ -344,11 +345,13 @@ class LiveSession:
         }
 
 
-def _candidate_id(overlay_id: str) -> str:
+def overlay_candidate_id(overlay_id: str) -> str:
     """The insight id behind an overlay id.
 
     The overlay is named after the insight it came from, so the studio can
-    link an overlay back to the trace entries about the same moment.
+    link an overlay back to the trace entries about the same moment. Both
+    the socket frame and the REST payload go through here, so the two
+    endpoints cannot disagree about which insight an overlay is about.
     """
     if overlay_id.startswith("ovl-"):
         return overlay_id[4:]
