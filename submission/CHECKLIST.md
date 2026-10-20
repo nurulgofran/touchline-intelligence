@@ -55,3 +55,28 @@
 - [ ] Keep the repository public through 10 November
 - [ ] Re-take the video if a template fallback ever appears in the badge — the recorder
       warns about it, and the take is not publishable if it happens
+
+### The November check, exactly
+
+```bash
+# 1. the subscription is still enabled
+az account show --query '{name:name, state:state}'
+
+# 2. the container app is still running, with its warm replica
+az containerapp revision list -n touchline-app -g touchline-rg \
+    --query "[?properties.active].properties.runningState" -o tsv
+
+# 3. the demo actually answers
+python scripts/verify-live.py \
+    https://touchline-app.icywave-bfcbf183.germanywestcentral.azurecontainerapps.io
+
+# 4. the repository is still public
+gh repo view nurulgofran/touchline-intelligence --json visibility
+```
+
+**The credit balance itself is not in the CLI.** The Azure for Students allowance
+is shown in the Education portal (Microsoft Azure for Students → credit), and the
+Cost Management and Consumption APIs report no rows for this subscription. So the
+balance has to be read in the portal — the four commands above are the signals
+that something has gone wrong, and a lapsed subscription stops the revision
+before it stops answering for long.

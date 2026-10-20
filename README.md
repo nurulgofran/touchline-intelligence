@@ -23,7 +23,7 @@ Microsoft Agent Framework workflow, one Azure Container App — no mirror, no se
 |---|---|
 | **Microsoft Foundry** | The one model provider, used by the deployed demo and by local development. `FoundryChatClient` against a Foundry project endpoint, with the model deployment created and managed by the Azure CLI script in [`scripts/provision-foundry.sh`](./scripts/provision-foundry.sh). The provider badge shows the actual provider of the last call — "Microsoft Foundry" plus a live/fallback state chip. |
 | **Microsoft Agent Framework** | The orchestration runtime. A `WorkflowBuilder` graph of typed executors — Ingest → Analyst → Explainer → Grounding → Narrator → Personalizer — over one shared state store, with per-executor events powering the agent-trace view and a second edge from Grounding back to the Explainer, so a vetoed claim is re-routed to the agent that wrote it. |
-| **A2A (Agent2Agent)** | The Explainer and Narrator are exposed as A2A servers with published agent cards (`/.well-known/agent-card.json`); the Narrator calls the Explainer over A2A HTTP+JSON. |
+| **A2A (Agent2Agent)** | The Explainer is exposed as an A2A server with a published agent card (`/.well-known/agent-card.json`); the Narrator calls it over A2A HTTP+JSON, and that hop is visible in the agent trace. |
 | **Azure Container Apps** | The only host. The container image is pulled from an **Azure Container Registry** in the same subscription, with the app's **user-assigned managed identity** (`AcrPull` on the registry scope) — the registry's admin user is disabled and the deployment holds no registry credential at all. The Consumption environment refuses a system-assigned identity outright (`ExpressEnvironmentFeatureNotSupported`) and accepts a user-assigned one, for the app's access to Foundry and for the image pull alike. `minReplicas: 1` so the demo URL is always on with no cold start, `maxReplicas: 1` so the in-process shared state stays consistent, liveness and readiness probes on `/healthz`, and an external ingress carrying the live WebSocket feed. Provisioned by [`scripts/provision-aca.sh`](./scripts/provision-aca.sh) with the Azure CLI. |
 | **Azure Container Registry** | The image registry, in the same subscription as the app. The Container App pulls from it with its managed identity (`AcrPull` on the registry scope), so the deployment holds no registry credential and the registry's own admin user is disabled. The image is built for `linux/amd64` and written in the OCI media types, because that is what the Container Apps runtime takes. |
 | **GitHub CLI / GitHub SDK** | Repo automation, CI wiring, release and submission checklists. |
@@ -108,14 +108,16 @@ no paywall, free of charge through the end of the judging period.
 
 ### The studio
 
-| View | What it shows |
+All six panels are on screen at once — there is no tab to click.
+
+| Panel | What it shows |
 |---|---|
 | **Pitch** | The synthetic match, top-down, with the two fictional clubs' colours |
-| **Audience** | Who the match is being explained to — analyst, fan, player-focus, my-team or metric-lens, in English, German or Bengali. The same moments, rewritten; the numbers on each card still come from the same cited events |
-| **Feed** | Each insight as it is explained, with the metric and the event ids it rests on |
+| **Read it as** | Who the match is being explained to — analyst, fan, player-focus, my-team or metric-lens, in English, German or Bengali. The same moments, rewritten; the numbers on each card still come from the same cited events |
+| **Key moments** | Each insight as it is explained, with the metric and the event ids it rests on |
 | **Momentum** | The control-vs-chaos curve, in match time, with a cursor on the clock |
-| **Tracker** | The vision tracker's own score sheet: precision, recall, position error and pass distance, measured against the ground truth the synthetic feed was rendered from |
-| **Trace** | Every hand-off between the stages, as it happens — including the A2A hop and the grounding verdict, and a veto if a claim had to be sent back. "Show hand-offs" on an insight narrows the trace to that one moment |
+| **Vision tracker** | The tracker's own score sheet: precision, recall, position error, pass error and shot speed, measured against the ground truth the synthetic feed was rendered from |
+| **Agent trace** | Every hand-off between the stages, as it happens — including the A2A hop and the grounding verdict, and a veto if a claim had to be sent back. "Show hand-offs" on an insight narrows the trace to that one moment |
 | **Transport** | Play, pause, replay, speed, and "jump to the next key moment" |
 
 The clock and the analysis are deliberately separate. The engine analyses the match stretch by
@@ -126,7 +128,7 @@ moment it reports on.
 
 ## Azure provisioning
 
-Both scripts are idempotent and committed, so the whole Azure footprint is reproducible from a
+The three scripts are committed and re-runnable, so the whole Azure footprint is reproducible from a
 judge's or a reviewer's point of view:
 
 ```bash
@@ -184,8 +186,10 @@ and to the Container App's managed identity for the deployment.
 
 ## Status
 
-Work in progress. The build plan and the hackathon brief are kept off the public repository; the
-source, the scripts and this README are the whole of it.
+The demo is deployed and running. The build plan and the hackathon brief are kept off the public
+repository; the source, the scripts, this README and [`submission/`](./submission/) are the whole of
+it. [`submission/`](./submission/) holds the pitch, the testing instructions for a judge, the
+submission checklists with what was verified and when, and the details of the demo video.
 
 One account-level caveat, stated plainly: the GitHub Actions runner for this account is
 billing-locked, so the workflow above does not currently execute. The three checks and the frontend

@@ -210,8 +210,9 @@ CAPTION_HTML = """
   style.textContent = `
     #__touchline_captions__ {
       position: fixed; left: 0; right: 0; bottom: 52px; z-index: 2147483647;
-      padding: 16px 40px 18px; pointer-events: none;
-      font: 500 24px/1.35 system-ui, -apple-system, sans-serif;
+      padding: 16px 40px 18px; pointer-events: none; max-width: 1440px;
+      font: 500 22px/1.35 system-ui, -apple-system, sans-serif;
+      overflow-wrap: anywhere;
       color: #f4f7fb; letter-spacing: 0.01em;
       text-shadow: 0 1px 3px rgba(0,0,0,0.6);
       background: linear-gradient(180deg, rgba(6,10,16,0) 0%,
@@ -347,18 +348,45 @@ def click(text: str) -> str:
     return CLICK.format(text=json.dumps(text))
 
 
+# The same, but it waits for the control to appear. A control that is not
+# there yet is not a failure -- it is a wait -- and the feed is briefly empty
+# while the service re-narrates.
+CLICK_WAITING = """
+(async () => {{
+  const wanted = {text};
+  for (let i = 0; i < 100; i += 1) {{
+    const button = [...document.querySelectorAll('button')]
+      .find((b) => b.textContent.includes(wanted));
+    if (button) {{ button.click(); return true; }}
+    await new Promise((r) => setTimeout(r, 250));
+  }}
+  return false;
+}})()
+"""
+
+
+def click_when_ready(text: str) -> str:
+    return CLICK_WAITING.format(text=json.dumps(text))
+
+
 # The server re-narrates when the reader changes, and the panel says so
 # while it does. Waiting for that to finish keeps the take free of a
 # half-rewritten card.
 SETTLED = """
 (async () => {{
-  let seen = false;
-  for (let i = 0; i < 200; i += 1) {{
-    await new Promise((r) => setTimeout(r, 250));
+  let last = -1;
+  let stable = 0;
+  for (let i = 0; i < 240; i += 1) {{
     const busy = document.body.innerText.includes('rewriting the feed');
-    if (busy) {{ seen = true; continue; }}
-    if (seen) break;
-    if (i > 12) break;
+    const count = document.querySelectorAll('article').length;
+    if (!busy && count === last) {{
+      stable += 1;
+      if (stable >= 8) break;
+    }} else {{
+      stable = 0;
+    }}
+    last = count;
+    await new Promise((r) => setTimeout(r, 250));
   }}
   return true;
 }})()
@@ -442,13 +470,20 @@ READ_INSIGHT = """
 # The caption bar is one or two lines, so the excerpt is cut to fit.
 LIMIT_INSIGHT = """
 ((text) => {
-  const limit = {limit};
+  const limit = __LIMIT__;
   if (text.length <= limit) return text;
   const cut = text.slice(0, limit);
   const stop = cut.lastIndexOf('. ');
-  return (stop > limit * 0.5 ? cut.slice(0, stop + 1) : cut).trim() + ' …';
-}})({text})
+  return (stop > limit * 0.5 ? cut.slice(0, stop + 1) : cut).trim() + ' \u2026';
+})(__TEXT__)
 """
+
+
+async def limit_insight(cdp: CDP, text: str, limit: int = 150) -> str:
+    script = LIMIT_INSIGHT.replace("__LIMIT__", str(limit)).replace(
+        "__TEXT__", json.dumps(text)
+    )
+    return await cdp.evaluate(script)
 
 
 READ_BADGE = """
@@ -643,6 +678,14 @@ async def record(
 
         pump_task = asyncio.create_task(_pump(writer))
 
+        # The last two beats -- full time and the closing stack line -- are
+        # held back from the rest, so a slow re-narration shortens the middle
+        # of the video rather than cutting the ending off.
+        closing = sum(
+            shot.settle + shot.hold for shot in timeline.shots[-2:]
+        )
+        reserved = closing
+
         started = time.time()
         for index, shot in enumerate(timeline.shots, start=1):
             elapsed = time.time() - started
@@ -650,7 +693,10 @@ async def record(
             if remaining <= 0:
                 print(f"    out of time before '{shot.name}'")
                 break
-            hold = min(shot.hold, remaining)
+            budget = remaining
+            if index < len(timeline.shots) - 2:
+                budget = max(0.0, remaining - reserved)
+            hold = min(shot.hold, budget)
 
             shot_started = time.time()
             caption = shot.caption
@@ -743,7 +789,7 @@ def build_timeline() -> Timeline:
                 "Synthetic data · Microsoft Foundry · Azure Container Apps",
             ),
             settle=0.3,
-            hold=6.0,
+            hold=5.0,
         )
     )
 
@@ -755,9 +801,9 @@ def build_timeline() -> Timeline:
                 "Live on Azure. The model writes the words; "
                 "deterministic code writes the numbers."
             ),
-            action=click("60×"),
+            action=click_when_ready("60×"),
             settle=1.0,
-            hold=6.5,
+            hold=5.0,
         )
     )
 
@@ -769,9 +815,9 @@ def build_timeline() -> Timeline:
                 "A key moment arrives with the metric, the value, "
                 "and the unit behind it."
             ),
-            action=click("Next key moment"),
+            action=click_when_ready("Next key moment"),
             settle=1.5,
-            hold=6.5,
+            hold=5.0,
         )
     )
 
@@ -785,7 +831,7 @@ def build_timeline() -> Timeline:
             ),
             action=FOCUS_EVENT,
             settle=1.5,
-            hold=6.0,
+            hold=5.0,
         )
     )
 
@@ -797,9 +843,9 @@ def build_timeline() -> Timeline:
                 "Five agents, one shared state. "
                 "The narrator asks the explainer over A2A."
             ),
-            action=click("show hand-offs"),
+            action=click_when_ready("show hand-offs"),
             settle=2.0,
-            hold=7.0,
+            hold=5.5,
         )
     )
 
@@ -808,9 +854,9 @@ def build_timeline() -> Timeline:
         Shot(
             name="the whole trace",
             caption="340 hand-offs, every one of them typed and visible as it happens.",
-            action=click("show all"),
+            action=click_when_ready("show all"),
             settle=1.0,
-            hold=5.0,
+            hold=4.0,
         )
     )
 
@@ -823,7 +869,7 @@ def build_timeline() -> Timeline:
                 "ground truth: 100% precision, 85.4% recall."
             ),
             settle=0.5,
-            hold=6.0,
+            hold=4.5,
         )
     )
 
@@ -832,18 +878,26 @@ def build_timeline() -> Timeline:
         Shot(
             name="read it as my team",
             caption="The same moment, rewritten for one side — over the same events.",
-            action=[*click_and_wait("My team"), click("Riverside United"), SETTLED],
+            action=[
+                *click_and_wait("My team"),
+                click_when_ready("Riverside United"),
+                SETTLED,
+            ],
             settle=2.0,
-            hold=5.5,
+            hold=4.0,
         )
     )
     timeline.add(
         Shot(
             name="read it as one player",
             caption="Or for one player — one person's actions in the same window.",
-            action=[*click_and_wait("Player focus"), PICK_PLAYER, SETTLED],
+            action=[
+                *click_and_wait("Player focus"),
+                PICK_PLAYER,
+                SETTLED,
+            ],
             settle=2.0,
-            hold=5.0,
+            hold=4.5,
         )
     )
 
@@ -856,9 +910,7 @@ def build_timeline() -> Timeline:
 
     async def grab_english(cdp: CDP) -> str:
         text = await cdp.evaluate(READ_INSIGHT)
-        excerpt = await cdp.evaluate(
-            LIMIT_INSIGHT.format(limit=150, text=json.dumps(text))
-        )
+        excerpt = await limit_insight(cdp, text)
         captured["english"] = excerpt
         return ""
 
@@ -873,7 +925,7 @@ def build_timeline() -> Timeline:
             action=click_and_wait("Deutsch"),
             caption_after=show_english,
             settle=1.5,
-            hold=5.5,
+            hold=5.0,
         )
     )
 
@@ -884,7 +936,7 @@ def build_timeline() -> Timeline:
             caption="Full time — the recap, from the same 90 minutes of events.",
             action=SEEK_TO_END,
             settle=3.0,
-            hold=5.5,
+            hold=4.5,
         )
     )
 
@@ -897,7 +949,7 @@ def build_timeline() -> Timeline:
                 "Azure Container Apps — one deployment, one URL, no key anywhere."
             ),
             settle=0.5,
-            hold=6.0,
+            hold=5.5,
         )
     )
 

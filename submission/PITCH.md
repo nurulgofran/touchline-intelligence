@@ -47,7 +47,7 @@ that benefits from a language model, and the numbers are the part that must not.
 |---|---|
 | **Microsoft Foundry** | The one model provider, in the deployed demo and in local development. `FoundryChatClient` against a Foundry project endpoint, one deployment (`gpt-5-mini`, GlobalStandard, capacity 10). The provider badge in the UI shows the provider that actually served the last call, with a live/fallback state chip. |
 | **Microsoft Agent Framework** | The orchestration runtime. A `WorkflowBuilder` graph of typed executors — Ingest → Analyst → Explainer → Grounding → Narrator → Personalizer — over one shared state store, with per-executor events powering the agent-trace view and checkpointing for recovery. |
-| **A2A (Agent2Agent)** | The Explainer and Narrator are exposed as A2A servers with published agent cards at `/.well-known/agent-card.json`. The Narrator calls the Explainer over A2A HTTP+JSON, and that hop is visible in the trace. |
+| **A2A (Agent2Agent)** | The Explainer is exposed as an A2A server with a published agent card at `/.well-known/agent-card.json`. The Narrator calls it over A2A HTTP+JSON, and that hop is visible in the agent trace. |
 | **Azure Container Apps** | The only host. One Container App on a Consumption (Express) environment, `minReplicas: 1` so the demo URL never scales to zero, `maxReplicas: 1` so the in-process shared state stays consistent, liveness and readiness probes on `/healthz`, and an external ingress carrying the live WebSocket feed. |
 | **Azure Container Registry** | The image registry, in the same subscription as the app. |
 | **Azure AI Foundry projects** | The Foundry account and project hold the model deployment the app talks to. |
