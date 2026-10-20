@@ -4,7 +4,7 @@
 
 Five specialised agents share one live match state and turn a synthetic football event stream into
 explainable intelligence, broadcast-ready overlays, and personalised fan experiences — the same
-match, told three different ways.
+match, told five different ways.
 
 | Stage | Agent | Output |
 |---|---|---|
@@ -12,7 +12,7 @@ match, told three different ways.
 | (b) Interpret | Analyst | Momentum, pass difficulty, control-vs-chaos |
 | (c) Explain | Explainer | "Why it matters", cited to event IDs |
 | (d) Render | Narrator | Timed overlay JSON, commentary, recap |
-| (e) Personalize | Personalizer | Analyst / Fan / My-Team / Player-focus, EN · DE · BN |
+| (e) Personalize | Personalizer | Analyst / Fan / My-Team / Player-focus / Metric-lens, EN · DE · BN |
 
 **An AI insights engine that runs on Azure.** One Microsoft Foundry model deployment, one
 Microsoft Agent Framework workflow, one Azure Container App — no mirror, no second host.
@@ -39,7 +39,7 @@ sim/generator.py ──► metrics/analyst.py ──► agents/explainer.py ─�
         │                    │                     │  └────── A2A (agent card + HTTP/JSON) ────────────┘
         ▼                    ▼                     ▼
    vision/tracker.py   MatchStateStore ◄──────── shared state, typed handoffs
-   (auto-eventing)     (event log + derived state)
+   (OpenCV, scored)    (event log + derived state)
         │
         └──────────────► providers/  ──► foundry.py (Microsoft Foundry)  ──► template.py (no model)
 ```
@@ -102,8 +102,10 @@ no paywall, free of charge through the end of the judging period.
 | View | What it shows |
 |---|---|
 | **Pitch** | The synthetic match, top-down, with the two fictional clubs' colours |
+| **Audience** | Who the match is being explained to — analyst, fan, player-focus, my-team or metric-lens, in English, German or Bengali. The same moments, rewritten; the numbers on each card still come from the same cited events |
 | **Feed** | Each insight as it is explained, with the metric and the event ids it rests on |
 | **Momentum** | The control-vs-chaos curve, in match time, with a cursor on the clock |
+| **Tracker** | The vision tracker's own score sheet: precision, recall, position error and pass distance, measured against the ground truth the synthetic feed was rendered from |
 | **Trace** | Every hand-off between the stages, as it happens — including the A2A hop and the grounding veto. "Show hand-offs" on an insight narrows the trace to that one moment |
 | **Transport** | Play, pause, replay, speed, and "jump to the next key moment" |
 

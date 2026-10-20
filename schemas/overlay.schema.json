@@ -77,6 +77,13 @@
       "minimum": 0.0,
       "maximum": 1.0,
       "default": 0.5
+    },
+    "revision": {
+      "title": "Revision",
+      "description": "Which version of this overlay this is. An overlay keeps its id when the audience changes, so the studio needs a number to tell the new card from the old one.",
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
     }
   },
   "required": [
@@ -133,6 +140,11 @@
           "description": "Which side the number describes, when the insight is about one side. The grounding step recomputes the metric over the cited events for this side.",
           "type": ["string", "null"],
           "enum": ["HOME", "AWAY", null]
+        },
+        "subject": {
+          "title": "Subject",
+          "description": "The person the number is about, when it is about a player rather than a side.",
+          "type": ["string", "null"]
         }
       },
       "required": [

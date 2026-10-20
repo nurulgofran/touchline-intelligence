@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
+  Audience,
+  AudienceOptions,
   ConnectionStatus,
   ControlMessage,
   Handoff,
@@ -126,6 +128,12 @@ export interface LiveMatchState {
   userMovedClock: boolean;
   /** Whether the live socket is down and the feed is coming from REST. */
   usingFallback: boolean;
+  /** Who the overlays are written for. */
+  audience: Audience;
+  /** The audiences, the languages, the squad and the metrics on offer. */
+  audienceOptions: AudienceOptions | null;
+  /** Whether the audience has been asked for but not applied yet. */
+  audiencePending: boolean;
 }
 
 export interface LiveMatchApi extends LiveMatchState {
@@ -136,6 +144,8 @@ export interface LiveMatchApi extends LiveMatchState {
   changeSpeed: (speed: number) => void;
   seek: (clockMs: number) => void;
   nextMoment: () => void;
+  /** Ask the service to write the overlays for a different audience. */
+  setAudience: (audience: Audience) => void;
   /** The event with the given id, if the studio has it. */
   eventById: (eventId: string) => MatchEvent | undefined;
 }
@@ -166,6 +176,16 @@ const INITIAL_STATE: LiveMatchState = {
   startedAtFirstMoment: false,
   userMovedClock: false,
   usingFallback: false,
+  audience: {
+    mode: "analyst",
+    locale: "en",
+    side: null,
+    player_id: null,
+    player_name: null,
+    metric: null,
+  },
+  audienceOptions: null,
+  audiencePending: false,
 };
 
 function socketUrl(seed: number): string {
@@ -381,6 +401,7 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
             provider: frame.provider,
             speed: frame.speed,
             everConnected: true,
+            audience: frame.audience ?? prev.audience,
           }));
           if (isResume) {
             // The connection dropped. Resume from the clock we last saw,
@@ -451,15 +472,29 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
             candidate_id: frame.candidate_id,
           };
           setState((prev) => {
-            if (prev.overlays.some((item) => item.overlay_id === overlay.overlay_id)) {
+            // An overlay keeps its id when the audience changes, so the
+            // revision is what says whether this card is newer than the
+            // one already on screen.
+            const existing = prev.overlays.find(
+              (item) => item.overlay_id === overlay.overlay_id,
+            );
+            if (
+              existing &&
+              (existing.revision ?? 0) >= (overlay.revision ?? 0)
+            ) {
               return prev;
             }
-            const overlays = [...prev.overlays, overlay].sort(
-              (a, b) => b.match_clock_ms - a.match_clock_ms,
-            );
+            const overlays = prev.overlays
+              .filter((item) => item.overlay_id !== overlay.overlay_id)
+              .concat(overlay)
+              .sort((a, b) => b.match_clock_ms - a.match_clock_ms);
             return {
               ...prev,
               overlays,
+              // A rewritten card carries a higher revision, and that is
+              // the sign that the new audience has been applied.
+              audiencePending:
+                (overlay.revision ?? 0) > 0 ? false : prev.audiencePending,
               insightClocks: prev.insightClocks.includes(overlay.match_clock_ms)
                 ? prev.insightClocks
                 : [...prev.insightClocks, overlay.match_clock_ms].sort(
@@ -593,6 +628,27 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
     return () => window.clearInterval(timer);
   }, [refreshRest]);
 
+  // The audience's options: the five readings, the three languages, the
+  // two squads and the metrics a lens can look through. They are fetched
+  // once, because the squad does not change during a match.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const options = await fetchJson<AudienceOptions>(
+        `/api/match/audience?seed=${seed}`,
+      );
+      if (cancelled || !options) return;
+      setState((prev) => ({
+        ...prev,
+        audienceOptions: options,
+        audience: options.audience ?? prev.audience,
+      }));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [seed]);
+
   /* ---------------------------------------------------------------- */
   /* The merged view                                                  */
   /* ---------------------------------------------------------------- */
@@ -608,12 +664,15 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
    */
   const allOverlays = useMemo(() => {
     const merged = new Map<string, Overlay>();
-    for (const overlay of restFallback.overlays) {
+    const put = (overlay: Overlay) => {
+      const existing = merged.get(overlay.overlay_id);
+      // The audience can rewrite a card without changing its id, so the
+      // newer revision wins whichever reading it arrived in.
+      if (existing && (existing.revision ?? 0) > (overlay.revision ?? 0)) return;
       merged.set(overlay.overlay_id, overlay);
-    }
-    for (const overlay of state.overlays) {
-      merged.set(overlay.overlay_id, overlay);
-    }
+    };
+    for (const overlay of restFallback.overlays) put(overlay);
+    for (const overlay of state.overlays) put(overlay);
     return Array.from(merged.values());
   }, [state.overlays, restFallback.overlays]);
 
@@ -759,6 +818,27 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
     send({ type: "control", action: "next" });
   }, [send]);
 
+  /**
+   * Ask the service to write the overlays for a different audience.
+   *
+   * The service rewrites the overlays it has already computed and sends
+   * them again with a higher revision, so the studio shows the same
+   * moments in a different voice. Until they arrive the studio says it is
+   * working, because a card that has not been rewritten yet is still the
+   * old one.
+   */
+  const setAudience = useCallback(
+    (audience: Audience) => {
+      setState((prev) => ({
+        ...prev,
+        audience,
+        audiencePending: true,
+      }));
+      send({ type: "control", action: "audience", value: audience });
+    },
+    [send],
+  );
+
   const eventById = useCallback(
     (eventId: string) => state.events.find((event) => event.event_id === eventId),
     [state.events],
@@ -787,6 +867,7 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
     changeSpeed,
     seek,
     nextMoment,
+    setAudience,
     eventById,
   };
 }

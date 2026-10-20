@@ -128,6 +128,11 @@ export default function OverlayFeed({
                     >
                       <td className="py-0.5 pr-2 text-studio-300">
                         {metric.label}
+                        {metric.subject && (
+                          <span className="ml-1 text-studio-500">
+                            · {metric.subject}
+                          </span>
+                        )}
                       </td>
                       <td
                         className="py-0.5 text-right font-mono font-semibold tabular-nums"

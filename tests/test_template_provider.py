@@ -141,9 +141,9 @@ def test_overlay_schema_matches_the_model() -> None:
     assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
     assert set(schema["properties"]) == set(Overlay.model_fields)
 
-    # Every field is required in the schema except the two that carry a
+    # Every field is required in the schema except the three that carry a
     # default and may therefore be omitted by a producer.
-    optional = {"confidence", "locale"}
+    optional = {"confidence", "locale", "revision"}
     assert set(schema["required"]) == set(Overlay.model_fields) - optional
     assert optional == {
         name

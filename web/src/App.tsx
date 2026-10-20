@@ -1,10 +1,12 @@
 import { useState } from "react";
 
+import AudienceBar from "./components/AudienceBar";
 import MomentumChart from "./components/MomentumChart";
 import OverlayFeed from "./components/OverlayFeed";
 import Pitch from "./components/Pitch";
 import TopBar from "./components/TopBar";
 import TracePanel from "./components/TracePanel";
+import TrackingPanel from "./components/TrackingPanel";
 import Transport from "./components/Transport";
 import { useLiveMatch } from "./useLiveMatch";
 
@@ -73,6 +75,12 @@ export default function App() {
 
           {/* The insights, beside the pitch. */}
           <section className="flex min-h-0 flex-col gap-3 lg:col-span-4">
+            <AudienceBar
+              audience={match.audience}
+              options={match.audienceOptions}
+              pending={match.audiencePending}
+              onChange={match.setAudience}
+            />
             {match.usingFallback && (
               <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-200">
                 The live socket has dropped, so the feed is not being pushed
@@ -99,6 +107,7 @@ export default function App() {
               durationMs={match.durationMs}
               teams={match.teams}
             />
+            <TrackingPanel seed={match.seed} />
             <TracePanel
               trace={match.trace}
               focus={selectedCandidate}

@@ -53,6 +53,7 @@ from touchline.agents.explainer import ExplainerAgent
 from touchline.agents.narrator import NarratorAgent
 from touchline.agents.personalizer import PersonalizerAgent
 from touchline.metrics.analyst import MatchAnalyst
+from touchline.models.audience import Audience, AudienceMode
 from touchline.models.claims import Explanation, Narration
 from touchline.models.events import MatchEvent
 from touchline.models.insights import InsightCandidate
@@ -668,6 +669,12 @@ class PersonalizerExecutor(Executor):
     This is the end of the graph, so it **yields** its result rather than
     sending it: an executor with no outgoing edge has its sent messages
     dropped by the runner.
+
+    The audience is read here and not from the agent, because the graph is
+    rebuilt for every stretch of a live match while the *audience* is a
+    property of the match. The candidate's cited events are fetched from the
+    shared state, because the audience reads exactly those events and the
+    numbers it produces have to be recomputable from them.
     """
 
     def __init__(
@@ -675,8 +682,10 @@ class PersonalizerExecutor(Executor):
         *,
         personalizer: PersonalizerAgent,
         trace: HandoffTrace,
+        store: MatchStateStore | None = None,
         locale: str = "en",
         mode: str = "analyst",
+        audience: Audience | None = None,
         id: str = STAGE_PERSONALIZER,
     ) -> None:
         """Create the executor.
@@ -684,15 +693,20 @@ class PersonalizerExecutor(Executor):
         Args:
             personalizer: The Personaliser agent.
             trace: The ledger of hand-offs.
+            store: The shared state, holding the cited events.
             locale: Language code for the prose.
             mode: Audience mode.
+            audience: Who the overlay is written for. The mode and the
+                locale above are used when absent.
             id: The executor's id.
         """
         super().__init__(id=id)
         self._personalizer = personalizer
         self._trace = trace
+        self._store = store
         self._locale = locale
         self._mode = mode
+        self._audience = audience
         self._degradations: list[str] = []
 
     @property
@@ -710,6 +724,8 @@ class PersonalizerExecutor(Executor):
         overlay = await self._personalizer.personalise(
             message.candidate,
             message.narration,
+            audience=self._audience,
+            events=self._cited_events(message.candidate),
             locale=self._locale,
             mode=self._mode,
         )
@@ -723,6 +739,17 @@ class PersonalizerExecutor(Executor):
         await ctx.yield_output(
             InsightPersonalised(candidate=message.candidate, overlay=overlay)
         )
+
+    def _cited_events(self, candidate: InsightCandidate) -> list[MatchEvent]:
+        """The events the candidate cites, as the shared state holds them."""
+        if self._store is None:
+            return []
+        events: list[MatchEvent] = []
+        for event_id in candidate.cited_event_ids:
+            event = self._store.get(event_id)
+            if event is not None:
+                events.append(event)
+        return events
 
 
 class MatchWorkflow:
@@ -749,6 +776,7 @@ class MatchWorkflow:
         cursor: FeedCursor | None = None,
         locale: str = "en",
         mode: str = "analyst",
+        audience: Audience | None = None,
         max_grounding_attempts: int = DEFAULT_MAX_GROUNDING_ATTEMPTS,
     ) -> None:
         """Build the graph.
@@ -779,6 +807,10 @@ class MatchWorkflow:
                 single batch run wants.
             locale: Language code for the prose.
             mode: Audience mode.
+            audience: Who the overlays are written for. The mode and the
+                locale above are used when absent; when it is given, it
+                decides both, because a language and an audience are one
+                decision and not two.
             max_grounding_attempts: How many times a claim may be explained
                 again after a veto before the deterministic claim is taken.
         """
@@ -791,6 +823,14 @@ class MatchWorkflow:
         # sharing them.
         self._store = store if store is not None else MatchStateStore()
         self._analyst = analyst if analyst is not None else MatchAnalyst()
+        self._audience = audience or Audience(
+            mode=AudienceMode(mode)
+            if mode in {m.value for m in AudienceMode}
+            else AudienceMode.ANALYST,
+            locale=locale,
+        )
+        locale = self._audience.locale
+        mode = self._audience.mode.value
         self._locale = locale
         self._mode = mode
         self._trace = trace if trace is not None else HandoffTrace()
@@ -836,8 +876,10 @@ class MatchWorkflow:
         self._personalizer_executor = PersonalizerExecutor(
             personalizer=self._personalizer,
             trace=self._trace,
+            store=self._store,
             locale=locale,
             mode=mode,
+            audience=self._audience,
         )
 
         self._workflow = (
@@ -864,6 +906,11 @@ class MatchWorkflow:
     def trace(self) -> HandoffTrace:
         """The ledger of hand-offs."""
         return self._trace
+
+    @property
+    def audience(self) -> Audience:
+        """Who the overlays are written for."""
+        return self._audience
 
     async def run(
         self,

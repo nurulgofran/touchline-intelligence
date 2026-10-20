@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import math
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -106,6 +107,25 @@ class _Possession:
     actions: list[_Action]
 
 
+@dataclass(frozen=True)
+class PlayerSample:
+    """Where every player was, at one point in the match.
+
+    The event log records where the *ball* was; it does not record where
+    the players were. The vision feed needs both -- the video is rendered
+    from the players' positions and the tracker is measured against them --
+    so the movement model can be asked to report where it put everybody.
+
+    Attributes:
+        clock_ms: The match clock the sample belongs to.
+        positions: Where every player was, by player id, in absolute
+            percentage coordinates.
+    """
+
+    clock_ms: int
+    positions: dict[str, tuple[float, float]]
+
+
 def _clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
     """Clamp a percentage into the pitch."""
     return max(low, min(high, value))
@@ -114,8 +134,9 @@ def _clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
 class _MatchSimulator:
     """Builds one synthetic match from a seed."""
 
-    def __init__(self, seed: int) -> None:
+    def __init__(self, seed: int, *, record: bool = False) -> None:
         self.seed = seed
+        self.record = record
         self.rng = random.Random(seed)
         self.home, self.away = build_teams(seed)
         self.score_home = 0
@@ -144,6 +165,11 @@ class _MatchSimulator:
         # The player model runs on its own random stream, so adding it did
         # not change a single event in the log.
         self.tracker = PlayerTracker(self.home, self.away, seed)
+        #: Where every player was, sampled as the match was played. Only
+        #: filled in when the vision feed asks for it, because recording
+        #: every position of every player is a lot of memory for a match
+        #: nobody is going to watch.
+        self.samples: list[PlayerSample] = []
 
     # -- helpers ----------------------------------------------------------
 
@@ -787,7 +813,10 @@ class _MatchSimulator:
     # -- player movement ---------------------------------------------------
 
     def _track_players(
-        self, possessions: list[_Possession], scale_ms: float
+        self,
+        possessions: list[_Possession],
+        timed: list[tuple[int, _Action]],
+        scale_ms: float,
     ) -> None:
         """Run the player model over a half, and record the ground covered.
 
@@ -800,12 +829,22 @@ class _MatchSimulator:
         The model is stepped over *time*, not over events: between one
         action and the next the clock runs for several seconds, and during
         those seconds everybody keeps moving.
+
+        The ``timed`` list is the half's actions with the clock they were
+        given, and it is what the samples are stamped with: the movement
+        model's output and the event log have to sit on the same timeline,
+        or the ground truth would be a second or two away from the match it
+        describes.
         """
         tracker = self.tracker
         previous_xy: tuple[float, float] | None = None
         previous_possession: int | None = None
+        index = 0
         for possession in possessions:
             for action in possession.actions:
+                clock = timed[index][0] if index < len(timed) else 0
+                next_clock = timed[index + 1][0] if index + 1 < len(timed) else None
+                index += 1
                 if action.side is None:
                     continue
                 if action.type is EventType.SUBSTITUTION:
@@ -823,11 +862,14 @@ class _MatchSimulator:
                     from_xy = (ball_x, ball_y)
                 else:
                     from_xy = previous_xy
+                duration_s = action.weight * scale_ms / 1000.0
+                recorder = self._recorder(clock, next_clock, duration_s)
                 covered = tracker.integrate(
-                    action.weight * scale_ms / 1000.0,
+                    duration_s,
                     from_xy,
                     (ball_x, ball_y),
                     actor,
+                    recorder,
                 )
                 previous_xy = (ball_x, ball_y)
                 previous_possession = possession_index
@@ -854,6 +896,37 @@ class _MatchSimulator:
                     action.metadata["player_total_distance_m"] = round(
                         tracker.covered_m(actor), 2
                     )
+
+    def _recorder(
+        self, clock: int, next_clock: int | None, duration_s: float
+    ) -> Callable[[float, dict[str, tuple[float, float]]], None] | None:
+        """The callback that records where the players are.
+
+        The samples are spread across the *event* clock rather than the
+        model's own clock, so that the ground truth and the event log are
+        on one timeline. The model's own time still decides how far the
+        players moved, so the distance figures do not change.
+        """
+        if not self.record:
+            return None
+
+        span = float(next_clock - clock) if next_clock is not None else 0.0
+        if span <= 0.0:
+            span = duration_s * 1000.0
+        samples = self.samples
+
+        def record(
+            elapsed_s: float, positions: dict[str, tuple[float, float]]
+        ) -> None:
+            fraction = min(1.0, elapsed_s / duration_s) if duration_s > 0 else 1.0
+            samples.append(
+                PlayerSample(
+                    clock_ms=clock + round(span * fraction),
+                    positions=dict(positions),
+                )
+            )
+
+        return record
 
     # -- assembly ---------------------------------------------------------
 
@@ -884,20 +957,23 @@ class _MatchSimulator:
 
         # The player model runs over the same actions the clock does, so the
         # ground a player covers is measured in the same match time the
-        # events are timestamped in.
-        self._track_players(
-            half_one, self._scale(half_one, 1, HALF_TIME_MS - 30_000)
-        )
-        self._track_players(
-            half_two,
-            self._scale(half_two, HALF_TIME_MS + 5_000, MATCH_DURATION_MS - 30_000),
-        )
-
+        # events are timestamped in. The clock is settled first, because the
+        # samples the model gives up are stamped with it.
         timed_one = self._timed(half_one, 1, HALF_TIME_MS - 30_000)
         timed_two = self._timed(
             half_two, HALF_TIME_MS + 5_000, MATCH_DURATION_MS - 30_000
         )
-        timed = timed_one + timed_two
+        timed = _settle_clocks(timed_one + timed_two)
+        self._track_players(
+            half_one,
+            timed[: len(timed_one)],
+            self._scale(half_one, 1, HALF_TIME_MS - 30_000),
+        )
+        self._track_players(
+            half_two,
+            timed[len(timed_one) :],
+            self._scale(half_two, HALF_TIME_MS + 5_000, MATCH_DURATION_MS - 30_000),
+        )
 
         events: list[MatchEvent] = []
         events.append(
@@ -946,10 +1022,7 @@ class _MatchSimulator:
             )
         )
 
-        last_clock = 0
         for clock_ms, action in timed:
-            clock_ms = max(clock_ms, last_clock + 1)
-            last_clock = clock_ms
             period = 1 if clock_ms < HALF_TIME_MS else 2
             events.append(
                 MatchEvent(
@@ -1102,6 +1175,45 @@ def simulate(seed: int = 42) -> list[MatchEvent]:
         The ordered event list, from kick-off to full time.
     """
     return _MatchSimulator(seed).run()
+
+
+def _settle_clocks(
+    timed: list[tuple[int, _Action]],
+) -> list[tuple[int, _Action]]:
+    """Make sure every action sits at its own moment on the clock.
+
+    Two actions can be scaled onto the same millisecond, and the log needs
+    them to be in an order rather than to share a moment. The clock is
+    pushed on by a millisecond when it would otherwise collide.
+    """
+    settled: list[tuple[int, _Action]] = []
+    last = 0
+    for clock_ms, action in timed:
+        clock_ms = max(clock_ms, last + 1)
+        last = clock_ms
+        settled.append((clock_ms, action))
+    return settled
+
+
+def simulate_with_feed(
+    seed: int = 42,
+) -> tuple[list[MatchEvent], list[PlayerSample]]:
+    """Simulate a match and hand back where the players were, as well.
+
+    The event log says where the *ball* was. The vision feed needs to know
+    where the *players* were, because the video is rendered from them and
+    the tracker is measured against them -- so the movement model is asked
+    to report its output as it goes.
+
+    Args:
+        seed: Any integer. The result is fully deterministic for a given seed.
+
+    Returns:
+        The event list, and the samples of where every player was.
+    """
+    simulator = _MatchSimulator(seed, record=True)
+    events = simulator.run()
+    return events, simulator.samples
 
 
 def simulate_with_tracker(

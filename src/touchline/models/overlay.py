@@ -45,6 +45,16 @@ class Overlay(BaseModel):
     cited_event_ids: list[str] = Field(default_factory=list)
     locale: str = Field(default="en")
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    revision: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Which version of this overlay this is. An overlay keeps its id "
+            "when the audience changes -- it is the same moment, written for "
+            "somebody else -- so the studio needs a number to tell the new "
+            "card from the old one."
+        ),
+    )
 
 
 class OverlayBundle(BaseModel):

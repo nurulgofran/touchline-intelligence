@@ -50,10 +50,13 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from touchline.agents.audience import build_recap
 from touchline.agents.explainer import ExplainerAgent
 from touchline.agents.narrator import NarratorAgent
 from touchline.agents.personalizer import PersonalizerAgent
 from touchline.metrics.analyst import MatchAnalyst
+from touchline.models.audience import Audience, AudienceMode
+from touchline.models.claims import Narration
 from touchline.models.events import MATCH_DURATION_MS, MatchEvent, TeamSide
 from touchline.models.insights import InsightCandidate
 from touchline.models.overlay import Overlay
@@ -84,6 +87,9 @@ class StretchResult:
         end_ms: The match clock at the end of the stretch.
         overlays: The overlays the stretch produced, in clock order.
         candidates: The insights the stretch put on the feed.
+        narrations: The copy that was written for each insight. Kept so the
+            overlays can be rewritten for another audience without asking the
+            Explainer and the Narrator again.
         trace: The hand-offs the stretch made.
         degradations: The times something fell back on something else.
         provider: The provider state after the stretch, so the badge in the
@@ -95,6 +101,7 @@ class StretchResult:
     end_ms: int
     overlays: list[Overlay] = field(default_factory=list)
     candidates: list[InsightCandidate] = field(default_factory=list)
+    narrations: list[Narration] = field(default_factory=list)
     trace: list[Handoff] = field(default_factory=list)
     degradations: list[str] = field(default_factory=list)
     provider: dict[str, object] = field(default_factory=dict)
@@ -103,6 +110,13 @@ class StretchResult:
     def overlay_clocks(self) -> list[int]:
         """The match clock of each overlay, in order."""
         return [overlay.match_clock_ms for overlay in self.overlays]
+
+    def narration_for(self, candidate_id: str) -> Narration | None:
+        """The copy written for one insight, if there is any."""
+        for narration in self.narrations:
+            if narration.candidate_id == candidate_id:
+                return narration
+        return None
 
 
 def build_teams_payload(seed: int = 42) -> dict[str, object]:
@@ -155,6 +169,7 @@ class LiveMatchEngine:
         explainer_client: Any | None = None,
         locale: str = "en",
         mode: str = "analyst",
+        audience: Audience | None = None,
         stretch_ms: int | None = None,
     ) -> None:
         """Create the engine.
@@ -168,6 +183,8 @@ class LiveMatchEngine:
                 Explainer over the wire.
             locale: Language code for the prose.
             mode: Audience mode.
+            audience: Who the overlays are written for. The mode and the
+                locale above are used when absent.
             stretch_ms: How much match time one stretch covers. The
                 analyst's own feed interval is used when absent, so the
                 stretches line up with the feed exactly.
@@ -176,8 +193,14 @@ class LiveMatchEngine:
 
         self._seed = seed
         self._match_id = match_id or f"seed-{seed}"
-        self._locale = locale
-        self._mode = mode
+        self._audience = audience or Audience(
+            mode=AudienceMode(mode)
+            if mode in {m.value for m in AudienceMode}
+            else AudienceMode.ANALYST,
+            locale=locale,
+        )
+        self._locale = self._audience.locale
+        self._mode = self._audience.mode.value
 
         self._events: list[MatchEvent] = sorted(
             simulate(seed=seed), key=lambda e: (e.match_clock_ms, e.event_id)
@@ -206,13 +229,22 @@ class LiveMatchEngine:
             chat_client, explainer_client=explainer_client
         )
         self._personalizer = PersonalizerAgent(
-            chat_client, mode=mode, locale=locale
+            chat_client,
+            mode=self._mode,
+            locale=self._locale,
+            team_names=self._team_names,
         )
 
         self._results: list[StretchResult] = []
+        self._overlays: list[Overlay] = []
+        self._recap: Overlay | None = None
+        self._revision = 0
         self._computed_ms = 0
         self._task: asyncio.Task[None] | None = None
         self._advanced = asyncio.Event()
+        self._lock = asyncio.Lock()
+        self._tracking: Any | None = None
+        self._tracking_task: asyncio.Task[None] | None = None
 
     # -- what the match is -------------------------------------------------
 
@@ -252,6 +284,30 @@ class LiveMatchEngine:
     def teams(self) -> dict[str, object]:
         """The two fictional clubs, with their colours."""
         return build_teams_payload(self._seed)
+
+    @property
+    def roster(self) -> list[dict[str, object]]:
+        """The two squads, for the studio's player picker.
+
+        Every player is fictional and every name is invented, and the
+        picker needs the same names the log carries so that the audience
+        it builds is one the log can answer.
+        """
+        home, away = build_teams(self._seed)
+        players: list[dict[str, object]] = []
+        for side, club in ((TeamSide.HOME, home), (TeamSide.AWAY, away)):
+            for player in club.squad:
+                players.append(
+                    {
+                        "player_id": player.player_id,
+                        "name": player.name,
+                        "number": player.number,
+                        "position": player.position,
+                        "side": side.value,
+                        "club": club.name,
+                    }
+                )
+        return players
 
     @property
     def explainer(self) -> ExplainerAgent:
@@ -310,9 +366,19 @@ class LiveMatchEngine:
         return self._computed_ms
 
     @property
+    def audience(self) -> Audience:
+        """Who the overlays are written for.
+
+        The audience is a property of the **analysis**, not of the viewer:
+        one engine, one match, one audience at a time. Changing it rewrites
+        the overlays that have already been computed.
+        """
+        return self._audience
+
+    @property
     def overlays(self) -> list[Overlay]:
         """Every overlay computed so far, in clock order."""
-        return [overlay for result in self._results for overlay in result.overlays]
+        return list(self._overlays)
 
     def overlay_clocks(self) -> list[int]:
         """The match clock of every overlay computed so far, in order."""
@@ -369,6 +435,107 @@ class LiveMatchEngine:
                 return False
         return self._computed_ms >= clock_ms
 
+    # -- the audience ------------------------------------------------------
+
+    async def set_audience(self, audience: Audience) -> list[Overlay]:
+        """Change who the overlays are written for, and rewrite them.
+
+        Only the Personaliser runs again. The Explainer's claim and the
+        Narrator's copy are kept, because neither of them is a property of
+        the audience: the claim is a fact about the match, and the copy is
+        the reading that has already been checked against the log.
+
+        Args:
+            audience: Who the overlays are written for.
+
+        Returns:
+            The overlays, rewritten for the new audience.
+        """
+        async with self._lock:
+            self._audience = audience
+            self._locale = audience.locale
+            self._mode = audience.mode.value
+            self._revision += 1
+
+            overlays: list[Overlay] = []
+            for result in self._results:
+                for candidate in result.candidates:
+                    narration = result.narration_for(candidate.candidate_id)
+                    if narration is None:
+                        continue
+                    overlays.append(
+                        await self._personalizer.personalise(
+                            candidate,
+                            narration,
+                            audience=audience,
+                            events=self._cited_events(candidate),
+                            revision=self._revision,
+                        )
+                    )
+            self._overlays = overlays
+            self._recap = self._build_recap()
+            if self._recap is not None:
+                self._overlays.append(self._recap)
+        return list(self._overlays)
+
+    def _cited_events(self, candidate: InsightCandidate) -> list[MatchEvent]:
+        """The events one candidate cites, as the shared state holds them."""
+        events: list[MatchEvent] = []
+        for event_id in candidate.cited_event_ids:
+            event = self._store.get(event_id)
+            if event is not None:
+                events.append(event)
+        return events
+
+    # -- the vision tracker ------------------------------------------------
+
+    def start_tracking(self) -> None:
+        """Start the vision tracker's cross-validation in the background.
+
+        The tracker is a **secondary** ingest path: the match analysis does
+        not depend on it and the demo does not wait for it. It is started
+        alongside the analysis and its report is ready whenever it is
+        ready.
+        """
+        if self._tracking_task is not None:
+            return
+        self._tracking_task = asyncio.create_task(
+            self._compute_tracking(), name=f"touchline-tracking-{self._match_id}"
+        )
+
+    async def _compute_tracking(self) -> None:
+        """Run the tracker over the synthetic feed and measure the result."""
+        from touchline.vision.validate import build_report
+
+        try:
+            self._tracking = await asyncio.to_thread(build_report, self._seed)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("the vision tracker's cross-validation failed")
+
+    @property
+    def tracking(self) -> Any | None:
+        """The tracker's report, if it has finished.
+
+        ``None`` means it is still running, or that it failed; the studio
+        shows the panel as "working" either way.
+        """
+        return self._tracking
+
+    def _build_recap(self) -> Overlay | None:
+        """The full-time card, for the current audience.
+
+        The recap is deterministic -- it is a summary of the log's numbers,
+        and the numbers are the log's -- so it needs no model and no wait.
+        """
+        if not self._results:
+            return None
+        recap = build_recap(
+            self._events, self._audience, team_names=self._team_names
+        )
+        return recap.model_copy(update={"revision": self._revision})
+
     # -- the work ----------------------------------------------------------
 
     async def _compute(self) -> None:
@@ -396,37 +563,50 @@ class LiveMatchEngine:
         personalizer_before = len(self._personalizer.degradations)
         client_before = self._client_degradation_count()
 
-        workflow = MatchWorkflow(
-            store=self._store,
-            analyst=self._analyst,
-            explainer=self._explainer,
-            narrator=self._narrator,
-            personalizer=self._personalizer,
-            trace=self._trace,
-            cursor=self._cursor,
-            locale=self._locale,
-            mode=self._mode,
-        )
-        run = await workflow.run(events, match_id=self._match_id)
-
-        degradations = [
-            *workflow.local_degradations,
-            *self._narrator.degradations[narrator_before:],
-            *self._personalizer.degradations[personalizer_before:],
-            *self._client_degradations(client_before),
-        ]
-        self._results.append(
-            StretchResult(
-                index=index,
-                start_ms=start_ms,
-                end_ms=end_ms,
-                overlays=list(run.overlays),
-                candidates=list(run.candidates),
-                trace=self._trace.as_list()[trace_before:],
-                degradations=degradations,
-                provider=provider_status.current(foundry.is_available()).as_dict(),
+        async with self._lock:
+            audience = self._audience
+            workflow = MatchWorkflow(
+                store=self._store,
+                analyst=self._analyst,
+                explainer=self._explainer,
+                narrator=self._narrator,
+                personalizer=self._personalizer,
+                trace=self._trace,
+                cursor=self._cursor,
+                locale=audience.locale,
+                mode=audience.mode.value,
+                audience=audience,
             )
-        )
+            run = await workflow.run(events, match_id=self._match_id)
+
+            degradations = [
+                *workflow.local_degradations,
+                *self._narrator.degradations[narrator_before:],
+                *self._personalizer.degradations[personalizer_before:],
+                *self._client_degradations(client_before),
+            ]
+            overlays = [
+                overlay.model_copy(update={"revision": self._revision})
+                for overlay in run.overlays
+            ]
+            self._results.append(
+                StretchResult(
+                    index=index,
+                    start_ms=start_ms,
+                    end_ms=end_ms,
+                    overlays=overlays,
+                    candidates=list(run.candidates),
+                    narrations=list(run.narrations),
+                    trace=self._trace.as_list()[trace_before:],
+                    degradations=degradations,
+                    provider=provider_status.current(foundry.is_available()).as_dict(),
+                )
+            )
+            self._overlays.extend(overlays)
+            if end_ms >= MATCH_DURATION_MS:
+                self._recap = self._build_recap()
+                if self._recap is not None:
+                    self._overlays.append(self._recap)
         self._computed_ms = end_ms
         self._advanced.set()
         self._advanced.clear()

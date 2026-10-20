@@ -82,6 +82,12 @@ export interface MetricValue {
   unit: string;
   label: string;
   side: Side | null;
+  /**
+   * The person the number is about, when it is about a player rather than
+   * a side. The player-focus audience counts one player's actions inside
+   * the cited window.
+   */
+  subject?: string | null;
 }
 
 /** A timed piece of on-screen narrative. */
@@ -103,6 +109,13 @@ export interface Overlay {
   cited_event_ids: string[];
   locale: string;
   confidence: number;
+  /**
+   * Which version of this overlay this is. An overlay keeps its id when
+   * the audience changes - it is the same moment, written for somebody
+   * else - so the studio needs a number to tell the new card from the old
+   * one.
+   */
+  revision?: number;
 }
 
 /**
@@ -150,6 +163,8 @@ export interface HelloFrame {
   clock_ms: number;
   provider: ProviderState;
   event_count: number;
+  /** Who the overlays are written for. */
+  audience: Audience;
 }
 
 export interface ClockFrame {
@@ -211,15 +226,83 @@ export type ServerFrame =
   | EndFrame;
 
 /* ------------------------------------------------------------------ */
+/* The audience                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Who the overlays are written for.
+ *
+ * The audience is a property of the *analysis*, not of the viewer: one
+ * engine, one match, one audience at a time. Changing it rewrites the
+ * overlays that have already been computed, and only the Personaliser
+ * runs again.
+ */
+export interface Audience {
+  mode: AudienceMode;
+  locale: string;
+  side: Side | null;
+  player_id: string | null;
+  player_name: string | null;
+  metric: string | null;
+}
+
+export type AudienceMode =
+  | "analyst"
+  | "fan"
+  | "player"
+  | "my_team"
+  | "metric_lens";
+
+/** One choice in one of the studio's pickers. */
+export interface Choice {
+  id: string;
+  label: string;
+}
+
+/** One fictional player, for the player-focus picker. */
+export interface RosterPlayer {
+  player_id: string;
+  name: string;
+  number: number;
+  position: string;
+  side: Side;
+  club: string;
+}
+
+/** One metric a lens can look through. */
+export interface LensMetric {
+  name: string;
+  label: string;
+  unit: string;
+}
+
+/** The audiences, the languages, the squad and the metrics. */
+export interface AudienceOptions {
+  audience: Audience;
+  modes: Choice[];
+  locales: Choice[];
+  teams: Array<{ side: Side; name: string; short_name: string }>;
+  players: RosterPlayer[];
+  metrics: LensMetric[];
+}
+
+/* ------------------------------------------------------------------ */
 /* Client -> server controls                                          */
 /* ------------------------------------------------------------------ */
 
-export type ControlAction = "play" | "pause" | "replay" | "speed" | "seek" | "next";
+export type ControlAction =
+  | "play"
+  | "pause"
+  | "replay"
+  | "speed"
+  | "seek"
+  | "next"
+  | "audience";
 
 export interface ControlMessage {
   type: "control";
   action: ControlAction;
-  value?: number;
+  value?: number | Partial<Audience> | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -268,6 +351,50 @@ export interface TracePayload {
   count: number;
   vetoes: number;
   entries: Handoff[];
+}
+
+/* ------------------------------------------------------------------ */
+/* The vision tracker                                                 */
+/* ------------------------------------------------------------------ */
+
+/** How the tracker did on one class of thing. */
+export interface TrackerScores {
+  true_positives: number;
+  false_positives: number;
+  false_negatives: number;
+  precision: number;
+  recall: number;
+  f1: number;
+  mean_error_m: number;
+}
+
+/**
+ * The tracker's cross-validation report.
+ *
+ * The tracker watches a synthetic feed built from the same match, and it
+ * is scored against the truth that feed was rendered from. `ready` is
+ * false while the tracker is still working.
+ */
+export interface TrackingReport {
+  ready: boolean;
+  reason?: string;
+  frames?: number;
+  fps?: number;
+  duration_ms?: number;
+  ball?: TrackerScores;
+  home?: TrackerScores;
+  away?: TrackerScores;
+  overall?: TrackerScores;
+  ball_speed_mae_mps?: number;
+  flight_distance_mae_m?: number;
+  flight_count_truth?: number;
+  flight_count_detected?: number;
+  flight_matches?: number;
+  shot_speed_mae_mps?: number;
+  id_switches?: number;
+  tracks_home?: number;
+  tracks_away?: number;
+  ball_top_speed_mps?: number;
 }
 
 /* ------------------------------------------------------------------ */

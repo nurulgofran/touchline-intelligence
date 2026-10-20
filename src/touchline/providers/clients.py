@@ -177,11 +177,14 @@ class TemplateChatClient:
             # The body is the interpretation only. The personaliser puts the
             # analyst's facts in front of it and the template engine's
             # closing line after it, so the numbers on screen are never the
-            # model's to restate.
+            # model's to restate. The reading is rendered in the audience's
+            # register, so the no-model path reads like the model path.
             return json.dumps(
                 {
                     "title": template.render_title(candidate, locale=payload.locale),
-                    "body": template.render_reading(candidate, locale=payload.locale),
+                    "body": template.render_reading(
+                        candidate, locale=payload.locale, mode=payload.mode
+                    ),
                 },
                 ensure_ascii=False,
             )

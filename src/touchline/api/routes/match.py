@@ -17,16 +17,37 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 
+from touchline.agents.audience import LENS_METRICS
 from touchline.api.live import (
     get_engine,
     list_seeds,
     overlay_candidate_id,
     provider_payload,
 )
+from touchline.metrics.definitions import METRICS
+from touchline.models.audience import AudienceMode
+from touchline.providers.template import SUPPORTED_LOCALES
 
 __all__ = ["router"]
 
 router = APIRouter(prefix="/api/match", tags=["match"])
+
+#: The audiences, in the order the studio offers them, with the label it
+#: puts on each one. The chrome is English; the overlays are not.
+_MODE_LABELS: dict[str, str] = {
+    "analyst": "Analyst",
+    "fan": "Fan",
+    "player": "Player focus",
+    "my_team": "My team",
+    "metric_lens": "Metric lens",
+}
+
+#: The languages, with the label the studio puts on each one.
+_LOCALE_LABELS: dict[str, str] = {
+    "en": "English",
+    "de": "Deutsch",
+    "bn": "বাংলা",
+}
 
 
 @router.get("")
@@ -117,4 +138,73 @@ async def trace(seed: int = Query(default=42)) -> dict[str, Any]:
         "count": len(entries),
         "vetoes": len(engine.trace.vetoes()),
         "entries": [entry.model_dump(mode="json") for entry in entries],
+    }
+
+
+@router.get("/tracking")
+async def tracking(seed: int = Query(default=42)) -> dict[str, Any]:
+    """The vision tracker's cross-validation report.
+
+    The tracker is a secondary ingest path: it watches a synthetic feed
+    built from the same match, and it is scored against the truth that
+    feed was rendered from. The report is produced in the background, so
+    it may not be ready the first time it is asked for -- ``ready`` says
+    which it is.
+    """
+    engine = get_engine(seed)
+    report = engine.tracking
+    if report is None:
+        return {"ready": False, "reason": "the tracker is still working"}
+    payload = report.model_dump(mode="json")
+    payload["ready"] = True
+    for key in ("ball", "home", "away", "overall"):
+        scores = payload[key]
+        scores["precision"] = round(scores["precision"], 4)
+        scores["recall"] = round(scores["recall"], 4)
+        scores["f1"] = round(scores["f1"], 4)
+        scores["mean_error_m"] = round(scores["mean_error_m"], 4)
+    return payload
+
+
+@router.get("/audience")
+async def audience(seed: int = Query(default=42)) -> dict[str, Any]:
+    """Who the overlays are written for, and who they could be written for.
+
+    The studio's pickers need the five audiences, the three languages, the
+    two squads and the metrics a lens can look through. The squad is the
+    same one the log carries, so the audience the studio builds is one the
+    event log can answer.
+    """
+    engine = get_engine(seed)
+    short_names: dict[str, str] = {}
+    for side, payload in engine.teams.items():
+        if isinstance(payload, dict):
+            short_names[side] = str(payload.get("short_name", ""))
+    return {
+        "audience": engine.audience.describe(),
+        "modes": [
+            {"id": mode.value, "label": _MODE_LABELS[mode.value]}
+            for mode in AudienceMode
+        ],
+        "locales": [
+            {"id": locale, "label": _LOCALE_LABELS.get(locale, locale)}
+            for locale in SUPPORTED_LOCALES
+        ],
+        "teams": [
+            {
+                "side": side.value,
+                "name": name,
+                "short_name": short_names.get(side.value, ""),
+            }
+            for side, name in engine.team_names.items()
+        ],
+        "players": engine.roster,
+        "metrics": [
+            {
+                "name": name,
+                "label": METRICS[name].label,
+                "unit": METRICS[name].unit,
+            }
+            for name in LENS_METRICS
+        ],
     }

@@ -14,6 +14,7 @@ identical overlay.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from touchline.models.insights import InsightCandidate, InsightKind, MetricValue
 from touchline.models.overlay import Overlay, OverlayType
@@ -23,7 +24,13 @@ from touchline.providers.base import ProviderName
 SUPPORTED_LOCALES: tuple[str, ...] = ("en", "de", "bn")
 
 #: The audience modes the closing line can be written for.
-SUPPORTED_MODES: tuple[str, ...] = ("analyst", "fan", "player")
+SUPPORTED_MODES: tuple[str, ...] = (
+    "analyst",
+    "fan",
+    "player",
+    "my_team",
+    "metric_lens",
+)
 
 #: Overlay type produced for each insight kind.
 _OVERLAY_TYPES: dict[InsightKind, OverlayType] = {
@@ -274,6 +281,89 @@ _MODE_CLOSERS: dict[str, dict[str, str]] = {
         "de": "Ein Detail, das die Spieler auf dem Platz spüren.",
         "bn": "মাঠের খেলোয়াড়রা যা বুঝতে পারেন, এমন একটি বিবরণ।",
     },
+    "my_team": {
+        "en": "Your side's numbers, over exactly the events this card names.",
+        "de": (
+            "Die Zahlen Ihrer Mannschaft, über genau die Ereignisse, die diese "
+            "Karte nennt."
+        ),
+        "bn": "আপনার দলের সংখ্যা, ঠিক যে ইভেন্টগুলো এই কার্ডে উল্লেখ করা।",
+    },
+    "metric_lens": {
+        "en": "One number, and only one, recomputed from the events it names.",
+        "de": (
+            "Eine Zahl, und nur eine, aus den genannten Ereignissen "
+            "nachgerechnet."
+        ),
+        "bn": "একটি সংখ্যা, এবং কেবল একটিই, যে ইভেন্ট থেকে তা পুনরায় হিসাব করা।",
+    },
+}
+
+#: The interpretive line each audience reads the moment with.
+#:
+#: The analyst's line is *kind-specific* -- it lives in the frame for each
+#: insight kind, because a tactical shift and a disciplinary lapse are not
+#: read the same way. The other four audiences read every kind the same
+#: way, which is what makes them audiences rather than analyses: the same
+#: facts, in a voice.
+_MODE_TAILS: dict[str, dict[str, str]] = {
+    "fan": {
+        "en": (
+            "It is the kind of moment the crowd will still be arguing about "
+            "on the way home."
+        ),
+        "de": "Ein Moment, über den man auf dem Heimweg noch streitet.",
+        "bn": "এমন একটি মুহূর্ত যা নিয়ে বাড়ি ফেরার পথেও আলোচনা চলবে।",
+    },
+    "player": {
+        "en": (
+            "This is the part of the match the player on the pitch felt "
+            "first."
+        ),
+        "de": "Das ist der Teil des Spiels, den der Spieler zuerst gespürt hat.",
+        "bn": "ম্যাচের যে অংশটি খেলোয়াড় আগে বুঝেছেন, সেটি।",
+    },
+    "my_team": {
+        "en": (
+            "Your side's reading of the same moment, counted over the same "
+            "events."
+        ),
+        "de": (
+            "Die Sicht Ihrer Mannschaft auf denselben Moment, über dieselben "
+            "Ereignisse gezählt."
+        ),
+        "bn": "একই মুহূর্তের আপনার দলের পড়া, একই ইভেন্টগুলোর উপর গণনা করা।",
+    },
+    "metric_lens": {
+        "en": (
+            "Read through one number, and the same moment looks like this."
+        ),
+        "de": (
+            "Durch eine einzige Zahl gelesen, sieht derselbe Moment so aus."
+        ),
+        "bn": "একটিমাত্র সংখ্যার চোঙালে পড়লে একই মুহূর্তটি এমন দেখায়।",
+    },
+}
+
+#: The label the studio puts in front of the title, per audience. The
+#: prefixes carry no figures, so the figure guard's allowed set is the same
+#: whichever audience the overlay is written for.
+_MODE_TITLE_PREFIX: dict[str, dict[str, str]] = {
+    "my_team": {
+        "en": "Your side: ",
+        "de": "Ihre Mannschaft: ",
+        "bn": "আপনার দল: ",
+    },
+    "player": {
+        "en": "Your view: ",
+        "de": "Ihre Sicht: ",
+        "bn": "আপনার দৃষ্টিভঙ্গি: ",
+    },
+    "metric_lens": {
+        "en": "Through the {metric} lens: ",
+        "de": "Nur {metric}: ",
+        "bn": "শুধু {metric}: ",
+    },
 }
 
 #: Used when the candidate carries no metrics at all.
@@ -282,6 +372,17 @@ _NO_METRICS: dict[str, str] = {
     "de": "Zu dieser Beobachtung sind keine weiteren Zahlen hinterlegt.",
     "bn": "এই পর্যবেক্ষণের সাথে আর কোনো সংখ্যা যুক্ত নেই।",
 }
+
+#: Used when the audience has no part in the moment. The card says so
+#: rather than showing somebody else's numbers.
+_NO_METRICS_AUDIENCE: dict[str, str] = {
+    "en": "There is nothing of yours to count in this moment.",
+    "de": "In diesem Moment gibt es nichts von Ihnen zu zählen.",
+    "bn": "এই মুহূর্তে আপনার হিসাব করার কিছু নেই।",
+}
+
+#: The tag the audience projection puts on a candidate it could not fill.
+_EMPTY_TAG = "audience-empty"
 
 #: Translations of the metric labels the analyst produces.
 _METRIC_LABELS: dict[str, dict[str, str]] = {
@@ -421,12 +522,16 @@ def _localise_metric(metric: MetricValue, locale: str) -> MetricValue:
     return metric.model_copy(update={"label": label})
 
 
-def _metrics_sentence(metrics: list[MetricValue], locale: str) -> str:
+def _metrics_sentence(
+    metrics: list[MetricValue], locale: str, *, empty: bool = False
+) -> str:
     """Join the candidate's metrics into one locale-appropriate sentence.
 
     The returned string is a complete sentence, terminator included.
     """
     if not metrics:
+        if empty:
+            return _NO_METRICS_AUDIENCE[locale]
         return _NO_METRICS[locale]
     parts = [
         f"{metric.label} {_format_value(metric.value, metric.unit)}"
@@ -481,8 +586,46 @@ def _interpretation(frame: _Frame) -> str:
     return tail.strip()
 
 
+def _tail(frame: _Frame, mode: str, locale: str) -> str:
+    """The interpretive line for one audience.
+
+    The analyst reads the kind-specific line that lives in the frame; every
+    other audience reads the same line for every kind, because that is what
+    makes it an audience rather than another analysis.
+    """
+    tails = _MODE_TAILS.get(mode)
+    if tails is None:
+        return _interpretation(frame)
+    return tails.get(locale, tails["en"])
+
+
+def mode_title_prefix(
+    mode: str, *, locale: str = "en", audience: Any | None = None
+) -> str:
+    """The label the studio puts in front of the title, for one audience.
+
+    The prefix carries no figures, so the figure guard's allowed set does
+    not change with the audience. The metric-lens prefix names the metric
+    it is looking through, which is the one thing a viewer needs to know
+    before they read the card.
+    """
+    resolved_locale, resolved_mode = _resolve(locale, mode)
+    prefixes = _MODE_TITLE_PREFIX.get(resolved_mode)
+    if not prefixes:
+        return ""
+    template_text = prefixes.get(resolved_locale, prefixes["en"])
+    metric_label = ""
+    lens = getattr(audience, "metric", None)
+    if lens:
+        metric_label = _METRIC_LABELS.get(resolved_locale, {}).get(lens, lens)
+    return template_text.format(metric=metric_label)
+
+
 def _parts(
-    candidate: InsightCandidate, locale: str, mode: str
+    candidate: InsightCandidate,
+    locale: str,
+    mode: str,
+    audience: Any | None = None,
 ) -> tuple[str, str, str, str]:
     """The rendered pieces of one candidate.
 
@@ -497,15 +640,14 @@ def _parts(
     headline = candidate.headline.strip().rstrip(".")
     clock = _clock_phrase(candidate.match_clock_ms, locale)
     headline_clause = _headline_clause(headline, locale)
-    metrics_sentence = _metrics_sentence(metrics, locale)
+    metrics_sentence = _metrics_sentence(
+        metrics, locale, empty=_EMPTY_TAG in candidate.tags
+    )
     closer = _MODE_CLOSERS[mode].get(locale, _MODE_CLOSERS[mode]["en"])
 
-    title = frame.title.format(clock=clock, headline=headline)
-    body = frame.body.format(
-        headline=headline_clause,
-        metrics=metrics_sentence,
-        clock=clock,
-    )
+    prefix = mode_title_prefix(mode, locale=locale, audience=audience)
+    title = prefix + frame.title.format(clock=clock, headline=headline)
+    body = f"{headline_clause} {metrics_sentence} {_tail(frame, mode, locale)}"
     commentary = _COMMENTARY[locale].format(clock=clock, headline=headline_clause)
     return title, body, closer, commentary
 
@@ -517,6 +659,8 @@ def build_overlay(
     body: str,
     locale: str = "en",
     mode: str = "analyst",
+    overlay_type: OverlayType | None = None,
+    revision: int = 0,
 ) -> Overlay:
     """Assemble an overlay around copy that has already been written.
 
@@ -532,6 +676,12 @@ def build_overlay(
         body: The overlay's body.
         locale: Language code for the rendered prose.
         mode: Audience mode.
+        overlay_type: The overlay's type, when the insight's kind does not
+            decide it. The full-time recap is not an insight kind, so it
+            names its own.
+        revision: Which version of this overlay this is. The audience can
+            change without the moment changing, so the card keeps its id and
+            carries a number instead.
 
     Returns:
         The overlay, carrying the candidate's citations.
@@ -540,12 +690,12 @@ def build_overlay(
     metrics = [
         _localise_metric(metric, resolved_locale) for metric in candidate.metrics
     ]
-    overlay_type = _OVERLAY_TYPES[candidate.kind]
+    resolved_type = overlay_type or _OVERLAY_TYPES[candidate.kind]
     return Overlay(
         overlay_id=f"ovl-{candidate.candidate_id}",
-        type=overlay_type,
+        type=resolved_type,
         start_ms=candidate.match_clock_ms,
-        end_ms=candidate.match_clock_ms + _DURATION_MS[overlay_type],
+        end_ms=candidate.match_clock_ms + _DURATION_MS[resolved_type],
         match_clock_ms=candidate.match_clock_ms,
         title=title,
         body=body,
@@ -553,6 +703,7 @@ def build_overlay(
         cited_event_ids=list(candidate.cited_event_ids),
         locale=resolved_locale,
         confidence=candidate.confidence,
+        revision=revision,
     )
 
 
@@ -561,6 +712,7 @@ def render_overlay(
     *,
     locale: str = "en",
     mode: str = "analyst",
+    audience: Any | None = None,
 ) -> Overlay:
     """Render one candidate into an overlay, deterministically.
 
@@ -570,12 +722,16 @@ def render_overlay(
         candidate: The deterministic, fully-cited insight.
         locale: Language code for the rendered prose.
         mode: Audience mode.
+        audience: The audience the overlay is written for. The metric-lens
+            audience needs it to name the metric in the title.
 
     Returns:
         The overlay, carrying the candidate's citations.
     """
     resolved_locale, resolved_mode = _resolve(locale, mode)
-    title, body, closer, _ = _parts(candidate, resolved_locale, resolved_mode)
+    title, body, closer, _ = _parts(
+        candidate, resolved_locale, resolved_mode, audience
+    )
     return build_overlay(
         candidate,
         title=title,
@@ -585,14 +741,27 @@ def render_overlay(
     )
 
 
-def render_title(candidate: InsightCandidate, *, locale: str = "en") -> str:
-    """Render the overlay's title: what kind of moment this is."""
-    resolved_locale, _ = _resolve(locale, "analyst")
+def render_title(
+    candidate: InsightCandidate,
+    *,
+    locale: str = "en",
+    mode: str = "analyst",
+    audience: Any | None = None,
+) -> str:
+    """Render the overlay's title: what kind of moment this is.
+
+    The audience's prefix goes in front of it, so the viewer can tell at a
+    glance which reading they are looking at.
+    """
+    resolved_locale, resolved_mode = _resolve(locale, mode)
     frames = _FRAMES[candidate.kind]
     frame = frames.get(resolved_locale, frames["en"])
     clock = _clock_phrase(candidate.match_clock_ms, resolved_locale)
     headline = candidate.headline.strip().rstrip(".")
-    return frame.title.format(clock=clock, headline=headline)
+    prefix = mode_title_prefix(
+        resolved_mode, locale=resolved_locale, audience=audience
+    )
+    return prefix + frame.title.format(clock=clock, headline=headline)
 
 
 def render_facts(candidate: InsightCandidate, *, locale: str = "en") -> str:
@@ -607,9 +776,10 @@ def render_facts(candidate: InsightCandidate, *, locale: str = "en") -> str:
         _localise_metric(metric, resolved_locale) for metric in candidate.metrics
     ]
     headline = candidate.headline.strip().rstrip(".")
+    empty = _EMPTY_TAG in candidate.tags
     return (
         f"{_headline_clause(headline, resolved_locale)} "
-        f"{_metrics_sentence(metrics, resolved_locale)}"
+        f"{_metrics_sentence(metrics, resolved_locale, empty=empty)}"
     )
 
 
@@ -625,17 +795,19 @@ def render_closer(mode: str, *, locale: str = "en") -> str:
     return closers.get(resolved_locale, closers["en"])
 
 
-def render_reading(candidate: InsightCandidate, *, locale: str = "en") -> str:
+def render_reading(
+    candidate: InsightCandidate, *, locale: str = "en", mode: str = "analyst"
+) -> str:
     """Render the reading: what the moment means.
 
     The reading is the interpretive half only. The factual half -- the
     headline and the numbers -- is added deterministically at the end, so a
     reading can interpret the numbers but can never restate them wrongly.
     """
-    resolved_locale, _ = _resolve(locale, "analyst")
+    resolved_locale, resolved_mode = _resolve(locale, mode)
     frames = _FRAMES[candidate.kind]
     frame = frames.get(resolved_locale, frames["en"])
-    return _interpretation(frame)
+    return _tail(frame, resolved_mode, resolved_locale)
 
 
 def render_commentary(
@@ -661,7 +833,7 @@ def render_narration(
     frame = frames.get(resolved_locale, frames["en"])
     return {
         "title": render_title(candidate, locale=resolved_locale),
-        "body": _interpretation(frame),
+        "body": _tail(frame, resolved_mode, resolved_locale),
         "commentary": render_commentary(
             candidate, locale=resolved_locale, mode=resolved_mode
         ),
@@ -689,13 +861,16 @@ class TemplateProvider:
         *,
         locale: str = "en",
         mode: str = "analyst",
+        audience: Any | None = None,
     ) -> Overlay:
         """Render one candidate into an overlay.
 
         The same candidate always produces the same overlay, byte for byte.
         """
         resolved_mode = mode if mode in SUPPORTED_MODES else self.default_mode
-        return render_overlay(candidate, locale=locale, mode=resolved_mode)
+        return render_overlay(
+            candidate, locale=locale, mode=resolved_mode, audience=audience
+        )
 
 
 __all__ = [
@@ -703,6 +878,7 @@ __all__ = [
     "SUPPORTED_MODES",
     "TemplateProvider",
     "build_overlay",
+    "mode_title_prefix",
     "render_closer",
     "render_commentary",
     "render_facts",

@@ -48,6 +48,15 @@ class MetricValue(BaseModel):
             "events for this side."
         ),
     )
+    subject: str | None = Field(
+        default=None,
+        description=(
+            "The person the number is about, when it is about a player "
+            "rather than a side. The player-focus audience counts one "
+            "player's actions inside the cited window; the subject says "
+            "whose they are."
+        ),
+    )
 
 
 class BaselineComparison(BaseModel):

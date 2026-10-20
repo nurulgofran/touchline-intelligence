@@ -71,6 +71,10 @@ def test_the_live_feed_is_the_batch_feed(engine: LiveMatchEngine) -> None:
     sees the whole log at once. Both have to produce the same feed --
     same insights, same order, same numbers -- because the analyst only
     ever looks backwards from the moment it reports on.
+
+    The live feed carries one card the batch run does not: the full-time
+    recap, which is a summary of the whole match and so cannot exist
+    until the match is over.
     """
 
     async def batch() -> list:
@@ -82,18 +86,21 @@ def test_the_live_feed_is_the_batch_feed(engine: LiveMatchEngine) -> None:
 
     whole = asyncio.run(batch())
     live = engine.overlays
+    recap = [overlay for overlay in live if overlay.overlay_id == "ovl-recap"]
+    insights = [overlay for overlay in live if overlay.overlay_id != "ovl-recap"]
 
     assert live, "the live engine produced no insights at all"
-    assert len(live) == len(whole), (
-        f"the live feed has {len(live)} insights and the batch feed has "
+    assert len(insights) == len(whole), (
+        f"the live feed has {len(insights)} insights and the batch feed has "
         f"{len(whole)}"
     )
-    assert [overlay.overlay_id for overlay in live] == [
+    assert [overlay.overlay_id for overlay in insights] == [
         overlay.overlay_id for overlay in whole
     ]
-    assert [_content(overlay) for overlay in live] == [
+    assert [_content(overlay) for overlay in insights] == [
         _content(overlay) for overlay in whole
     ]
+    assert len(recap) == 1, "the live feed carries no full-time recap"
 
 
 def test_no_insight_is_explained_twice(engine: LiveMatchEngine) -> None:

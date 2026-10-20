@@ -54,7 +54,12 @@ from typing import Any
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
-from touchline.api.live import LiveSession, get_engine, provider_payload
+from touchline.api.live import (
+    LiveSession,
+    get_engine,
+    parse_audience,
+    provider_payload,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +141,17 @@ async def _read_controls(
             if not isinstance(message, dict):
                 continue
             if message.get("type") not in (None, "control"):
+                continue
+            if str(message.get("action", "")).lower() == "audience":
+                # The audience change is not a clock control: it asks the
+                # engine to rewrite the overlays it has already computed,
+                # which is a model call per insight.
+                audience = parse_audience(message.get("value"), session.engine)
+                if audience is None:
+                    logger.info("live control: the audience was not readable")
+                    continue
+                await session.set_audience(audience)
+                logger.info("live control: audience %s", audience.key)
                 continue
             action = apply_control(session, message)
             logger.info("live control: %s", action)

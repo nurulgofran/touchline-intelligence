@@ -47,6 +47,7 @@ ends of the pitch and one frame has to serve both teams.
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from math import hypot
 
@@ -234,6 +235,7 @@ class PlayerTracker:
         from_xy: tuple[float, float],
         to_xy: tuple[float, float],
         actor_id: str | None = None,
+        on_step: Callable[[float, dict[str, tuple[float, float]]], None] | None = None,
     ) -> float:
         """Move the match on by a stretch of time, with the ball moving too.
 
@@ -247,6 +249,10 @@ class PlayerTracker:
             from_xy: Where the ball starts, in absolute percentage coordinates.
             to_xy: Where the ball ends up.
             actor_id: The player who is about to touch the ball, if any.
+            on_step: Called after each step with the elapsed time and where
+                every player is. The vision feed uses it to record the
+                ground truth: where the players actually were, which the
+                tracker is then measured against.
 
         Returns:
             The ground the actor covered over the stretch, in metres.
@@ -263,6 +269,8 @@ class PlayerTracker:
             ball_x = fx + (tx - fx) * fraction
             ball_y = fy + (ty - fy) * fraction
             actor_step += self.advance(dt, ball_x, ball_y, actor_id)
+            if on_step is not None:
+                on_step(duration_s * fraction, self.positions())
         return actor_step
 
     def advance(

@@ -233,11 +233,11 @@ def test_the_controls_move_the_clock(
         # Next moment: the clock jumps to the following insight. The frames
         # already in flight carry the old clock, so the test waits for the
         # new one rather than looking at the first frame that arrives.
-        target = next(
-            insight["match_clock_ms"]
-            for insight in analysed
-            if insight["match_clock_ms"] > 1_200_000
-        )
+        #
+        # The list of insights is read *after* the jump, not from the
+        # fixture: the engine is still analysing, and it may have found
+        # another insight since the fixture ran. Insights only ever arrive
+        # in clock order, so the one "next" lands on is in that list.
         socket.send_json({"type": "control", "action": "next"})
         time.sleep(0.4)
         seen = []
@@ -245,9 +245,11 @@ def test_the_controls_move_the_clock(
             frame = socket.receive_json()
             if frame["type"] == "clock":
                 seen.append(frame["clock_ms"])
-                if frame["clock_ms"] == target:
-                    break
-        assert target in seen, f"the clock never reached {target}: {seen}"
+        current = client.get("/api/match/insights").json()["insights"]
+        insight_clocks = {insight["match_clock_ms"] for insight in current}
+        assert any(
+            clock in insight_clocks and clock > 1_200_000 for clock in seen
+        ), f"the clock never reached an insight: {seen}"
 
 
 def test_the_socket_shows_an_insight_when_the_clock_reaches_it(
@@ -287,3 +289,105 @@ def test_the_socket_survives_a_bad_control(client: TestClient) -> None:
         time.sleep(0.4)
         frame = socket.receive_json()
     assert frame["type"] in {"clock", "events", "momentum", "trace", "provider"}
+
+
+# -- the audience ----------------------------------------------------------
+
+
+def test_the_audience_endpoint_offers_the_five_readings(
+    client: TestClient,
+) -> None:
+    """The studio's pickers need the audiences, the languages and the squad."""
+    response = client.get("/api/match/audience")
+    assert response.status_code == 200
+
+    body = response.json()
+    assert body["audience"]["mode"] == "analyst"
+    assert [mode["id"] for mode in body["modes"]] == [
+        "analyst",
+        "fan",
+        "player",
+        "my_team",
+        "metric_lens",
+    ]
+    assert [locale["id"] for locale in body["locales"]] == ["en", "de", "bn"]
+    assert len(body["teams"]) == 2
+    assert len(body["players"]) == 32
+    assert body["metrics"]
+    assert all(metric["name"] for metric in body["metrics"])
+
+
+def test_the_audience_control_rewrites_the_overlays(
+    client: TestClient, analysed: list[dict]
+) -> None:
+    """The viewer asks for the fan's reading, and the feed is rewritten."""
+    target = analysed[0]["match_clock_ms"]
+    with client.websocket_connect("/ws/match?seed=42") as socket:
+        socket.receive_json()  # hello
+        socket.send_json({"type": "control", "action": "pause"})
+        socket.send_json({"type": "control", "action": "seek", "value": target})
+        time.sleep(0.4)
+        socket.send_json(
+            {
+                "type": "control",
+                "action": "audience",
+                "value": {"mode": "fan", "locale": "de"},
+            }
+        )
+
+        # The engine rewrites the overlays it has already computed, and
+        # the session walks them again, so the rewritten card arrives
+        # after the one that was already on screen.
+        overlay = None
+        deadline = time.monotonic() + 20.0
+        while time.monotonic() < deadline:
+            frame = socket.receive_json()
+            if frame["type"] != "overlay":
+                continue
+            if frame["overlay"]["locale"] == "de":
+                overlay = frame
+                break
+
+    assert overlay is not None, "the rewritten insight never arrived"
+    assert overlay["overlay"]["revision"] >= 1
+
+
+def test_a_nonsense_audience_is_refused(client: TestClient) -> None:
+    """A control nobody can read does not change what is on screen."""
+    before = client.get("/api/match/audience").json()["audience"]
+    with client.websocket_connect("/ws/match?seed=42") as socket:
+        socket.receive_json()  # hello
+        socket.send_json(
+            {"type": "control", "action": "audience", "value": {"mode": "wizard"}}
+        )
+        time.sleep(0.4)
+        frame = socket.receive_json()
+    after = client.get("/api/match/audience").json()["audience"]
+    assert after == before
+    assert frame["type"] in {"clock", "events", "momentum", "trace", "provider"}
+
+
+# -- the vision tracker ----------------------------------------------------
+
+
+def test_the_tracking_endpoint_reports_on_the_tracker(
+    client: TestClient,
+) -> None:
+    """The tracker's report: precision, recall, and the error in metres."""
+    deadline = time.monotonic() + STARTUP_TIMEOUT
+    body: dict = {}
+    while time.monotonic() < deadline:
+        response = client.get("/api/match/tracking")
+        assert response.status_code == 200
+        body = response.json()
+        if body.get("ready"):
+            break
+        time.sleep(0.5)
+
+    assert body.get("ready"), "the tracker never finished"
+    assert body["frames"] == 500
+    assert body["overall"]["precision"] >= 0.95
+    assert body["overall"]["recall"] >= 0.70
+    assert body["overall"]["mean_error_m"] <= 0.5
+    assert body["ball"]["recall"] >= 0.95
+    assert body["flight_distance_mae_m"] <= 1.5

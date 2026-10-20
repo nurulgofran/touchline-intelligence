@@ -29,9 +29,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from touchline.live.engine import LiveMatchEngine
+from touchline.metrics.definitions import METRICS
+from touchline.models.audience import Audience, AudienceMode
 from touchline.models.events import TeamSide
 from touchline.providers import foundry
 from touchline.providers import status as provider_status
+from touchline.providers.template import SUPPORTED_LOCALES
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +45,7 @@ __all__ = [
     "get_engine",
     "list_seeds",
     "overlay_candidate_id",
+    "parse_audience",
     "set_engine_hook",
 ]
 
@@ -93,9 +97,13 @@ def get_engine(seed: int = 42, *, start: bool = True) -> LiveMatchEngine:
             _engine_hook(engine)
         if start:
             engine.start()
+            # The vision tracker is a secondary path: it is shot and scored
+            # in the background, and the demo never waits for it.
+            engine.start_tracking()
         logger.info("started the live analysis of seed %s", seed)
     elif start:
         engine.start()
+        engine.start_tracking()
     return engine
 
 
@@ -113,6 +121,63 @@ def provider_payload() -> dict[str, object]:
     each other.
     """
     return provider_status.current(foundry.is_available()).as_dict()
+
+
+def parse_audience(value: object, engine: LiveMatchEngine) -> Audience | None:
+    """Read an audience out of a control message.
+
+    The message is a small object the studio sends: the mode, the locale,
+    and whichever of the side, the player and the metric the mode needs.
+    Anything unreadable is refused rather than guessed at, because a wrong
+    audience would put the wrong numbers on screen.
+
+    Args:
+        value: The control message's value.
+        engine: The engine whose roster the player is looked up in.
+
+    Returns:
+        The audience, or ``None`` when the message cannot be read.
+    """
+    if not isinstance(value, dict):
+        return None
+
+    raw_mode = str(value.get("mode", "")).lower()
+    if raw_mode not in {mode.value for mode in AudienceMode}:
+        return None
+    mode = AudienceMode(raw_mode)
+
+    locale = str(value.get("locale", "")).lower()
+    if locale not in SUPPORTED_LOCALES:
+        locale = engine.audience.locale
+
+    side: TeamSide | None = None
+    raw_side = value.get("side")
+    if isinstance(raw_side, str) and raw_side.upper() in {s.value for s in TeamSide}:
+        side = TeamSide(raw_side.upper())
+
+    player_id: str | None = None
+    player_name: str | None = None
+    raw_player = value.get("player_id")
+    if isinstance(raw_player, str) and raw_player:
+        for player in engine.roster:
+            if player["player_id"] == raw_player:
+                player_id = raw_player
+                player_name = str(player["name"])
+                break
+
+    metric: str | None = None
+    raw_metric = value.get("metric")
+    if isinstance(raw_metric, str) and raw_metric in METRICS:
+        metric = raw_metric
+
+    return Audience(
+        mode=mode,
+        locale=locale,
+        side=side,
+        player_id=player_id,
+        player_name=player_name,
+        metric=metric,
+    )
 
 
 @dataclass
@@ -205,6 +270,20 @@ class LiveSession:
                 return clock
         return None
 
+    async def set_audience(self, audience: Audience) -> None:
+        """Change who the overlays are written for.
+
+        The engine rewrites the overlays it has already computed, and the
+        session walks them again from the start, so the viewer sees the
+        same moments written for somebody else.
+
+        Args:
+            audience: Who the overlays are written for.
+        """
+        await self.engine.set_audience(audience)
+        self._overlay_cursor = 0
+        self._seen_overlays.clear()
+
     # -- the frames --------------------------------------------------------
 
     def hello(self) -> dict[str, object]:
@@ -225,6 +304,7 @@ class LiveSession:
             "clock_ms": int(self.clock_ms),
             "provider": provider_payload(),
             "event_count": len(self._events),
+            "audience": self.engine.audience.describe(),
         }
 
     def tick(self, now: float | None = None) -> list[dict[str, object]]:
