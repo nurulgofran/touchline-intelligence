@@ -46,6 +46,7 @@ data/
 # repository.
 PLAN.md
 CLAUDE.md
+AGENTS.md
 .claude/
 inside-the-game-hackathon-description.md
 inside-the-game-hackathon-plan.md
