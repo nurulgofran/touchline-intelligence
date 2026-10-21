@@ -476,7 +476,7 @@ async def wait_for_idle(cdp: CDP, quiet_ms: int = 200, timeout: float = 30.0) ->
     return False
 
 
-async def reset_audience(cdp: CDP) -> None:
+async def reset_audience(cdp: CDP, *, replay: bool = False) -> None:
     """Put the reader back to the default, and wait for the feed to settle.
 
     The audience is service state, not page state, so it survives a reload.
@@ -486,7 +486,16 @@ async def reset_audience(cdp: CDP) -> None:
     a reader change rewrites the whole feed, one model call per insight, and
     the studio says "rewriting the feed…" while it is going on. A judge who
     arrived in the middle of that would find a half-rewritten feed.
+
+    ``replay`` puts the clock back to kick-off first. The service
+    rewrites the feed around the moment the reader is looking at, so a
+    reset made at the end of the match would rewrite the last moments
+    first and leave the opening ones in the old language for minutes --
+    and the opening ones are where a judge starts.
     """
+    if replay:
+        await cdp.evaluate(CLICK.format(text=json.dumps("Replay")))
+        await wait_for_idle(cdp)
     for label in ("Analyst", "English"):
         await cdp.evaluate(CLICK.format(text=json.dumps(label)))
         await wait_for_idle(cdp)
@@ -895,7 +904,7 @@ async def record(
 
         # Leave the deployed app the way a judge should find it.
         print("resetting the reader back to Analyst / English")
-        await reset_audience(cdp)
+        await reset_audience(cdp, replay=True)
 
         pump_task.cancel()
     finally:
@@ -903,7 +912,7 @@ async def record(
             # Leave the deployment the way a judge should find it, even if
             # the take fell over half way through.
             with contextlib.suppress(Exception):
-                await reset_audience(cdp)
+                await reset_audience(cdp, replay=True)
             await cdp.close()
         writer.close()
         chrome_process.terminate()

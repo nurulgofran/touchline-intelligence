@@ -287,9 +287,9 @@ class LiveSession:
 
         The engine changes its state at once and rewrites the feed in the
         background, so this returns as soon as the change is recorded. The
-        session walks the feed again when the rewritten cards arrive --
-        see :meth:`_overlay_frames` -- because a rewritten card keeps its
-        id and the viewer has to be shown the new copy of it.
+        rewritten cards are sent when they land -- see
+        :meth:`_overlay_frames` -- because a rewritten card keeps its id
+        and the viewer has to be shown the new copy of it.
 
         The session's clock goes with it: the rewrite starts at the
         moments nearest where this viewer is looking, because those are

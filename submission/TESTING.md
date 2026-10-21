@@ -51,6 +51,8 @@ curl -s https://touchline-app.icywave-bfcbf183.germanywestcentral.azurecontainer
 ```json
 {
   "status": "ok",
+  "version": "0.2.0",
+  "revision": "62a1811",
   "provider": {
     "configured_provider": "Microsoft Foundry",
     "last_call_provider": "Microsoft Foundry",
@@ -64,7 +66,8 @@ curl -s https://touchline-app.icywave-bfcbf183.germanywestcentral.azurecontainer
 
 (`call_count` is live — it grows every time the demo is used. `fallback_count`
 is the one that matters: it is the number of times the template engine had to
-answer instead of Foundry, and it is zero.)
+answer instead of Foundry, and it is zero. `revision` is the commit the running
+image was built from, so you can see which code is answering you.)
 
 ## Driving the match
 
