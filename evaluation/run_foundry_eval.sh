@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # The definitive Foundry run of the comparative evaluation.
 #
-# Run this ON THE MAC, where `az login` has been done and the Foundry
-# project is reachable. It re-runs the same 12 fixed scenarios in
-# evaluation/manifest.json, but with a real Microsoft Foundry model behind
-# BOTH approaches (the multi-agent pipeline and the single-agent baseline),
-# instead of the deterministic template engine.
+# Run this on a machine where `az login` has been done and the Foundry
+# project is reachable -- any platform the dependencies install on. It
+# re-runs the same 12 fixed scenarios in evaluation/manifest.json, but with a
+# real Microsoft Foundry model behind BOTH approaches (the multi-agent
+# pipeline and the single-agent baseline), instead of the deterministic
+# template engine.
 #
-# Prerequisites on the Mac:
+# Prerequisites:
 #   1. The repo checked out at the same revision recorded in
 #      evaluation/results/template_local.json ("project_revision"), or the
 #      current branch head -- the manifest is revision-pinned either way.
@@ -18,8 +19,8 @@
 #   4. The project dependencies installed (agent-framework-core,
 #      agent-framework-foundry, azure-identity, a2a-sdk, sse-starlette,
 #      pydantic, numpy):
-#        python3 -m venv ~/.venvs/touchline-eval
-#        ~/.venvs/touchline-eval/bin/pip install \
+#        python3 -m venv .venv
+#        .venv/bin/pip install \
 #          agent-framework-core agent-framework-foundry azure-identity \
 #          "a2a-sdk>=1.0.0" "sse-starlette>=2.1" pydantic numpy
 #
@@ -31,11 +32,13 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+REPO_ROOT="$PWD"
 
 : "${FOUNDRY_PROJECT_ENDPOINT:?set FOUNDRY_PROJECT_ENDPOINT first}"
 : "${FOUNDRY_MODEL:?set FOUNDRY_MODEL first}"
 
-VENV="${VENV:-$HOME/.venvs/touchline-eval}"
+# The repository-local virtualenv by default; point VENV at any other one.
+VENV="${VENV:-$REPO_ROOT/.venv}"
 
 "$VENV/bin/python" -m evaluation.runner \
   --provider foundry \

@@ -31,11 +31,8 @@ recap (46 overlays)** — observed on revision `7ba3d3a`, 2026-10-21.
 | **Microsoft Foundry** | The one model provider, used by the deployed demo and by local development. `FoundryChatClient` against a Foundry project endpoint, with the model deployment created and managed by the Azure CLI script in [`scripts/provision-foundry.sh`](./scripts/provision-foundry.sh). The provider badge shows the actual provider of the last call — "Microsoft Foundry" plus a live/fallback state chip. |
 | **Microsoft Agent Framework** | The orchestration runtime. A `WorkflowBuilder` graph of typed executors — Ingest → Analyst → Explainer → Grounding → Narrator → Personalizer — over one shared state store, with per-executor events powering the agent-trace view and the grounding rejection edge routed back to the Explainer. |
 | **A2A (Agent2Agent)** | Only the Explainer is an A2A server: an agent card at `/.well-known/agent-card.json` and a JSON-RPC endpoint at `/a2a`. The Narrator calls it as an A2A client, but the deployed default uses a genuine JSON-RPC exchange **through the app's own ASGI transport** (httpx ASGI transport into the same process) — not a network socket between services. The hop is visible in the agent trace, and when the hop cannot be made the client falls back to the Explainer in-process, recorded in the trace rather than hidden. |
-| **Azure Container Apps** | The only host. The container image is pulled from an **Azure Container Registry** in the same subscription, with the app's **user-assigned managed identity** (`AcrPull` on the registry scope) — the registry's admin user is disabled and the deployment holds no registry credential at all. The Consumption environment refuses a system-assigned identity outright (`ExpressEnvironmentFeatureNotSupported`) and accepts a user-assigned one, for the app's access to Foundry and for the image pull alike. `minReplicas: 1` so the demo URL is always on with no cold start, `maxReplicas: 1` so the in-process shared state stays consistent, liveness and readiness probes on `/healthz`, and an external ingress carrying the live WebSocket feed. Provisioned by [`scripts/provision-aca.sh`](./scripts/provision-aca.sh) with the Azure CLI. |
-| **Azure Container Registry** | The image registry, in the same subscription as the app. The Container App pulls from it with its managed identity (`AcrPull` on the registry scope), so the deployment holds no registry credential and the registry's own admin user is disabled. The image is built for `linux/amd64` and written in the OCI media types, because that is what the Container Apps runtime takes. |
-| Azure Database for PostgreSQL | Not used — the shared state is in-process, and stating that honestly beats name-dropping. |
-| Azure MCP | Not used — stated honestly rather than name-dropped. |
-| Fabric, other listed hero tech | Not used — stated honestly rather than name-dropped. |
+| **Azure Container Apps** | The only host. The container image is pulled from an **Azure Container Registry** in the same subscription, with the app's **user-assigned managed identity** — the registry's admin user is disabled and the deployment holds no registry credential at all. `minReplicas: 1` so the demo URL is always on with no cold start, `maxReplicas: 1` so the in-process shared state stays consistent, liveness and readiness probes on `/healthz`, and an external ingress carrying the live WebSocket feed. Provisioned by [`scripts/provision-aca.sh`](./scripts/provision-aca.sh) with the Azure CLI. |
+| **Azure Container Registry** | The image registry, in the same subscription as the app, pulled with the managed identity. The image is built for `linux/amd64` and written in the OCI media types, because that is what the Container Apps runtime takes. |
 
 ## Architecture
 
@@ -107,9 +104,9 @@ manifest hashed during the run is retained as `evaluation/results/manifest-at-me
 ## Running locally
 
 ```bash
-uv venv --python 3.12 && source .venv/bin/activate
-uv pip install -r requirements.txt   # runtime dependencies
-uv pip install -e ".[dev]" mypy      # development dependencies for the full suite
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt          # runtime dependencies
+pip install -e ".[dev]" mypy             # development dependencies for the full suite
 
 # The Foundry configuration. Neither value is a secret, and the file lives
 # outside the repo, so it is read rather than committed.
@@ -121,6 +118,9 @@ ruff check .                                                  # lint
 mypy src/touchline --follow-imports=silent --ignore-missing-imports  # types
 ```
 
+`uv` works in place of `pip` if you prefer it — `uv venv --python 3.12` and `uv pip install …`
+are the same steps with a different resolver.
+
 The minimal simulator/template package depends on pydantic; the full test suite needs the
 runtime *and* the development dependencies (pytest and ruff ship in the `dev` extra, mypy
 is installed separately). Tests use the template/fake clients unless explicitly exercising
@@ -131,7 +131,8 @@ Local development uses the same Microsoft Foundry project as the deployed demo, 
 those credentials exist, the app runs on the template provider and says so in the UI.
 
 Configuration — `FOUNDRY_PROJECT_ENDPOINT` and `FOUNDRY_MODEL`, neither of which is a secret —
-lives in `~/.touchline-secrets.env` (mode 600, outside the repo).
+lives in `~/.touchline-secrets.env` (mode 600, outside the repo). Exporting the two variables
+directly works just as well; the file is a convenience, not a requirement.
 
 ## Demo
 
@@ -140,19 +141,15 @@ explained, and the agent trace showing every hand-off.
 
 **Demo URL: `https://touchline-app.icywave-bfcbf183.germanywestcentral.azurecontainerapps.io`**
 
-That is the published URL, and it is the only one. Azure Container Apps' **Consumption
-(Express) environment does not support custom domains** — the control plane refuses the binding
-outright with *"Custom Domains is not supported for container app … on express environments"*, and
-its hostname-analysis endpoint answers `500` for every hostname, including hosts inside the
-environment's own DNS suffix. That is a property of the environment tier, not of the DNS: no
-CNAME or TXT record makes it work. A custom domain would need a Dedicated (workload-profiles)
-environment, which is a different hosting tier and a different bill — so the app's own FQDN is
-the published URL. The container app is provisioned by
+That is the published URL, and it is the only one: the **Consumption (Express) environment does
+not support custom domains** — the control plane refuses the binding outright, and no CNAME or
+TXT record makes it work. A custom domain would need a Dedicated (workload-profiles)
+environment, a different hosting tier and a different bill. The container app is provisioned by
 [`scripts/provision-aca.sh`](./scripts/provision-aca.sh); the studio also runs locally:
 
 ```bash
-uv venv --python 3.12 && source .venv/bin/activate
-uv pip install -r requirements.txt
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 set -a && source ~/.touchline-secrets.env && set +a   # the Foundry deployment to talk to
 cd web && npm install && npm run build && cd ..
 uvicorn touchline.api.main:app --reload --port 8000   # http://localhost:8000
@@ -226,11 +223,13 @@ build machine is, and the image is written in the OCI media types, because the C
 runtime converts an image into the OCI layout on import and that conversion rejects the gzip layers
 of the Docker format.
 
-The CI workflow in [`.github/workflows/image.yml`](./.github/workflows/image.yml) runs the same three
-checks this project is held to — `pytest`, `ruff`, `mypy` — and then the frontend build, before its
-image job publishes the same image. It is the path the project takes when the account's Actions
-runner is available; until then the same commands are run locally and the image is built by the
-script above.
+The CI workflow in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) runs the checks
+this project is held to — `pytest`, `ruff`, `mypy`, and the frontend's own test and production
+build — on every push and pull request. **It has never executed on this account**: the GitHub
+Actions runner is billing-locked and the jobs refuse to start, which is an account problem and not
+a test failure. The same commands are run locally instead — 242 tests passing, Ruff clean, mypy
+clean across 56 application files, and a green TypeScript/Vite build, all on 2026-10-21 — and the
+image is built by the script above.
 
 The footprint itself:
 
@@ -244,45 +243,45 @@ The footprint itself:
 | Container Apps env | `touchline-env` | `germanywestcentral`, with an explicit Log Analytics workspace |
 | Container App | `touchline-app` | `minReplicas: 1`, `maxReplicas: 1`, the managed identity attached |
 
-One thing worth knowing if you read the scripts. The identity is **user-assigned**, not
-system-assigned, and that is not a preference: the Consumption environment refuses a
+Three things are worth knowing if you read the scripts. First, the identity is **user-assigned**,
+not system-assigned, and that is not a preference: the Consumption environment refuses a
 system-assigned identity outright (`ExpressEnvironmentFeatureNotSupported`), and a user-assigned
 one it accepts — for the app's access to Foundry and for the image pull alike. The identity's client
 id reaches the app as `AZURE_CLIENT_ID`, and `DefaultAzureCredential()` already defaults its
 managed-identity leg to that variable, so the code calls it the same way locally and in Azure.
-
-Two things are worth knowing if you read the scripts. First, **the region is a policy, not a
-preference** — the subscription carries an "Allowed resource deployment regions" assignment that
-permits only five regions, and a refusal in a non-permitted region is indistinguishable from a
-blocked subscription. Second, **inference needs a data-plane role**: `Owner` on the subscription is
-a management-plane role and grants no access to the Cognitive Services data plane, so the scripts
-assign **"Foundry User"** on the Foundry account scope — to the signed-in developer for local use,
-and to the Container App's managed identity for the deployment.
+Second, **the region is a policy, not a preference** — the subscription carries an "Allowed
+resource deployment regions" assignment that permits only five regions, and a refusal in a
+non-permitted region is indistinguishable from a blocked subscription. Third, **inference needs a
+data-plane role**: `Owner` on the subscription is a management-plane role and grants no access to
+the Cognitive Services data plane, so the scripts assign **"Foundry User"** on the Foundry account
+scope — to the signed-in developer for local use, and to the Container App's managed identity for
+the deployment.
 
 ## Status
 
 The demo is deployed and running (audit 2026-10-21: seed 42, 90 minutes computed, 45 insight
 cards plus one deterministic recap; 166 model calls served by Microsoft Foundry with 0 recorded
-fallbacks at completion before recording setup; 340 handoffs, 0 vetoes). The build plan
-and the hackathon brief are kept off the public repository; the source, the scripts, this README and [`submission/`](./submission/) are
-the whole of it. [`submission/`](./submission/) holds the pitch, the testing instructions for a
-judge, the submission checklists with what was verified and when, and the demo-video plan.
+fallbacks at completion before recording setup; 340 handoffs, 0 vetoes). The build plan and the
+hackathon brief are kept off the public repository; the source, the scripts, this README and
+[`submission/`](./submission/) are the whole of it. [`submission/`](./submission/) holds the
+project pitch and the testing instructions written for a judge.
 
 The Foundry comparison is complete (2026-10-21), with actual results and published
-copy in `evaluation/results/foundry.json`. A validated 76.333-second MP4 is ready
-for the owner to upload (see `submission/VIDEO.md`). Video publication, challenge 5078
-association, and final submission require the owner's account; their current
-status is recorded in the submission checklist. See
-[`submission/CHECKLIST.md`](./submission/CHECKLIST.md) for the full evidence-backed list.
+copy in `evaluation/results/foundry.json`.
+
+**Demo video.** Recorded from the deployed app and validated — 76.333 seconds, 1600 × 900, all
+11 recorder beats, and no provider fallback during the capture. Publishing it to the hackathon
+project page is the last step before submission; the public URL then goes in the link table of
+[`submission/PITCH.md`](./submission/PITCH.md).
 
 One account-level caveat, stated plainly: the GitHub Actions runner for this account is
-billing-locked, so the workflow above does not currently execute. The three checks and the frontend
-build are run locally from the same commands, and the image is built by
-[`scripts/build-image.sh`](./scripts/build-image.sh).
+billing-locked, so the workflow above does not execute. The same checks are run locally, and the
+image is built by [`scripts/build-image.sh`](./scripts/build-image.sh).
 
 > All data is **synthetic**. No real Premier League match data is used anywhere in this project.
-> Clubs and players are fictional, and no Premier League or Microsoft trademarks, logos, or crests
-> appear in this repository, the UI, or the demo video.
+> Clubs and players are fictional, and no club, player, sponsor or competition crest, kit, badge
+> or logo appears in this repository, the UI, or the demo video. Technology names appear in plain
+> text, to identify the stack that is actually running.
 
 ## Licence
 

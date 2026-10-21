@@ -102,13 +102,16 @@ call, timed). Aggregates per approach in the results file's `summary`.
    injected through the API; the single-agent baseline has no live
    endpoint and is not measured here.
 
-3. **Foundry run** -- see `results/foundry.json` for completion and results. `evaluation/run_mac_foundry.sh` runs the same
-   12 scenarios with a real Foundry model behind both approaches, on the
-   Mac where `az login` exists. Each result also saves the published copy so
-   language/audience review can be performed. The runner accepts the Foundry chat client
-   built by `touchline.providers.foundry.build_foundry_chat_client`
-   (`FOUNDRY_PROJECT_ENDPOINT` / `FOUNDRY_MODEL`, keyless). Until that run
-   completes, no comparative claim about model behaviour is made.
+3. **Foundry run** (`results/foundry.json`) -- the same 12 scenarios with a
+   real Foundry model behind both approaches. `evaluation/run_foundry_eval.sh`
+   runs it on any machine where `az login` has been completed and the Foundry
+   project is reachable. Each result also saves the published copy so
+   language/audience review can be performed. The runner accepts the Foundry
+   chat client built by
+   `touchline.providers.foundry.build_foundry_chat_client`
+   (`FOUNDRY_PROJECT_ENDPOINT` / `FOUNDRY_MODEL`, keyless). That run completed
+   on 2026-10-21 at source revision `b75e550`: all 24 scenario/approach pairs
+   passed the decisive checks, and no correctness advantage is claimed.
 
 ## Manual language/audience rubric (EN/DE/BN)
 
@@ -152,35 +155,36 @@ claim to measure language quality. The template's prose is known-good by constru
 - Earlier full-match results used different workloads and are not mixed into
   the current comparison. The original partial report is retained in the local
   `build/evaluation-archive/` directory.
-- No superiority claim is supported until the Foundry run exists, and even
-  then only within these bounds.
+- No correctness superiority is supported by these results: both approaches
+  passed the same checks, and the pipeline cost more calls and more time.
+  Nothing outside these bounds is claimed.
 
 ## How to reproduce
 
 ```bash
 cd <repo>
-python3 -m venv ~/.venvs/touchline-eval
-~/.venvs/touchline-eval/bin/pip install \
+python3 -m venv .venv
+.venv/bin/pip install \
   agent-framework-core "a2a-sdk>=1.0.0" "sse-starlette>=2.1" \
   pydantic numpy pytest
 
 # mechanics tests (deterministic, local)
-~/.venvs/touchline-eval/bin/python -m pytest evaluation/tests/ -q
+.venv/bin/python -m pytest evaluation/tests/ -q
 
 # full template-local run
-~/.venvs/touchline-eval/bin/python -m evaluation.runner \
+.venv/bin/python -m evaluation.runner \
   --provider template --out evaluation/results/template_local.json
 
 # live-API probe (read-only GETs)
-~/.venvs/touchline-eval/bin/python -m evaluation.live_api_probe \
+.venv/bin/python -m evaluation.live_api_probe \
   --out evaluation/results/live_api_seed42.json
 
-# definitive run: on the Mac, see evaluation/run_mac_foundry.sh
+# definitive run: with Foundry credentials, see evaluation/run_foundry_eval.sh
 ```
 
 The `evaluation/` tree is strictly additive: nothing outside it is
-modified. The venv lives outside the repo (`~/.venvs` or
-`~/workspace/.venvs`); no secrets are written anywhere in the repo.
+modified. The venv is the repository's own `.venv/`, which is gitignored; no
+secrets are written anywhere in the repo.
 
 ## Progress and resumption
 

@@ -180,12 +180,13 @@ Python suite needs the runtime *and* the development dependencies (`pytest` and 
 ship in the `dev` extra; `mypy` is installed separately):
 
 ```bash
-uv venv --python 3.12 && source .venv/bin/activate
-uv pip install -r requirements.txt
-uv pip install -e ".[dev]" mypy
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+pip install -e ".[dev]" mypy
 pytest
 ruff check .
 mypy src/touchline --follow-imports=silent --ignore-missing-imports
+npm --prefix web test
 npm --prefix web run build
 ```
 

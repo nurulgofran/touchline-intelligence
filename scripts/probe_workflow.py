@@ -1,7 +1,7 @@
 """Run a whole match through the workflow, and check that it holds up.
 
-This is the Day 3 probe. It drives the Agent Framework graph over a full
-simulated match and prints three things:
+This is the end-to-end workflow probe. It drives the Agent Framework graph
+over a full simulated match and prints three things:
 
 * **The feed.** How many insights reached the screen, how many hand-offs
   the trace recorded, and how long the run took.

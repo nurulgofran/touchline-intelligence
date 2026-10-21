@@ -8,13 +8,20 @@ produced. The trace comes out of the run itself — it is never hand-authored.
 
 ## Status
 
-The showcase fixture was generated on the Mac with Microsoft Foundry on
-2026-10-21 from revision `5e80eac`. It records the genuine grounding veto,
-back-edge, model correction, and acceptance with no template fallback.
-The isolated run did not modify the live match or shared reader.
+The showcase fixture was generated with Microsoft Foundry on 2026-10-21 from
+revision `5e80eac` (on the branch then named `final-delivery`, now `main`).
+It records the genuine grounding veto, back-edge, model correction, and
+acceptance with no template fallback. The isolated run did not modify the
+live match or shared reader.
 
 The fixture is committed at `web/public/fixtures/recovery-example.v1.json`.
 The schema, generator, and local tests remain here for reproduction.
+
+One field was changed when the fixture was published: `generator.command`
+records the interpreter as `.venv/bin/python` instead of the absolute path it
+was run with. Nothing else in the document was touched — the providers, the
+injected fault, the veto, the correction, the acceptance and the trace are
+the run's own output.
 
 ## How the generator works
 
@@ -32,13 +39,12 @@ corrupted metric, the trace shows the grounding → explainer refusal,
 an overlay was produced, and `degradations` is empty (any template fallback
 invalidates the fixture).
 
-## Producing the showcase fixture (Mac, with Foundry)
+## Producing the showcase fixture (with Foundry)
 
 ```bash
-cd ~/workspace/touchline-intelligence   # branch: final-delivery
-git pull
+cd <repo>
 # Foundry credentials must be present: FOUNDRY_PROJECT_ENDPOINT + FOUNDRY_MODEL
-uv pip install jsonschema   # only needed for the schema-validation test
+pip install jsonschema   # only needed for the schema-validation test
 .venv/bin/python fixtures/recovery/generate_recovery_fixture.py \
   --provider foundry \
   --out web/public/fixtures/recovery-example.v1.json
@@ -64,9 +70,9 @@ Default `--out` is `web/public/fixtures/recovery-example.v1.json`. Verified:
 Vite copies `web/public/` to the dist root, the Docker build copies
 `web/dist` into the image, and FastAPI serves it via `StaticFiles` — so the
 deployed frontend serves it at `/fixtures/recovery-example.v1.json`. The
-image must be **rebuilt** after the file is placed. Loading it in the trace
-panel is a `web/src` change (separate work); the schema's `label` field is
-the copy any UI must surface verbatim.
+image must be **rebuilt** after the file is placed. The studio loads it in
+the trace panel (`web/src/components/RecoveryReplaySection.tsx`), and the
+schema's `label` field is the copy the UI surfaces verbatim.
 
 ## Versioning
 

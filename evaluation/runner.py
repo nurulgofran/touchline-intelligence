@@ -25,14 +25,15 @@ The runner is provider-agnostic:
 - ``--provider foundry`` builds the Agent Framework Foundry chat client via
   ``touchline.providers.foundry.build_foundry_chat_client`` (reads
   ``FOUNDRY_PROJECT_ENDPOINT`` / ``FOUNDRY_MODEL``; keyless, ``az login``).
-  Run this on the Mac.
+  Run it on a machine where ``az login`` has been completed and the Foundry
+  project is reachable.
 
 Controlled faults are injected by *editing the reply text* (the pattern the
 repo's own tests use in ``tests/test_workflow.py``): the JSON shape stays
 the real one, and only the faulted field changes.
 
 Usage:
-    PYTHONPATH=src <venv>/bin/python -m evaluation.runner \\
+    python -m evaluation.runner \\
         --provider template --out evaluation/results/template_local.json
 """
 

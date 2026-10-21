@@ -1,6 +1,6 @@
 # Results
 
-## What actually ran (2026-10-21, this VM)
+## What actually ran (2026-10-21, macOS on Apple Silicon, Python 3.12.13)
 
 - **`template_local.json`** -- the full 12-scenario x 2-approach harness run
   with the deterministic template engine behind both approaches.

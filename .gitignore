@@ -36,18 +36,21 @@ artifacts/
 # and it is re-recorded with one command.
 build/
 web/.test-dist/
+*.mp4
+*.mov
 
 # --- Generated match output (synthetic, regenerable from a seed) ---
 data/
 
 # --- Local working documents ---
 #
-# The build plan, the working agreements and the hackathon brief are the
-# builder's own notes. They stay on this machine and out of the public
-# repository.
+# The build plan, the working agreements, the hackathon brief and the
+# owner's release notes are the builder's own notes. They stay on this
+# machine and out of the public repository.
 PLAN.md
 CLAUDE.md
 AGENTS.md
 .claude/
+private/
 inside-the-game-hackathon-description.md
 inside-the-game-hackathon-plan.md

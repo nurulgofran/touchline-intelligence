@@ -1,0 +1,72 @@
+name: CI
+
+# The checks this project is held to, on every push and pull request:
+# pytest, ruff, mypy, and the frontend's own test plus production build.
+#
+# The image is not published from here. The deployed app pulls from the Azure
+# Container Registry `touchlineacr`, in the same subscription as the
+# Container App, and `scripts/build-image.sh` builds and pushes that image.
+# The app pulls it with its user-assigned managed identity, so the deployment
+# holds no registry credential and there is no second registry route.
+#
+# On this account the GitHub Actions runner is billing-locked and these jobs
+# do not start. The same commands are run locally instead, and the result is
+# recorded in the README.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: '3.12'
+  NODE_VERSION: '20'
+
+jobs:
+  ci:
+    name: Tests and static checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff mypy
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      # --follow-imports=silent and --ignore-missing-imports keep the check on
+      # our code: the third-party packages under .venv are read for types but
+      # their own errors are not reported.
+      - name: Type check (mypy)
+        run: mypy src/touchline --follow-imports=silent --ignore-missing-imports
+
+      - name: Test (pytest)
+        run: pytest
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Test and build the frontend
+        working-directory: web
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm test
+          npm run build

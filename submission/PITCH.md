@@ -101,7 +101,7 @@ as the demo is used):
 | | |
 |---|---|
 | **Live demo** | `https://touchline-app.icywave-bfcbf183.germanywestcentral.azurecontainerapps.io` |
-| **Demo video** | *(add the public URL when it is uploaded)* |
+| **Demo video** | *(public URL — pending publication)* |
 | **Repository** | `https://github.com/nurulgofran/touchline-intelligence` |
 | **Challenge** | Inside the Game Developer Hackathon — challenge 5078, *The Synthetic Match Insights Engine for Premier League Studio* |
 

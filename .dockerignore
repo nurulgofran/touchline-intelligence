@@ -15,6 +15,7 @@ dist
 .vite
 data
 artifacts
+build
 .env
 .env.*
 *.pem
@@ -23,5 +24,12 @@ secrets
 tests
 .DS_Store
 *.log
+*.mp4
+*.mov
 PLAN.md
+CLAUDE.md
+AGENTS.md
+.claude
+private
+submission
 docs

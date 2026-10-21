@@ -7,7 +7,7 @@
   "generator": {
     "name": "fixtures/recovery/generate_recovery_fixture.py",
     "version": "1.0.0",
-    "command": "/Users/nurulgofran/Projects/Touchline-Intelligence/.venv/bin/python fixtures/recovery/generate_recovery_fixture.py --provider foundry --out web/public/fixtures/recovery-example.v1.json"
+    "command": ".venv/bin/python fixtures/recovery/generate_recovery_fixture.py --provider foundry --out web/public/fixtures/recovery-example.v1.json"
   },
   "repo": {
     "revision": "5e80eacc98e1f3e07d43284467e2782b2718cf8a",

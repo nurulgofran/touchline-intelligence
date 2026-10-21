@@ -1,10 +1,9 @@
-"""Day 1 gate: does Microsoft Foundry answer?
+"""Foundry connectivity check: does Microsoft Foundry answer?
 
 One prompt, one answer. This is the smallest possible end-to-end check of the
-whole Azure plan -- if Foundry cannot be reached, the Grand Prize, the Foundry
-prize and the Cloud Native prize all come off the board and the hosting and
-provider decisions have to be re-opened. It is worth running before anything
-else is built.
+whole Azure path -- if Foundry cannot be reached, the deployed demo has no model
+provider and the template fallback is all that is left. It is worth running
+before anything else is built.
 
 Run it::
 
@@ -232,14 +231,14 @@ async def _run(endpoint: str, model: str) -> int:
     print("→ answer")
     print(f"  {answer}")
     print()
-    print("Gate PASSED. Foundry is reachable; the Azure plan can proceed.")
+    print("Check passed. Foundry is reachable.")
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m touchline.providers.smoke",
-        description="Day 1 gate: does Microsoft Foundry answer?",
+        description="Foundry connectivity check: does Microsoft Foundry answer?",
     )
     parser.add_argument(
         "--check-config",
