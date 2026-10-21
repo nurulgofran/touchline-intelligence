@@ -35,6 +35,7 @@ artifacts/
 # not. A take is a couple of megabytes of video of somebody else's deployment,
 # and it is re-recorded with one command.
 build/
+web/.test-dist/
 
 # --- Generated match output (synthetic, regenerable from a seed) ---
 data/

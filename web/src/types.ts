@@ -737,18 +737,16 @@ export const HALF_TIME_MS = 2_700_000;
 /**
  * The match clock, as `mm:ss`.
  *
- * The second half is shown as `45:00 + mm:ss`, the way a broadcast clock
- * shows the time added on top of the forty-five.
+ * This synthetic match has a continuous 90-minute clock, without added
+ * time. The second half continues at 45:00; 63 minutes reads as 63:00.
  */
 export function formatClock(clockMs: number): string {
   const clamped = Math.max(0, Math.floor(clockMs));
-  const inSecondHalf = clamped >= HALF_TIME_MS;
-  const base = inSecondHalf ? clamped - HALF_TIME_MS : clamped;
-  const totalSeconds = Math.floor(base / 1000);
+  const totalSeconds = Math.floor(clamped / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   const stamp = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  return inSecondHalf ? `45:00 + ${stamp}` : stamp;
+  return stamp;
 }
 
 /**

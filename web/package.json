@@ -5,6 +5,7 @@
   "type": "module",
   "description": "The Touchline Intelligence studio - a browser front end for the synthetic match insights engine.",
   "scripts": {
+    "test": "tsc src/types.ts --outDir .test-dist --module esnext --target es2022 --skipLibCheck && node --test tests/*.test.mjs",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
