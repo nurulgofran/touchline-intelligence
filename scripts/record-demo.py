@@ -678,7 +678,9 @@ RECOVERY_LABELLED = """
   const badge = [...document.querySelectorAll('*')].find(
     (el) => el.children.length === 0
       && (el.textContent || '').trim().toLowerCase() === 'recorded test run');
-  return visible(badge);
+  const summary = document.querySelector('[data-recovery-summary]');
+  return visible(badge) && visible(summary)
+    && summary.dataset.accepted === 'true';
 }})()
 """
 

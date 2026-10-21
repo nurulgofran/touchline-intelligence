@@ -112,6 +112,7 @@ function ReadyFixture({ fixture }: { fixture: RecoveryFixture }) {
   const corrected = fixture.recovery.corrected_claim;
   const acceptedOverlay = fixture.recovery.overlay;
   const providers = fixture.providers;
+  const correctedMetric = corrected.metrics.find((metric) => metric.name === fault.metric);
 
   return (
     <div className="text-[11px] leading-snug">
@@ -119,6 +120,29 @@ function ReadyFixture({ fixture }: { fixture: RecoveryFixture }) {
       <p className="border-l-2 border-signal-amber/60 bg-signal-amber/[0.08] px-2.5 py-1.5 text-signal-amber">
         {fixture.label}
       </p>
+
+      <div
+        data-recovery-summary
+        data-accepted={fixture.recovery.acceptance.accepted}
+        className="mt-3 rounded-md border border-ink-700 bg-ink-850 p-3"
+      >
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <p className="text-[10px] font-semibold uppercase text-signal-red">Rejected</p>
+            <p className="mt-1 font-display text-xl font-semibold tabular-nums text-ink-50">{formatMetricValue(fault.claimed_value)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase text-pitch-200">Corrected</p>
+            <p className="mt-1 font-display text-xl font-semibold tabular-nums text-ink-50">{correctedMetric ? formatMetricValue(correctedMetric.value) : "See claim"}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase text-ink-300">Grounding</p>
+            <p className="mt-1 font-display text-xl font-semibold text-pitch-200">{fixture.recovery.acceptance.accepted ? "Accepted" : "Refused"}</p>
+          </div>
+        </div>
+        <p className="mt-2 border-t border-ink-700 pt-2 text-[10px] text-ink-300">Grounding → Explainer → corrected claim</p>
+        <p className="mt-1 text-[10px] text-ink-400">{providers.correction_provider} · {providers.template_fallback_used ? "template fallback used" : "no template fallback"}</p>
+      </div>
 
       <StepTitle>1 · The injected fault</StepTitle>
       <p className="text-ink-300">{fault.description}</p>
