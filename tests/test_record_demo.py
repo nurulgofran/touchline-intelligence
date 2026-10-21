@@ -379,10 +379,28 @@ def test_capture_stops_before_the_video_is_finalized(rec: Any) -> None:
 
 
 def test_verify_reader_checks_the_picker_state(rec: Any) -> None:
-    ok = asyncio.run(rec.verify_reader(FakeCDP(lambda expression: True)))
-    assert ok is True
-    bad = asyncio.run(rec.verify_reader(FakeCDP(lambda expression: False)))
-    assert bad is False
+    """The reader is verified on the page and on the service.
+
+    The studio is English only, so the language is not on the page to be
+    read: it is read off the service, which is where the reader lives.
+    """
+    def script(expression: str) -> Any:
+        if "/api/match/audience" in expression:
+            return {"mode": "analyst", "locale": "en"}
+        return True
+
+    assert asyncio.run(rec.verify_reader(FakeCDP(script))) is True
+
+    # The page does not say the reader is the default.
+    assert asyncio.run(rec.verify_reader(FakeCDP(lambda expression: False))) is False
+
+    # The service says the reader is in another language.
+    def other_language(expression: str) -> Any:
+        if "/api/match/audience" in expression:
+            return {"mode": "analyst", "locale": "bn"}
+        return True
+
+    assert asyncio.run(rec.verify_reader(FakeCDP(other_language))) is False
 
 
 def test_verify_reader_survives_a_dead_page(rec: Any) -> None:

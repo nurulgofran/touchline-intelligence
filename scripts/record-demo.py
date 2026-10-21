@@ -544,15 +544,18 @@ async def reset_audience(cdp: CDP, *, replay: bool = False) -> None:
     ``replay`` puts the clock back to kick-off first. The service
     rewrites the feed around the moment the reader is looking at, so a
     reset made at the end of the match would rewrite the last moments
-    first and leave the opening ones in the old language for minutes --
+    first and leave the opening ones in the old reading for minutes --
     and the opening ones are where a judge starts.
+
+    The studio is English only, so there is one control to press: the
+    Analyst reading. The studio always asks for English with it, so the
+    reset puts the shared reader back in English too.
     """
     if replay:
         await cdp.evaluate(CLICK.format(text=json.dumps("Replay")))
         await wait_for_idle(cdp)
-    for label in ("Analyst", "English"):
-        await cdp.evaluate(CLICK.format(text=json.dumps(label)))
-        await wait_for_idle(cdp)
+    await cdp.evaluate(CLICK.format(text=json.dumps("Analyst")))
+    await wait_for_idle(cdp)
     await wait_for_rewrite(cdp)
 
 
@@ -773,20 +776,36 @@ VERIFY_READER = """
       .find((x) => x.textContent.includes(label));
     return !!b && b.dataset.active === 'true';
   };
-  return active('Analyst') && active('English')
+  return active('Analyst')
     && !document.body.innerText.includes('rewriting the feed');
 })()
 """
 
 
-async def verify_reader(cdp: CDP) -> bool:
+async def verify_reader(cdp: CDP, seed: int = 42) -> bool:
     """Check the shared reader is back on Analyst / English and settled.
 
     The cleanup always restores the reader; this verifies it, so a
     half-restored deployment is reported rather than assumed.
+
+    The studio is English only, so the language is not on the page to be
+    read: it is read off the service, which is where the reader lives.
     """
     try:
-        return bool(await cdp.evaluate(VERIFY_READER))
+        if not await cdp.evaluate(VERIFY_READER):
+            return False
+        script = (
+            "fetch('/api/match/audience?seed="
+            + str(int(seed))
+            + "').then((r) => r.json()).then((j) => j.audience || null)"
+        )
+        audience = await cdp.evaluate(script)
+        if not isinstance(audience, dict):
+            return False
+        return (
+            str(audience.get("mode") or "") == "analyst"
+            and str(audience.get("locale") or "") == "en"
+        )
     except Exception:
         return False
 
@@ -1157,7 +1176,7 @@ async def record(
             # than assuming the clicks landed.
             with contextlib.suppress(Exception):
                 await reset_audience(cdp, replay=True)
-            if await verify_reader(cdp):
+            if await verify_reader(cdp, seed):
                 print("reader restored to Analyst / English and verified")
             else:
                 print(
