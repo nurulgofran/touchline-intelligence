@@ -173,6 +173,21 @@ async def _read_controls(
                     continue
                 logger.info("live control: audience %s", audience.key)
                 continue
+            if str(message.get("action", "")).lower() == "audience_retry":
+                # The retry for a rewrite that failed or was abandoned.
+                # An identical audience request would do the same thing;
+                # this is the concise form of it, for the studio's retry
+                # control.
+                try:
+                    retried = session.retry_audience()
+                except Exception:
+                    logger.exception("live control: the audience retry failed")
+                    continue
+                logger.info(
+                    "live control: audience retry %s",
+                    "restarted" if retried else "nothing to retry",
+                )
+                continue
             action = apply_control(session, message)
             logger.info("live control: %s", action)
     except WebSocketDisconnect:

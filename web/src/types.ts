@@ -167,6 +167,12 @@ export interface HelloFrame {
   audience: Audience;
   /** Whether the feed is still being rewritten for that reader. */
   rewriting?: boolean;
+  /**
+   * Why the last rewrite did not finish, in one line. Null when the last
+   * rewrite finished or none was asked for - the studio shows it next to
+   * the retry control.
+   */
+  rewrite_error?: string | null;
 }
 
 export interface ClockFrame {
@@ -229,6 +235,12 @@ export interface AudienceFrame {
    * feed.
    */
   rewriting: boolean;
+  /**
+   * Why the last rewrite did not finish, in one line. Null when the last
+   * rewrite finished or none was asked for - the studio shows it next to
+   * the retry control.
+   */
+  rewrite_error?: string | null;
 }
 
 export interface EndFrame {
@@ -321,7 +333,8 @@ export type ControlAction =
   | "speed"
   | "seek"
   | "next"
-  | "audience";
+  | "audience"
+  | "audience_retry";
 
 export interface ControlMessage {
   type: "control";

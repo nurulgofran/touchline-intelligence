@@ -79,7 +79,9 @@ export default function App() {
               audience={match.audience}
               options={match.audienceOptions}
               pending={match.audiencePending}
+              rewriteError={match.audienceRewriteError}
               onChange={match.setAudience}
+              onRetry={match.retryAudience}
             />
             {match.usingFallback && (
               <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-200">

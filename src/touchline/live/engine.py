@@ -119,6 +119,14 @@ class StretchResult:
         return None
 
 
+def _concise_error(exc: BaseException) -> str:
+    """One line about a failed rewrite, for the studio's retry control."""
+    text = f"{type(exc).__name__}: {exc}".strip()
+    if len(text) > 200:
+        text = text[:197] + "..."
+    return text or type(exc).__name__
+
+
 def build_teams_payload(seed: int = 42) -> dict[str, object]:
     """The two fictional clubs, in the shape the studio draws them.
 
@@ -207,9 +215,17 @@ class LiveMatchEngine:
         )
         self._locale = self._audience.locale
         self._mode = self._audience.mode.value
-        # The reader the feed is written for. The analysis writes in the
-        # audience it is given, so the feed starts written for this one.
-        self._written_for = self._audience.key
+        # The reader lifecycle: who was asked for, who is being written,
+        # and whose cards have all landed. They are three different facts.
+        # The analysis writes in the audience it is given, so the feed
+        # starts written for the initial one -- that rewrite is complete
+        # before it begins.
+        self._active_key: str | None = None
+        self._active_revision: int = 0
+        self._completed_key: str | None = self._audience.key
+        # The last rewrite's failure, in one line, or None when the last
+        # rewrite finished. The studio shows it with a retry control.
+        self._rewrite_error: str | None = None
 
         self._events: list[MatchEvent] = sorted(
             simulate(seed=seed), key=lambda e: (e.match_clock_ms, e.event_id)
@@ -503,19 +519,65 @@ class LiveMatchEngine:
             later, with a higher revision, and the session walks the feed
             again when they arrive.
         """
+        # The identical request is checked **before** anything changes. A
+        # duplicate must not invalidate the rewrite it duplicates: bumping
+        # the revision here used to abandon the rewrite that was running,
+        # so asking for German twice left the feed half German forever.
+        # The one exception is a rewrite that never finished -- failed or
+        # abandoned -- which an identical request retries instead.
+        if (
+            audience.key == self._audience.key
+            and self._rewrite_error is None
+            and not self._rewrite_needs_retry()
+        ):
+            return list(self._overlays)
+
+        await self._begin_rewrite(audience, focus_ms)
+        return list(self._overlays)
+
+    async def _begin_rewrite(
+        self, audience: Audience, focus_ms: int | None
+    ) -> None:
+        """Record a (re)request and start the background rewrite.
+
+        The state changes at once -- the reader is answered straight away
+        -- and the rewrite follows. A rewrite that is still running is for
+        a reader who is no longer reading, so it is cancelled **and
+        awaited**: letting it land would put a language on the screen the
+        reader has already moved on from, and starting the next one before
+        it is dead would let the two race for the same cards.
+
+        Args:
+            audience: Who the overlays are written for.
+            focus_ms: Where in the match the reader is looking.
+        """
+        running = self._rewrite_task
+        self._rewrite_task = None
+        if running is not None and not running.done():
+            running.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await running
+        self._launch_rewrite(audience, focus_ms)
+
+    def _launch_rewrite(
+        self, audience: Audience, focus_ms: int | None
+    ) -> None:
+        """Bump the revision and launch the background rewrite.
+
+        The caller has already cancelled and awaited any rewrite that was
+        running. The recap is deterministic, so it is rewritten at once;
+        the insights follow in the background.
+
+        Args:
+            audience: Who the overlays are written for.
+            focus_ms: Where in the match the reader is looking.
+        """
         self._audience = audience
         self._locale = audience.locale
         self._mode = audience.mode.value
         self._revision += 1
         revision = self._revision
-
-        # A reader who asks for the reader they are already reading gets
-        # the feed they already have. A rewrite is one model call per
-        # insight, and at the deployment's rate that is minutes of work
-        # and the deployment's quota: it is not spent on nothing.
-        if audience.key == self._written_for:
-            return list(self._overlays)
-        self._written_for = audience.key
+        self._rewrite_error = None
 
         # The full-time card is deterministic -- a summary of the log's
         # numbers -- so it costs nothing to write it again and it is the
@@ -523,20 +585,76 @@ class LiveMatchEngine:
         # with the reader, at once, like the rest of the state.
         self._replace_recap()
 
-        # A reader change supersedes the one before it. The rewrite that
-        # is running is for somebody who is no longer reading, so it is
-        # abandoned rather than allowed to finish: letting it land would
-        # put a language on the screen that the reader has already moved
-        # on from.
-        running = self._rewrite_task
-        if running is not None and not running.done():
-            running.cancel()
-
+        self._active_key = audience.key
+        self._active_revision = revision
         self._rewrite_task = asyncio.create_task(
             self._rewrite(audience, revision, focus_ms),
             name=f"touchline-rewrite-{self._match_id}",
         )
-        return list(self._overlays)
+
+    def retry_rewrite(self) -> bool:
+        """Try the requested audience's rewrite again.
+
+        An identical request retries a rewrite that never finished, and
+        this is the same thing without the request: it restarts the
+        rewrite for whoever the reader currently is, when that rewrite
+        failed or was abandoned. It is a no-op when the rewrite is
+        running or has already finished.
+
+        Returns:
+            Whether a rewrite was (re)started.
+        """
+        if not self._rewrite_needs_retry():
+            return False
+        # The old task is done -- that is what "needs retry" means -- so
+        # there is nothing to cancel and await.
+        self._launch_rewrite(self._audience, None)
+        return True
+
+    def _rewrite_needs_retry(self) -> bool:
+        """Whether the requested rewrite never finished its cards.
+
+        True when a rewrite was started for an audience whose cards did
+        not all land -- it failed, or it was abandoned without a
+        replacement -- and the task is no longer running. A recorded
+        error always means the rewrite needs a retry: the error is only
+        cleared by a new request or a finished rewrite.
+        """
+        task = self._rewrite_task
+        if task is not None and not task.done():
+            return False
+        if self._rewrite_error is not None:
+            return True
+        if self._active_key is None:
+            return False
+        return self._completed_key != self._active_key
+
+    @property
+    def rewrite_error(self) -> str | None:
+        """Why the last rewrite did not finish, in one line.
+
+        ``None`` when the last rewrite finished, or when no rewrite has
+        been asked for. The studio shows it next to the retry control.
+        """
+        return self._rewrite_error
+
+    @property
+    def rewrite_state(self) -> dict[str, object]:
+        """The reader lifecycle, for the audience state the studio reads.
+
+        Requested, active and completed are three different facts: who the
+        reader asked for, whose cards the background rewrite is writing,
+        and whose cards have all landed. Completion is only marked when
+        every required card has been published.
+        """
+        return {
+            "requested": self._audience.key,
+            "active": self._active_key,
+            "completed": self._completed_key,
+            "revision": self._revision,
+            "rewriting": self.rewriting,
+            "rewrite_error": self._rewrite_error,
+        }
 
     async def wait_for_rewrite(self, timeout: float | None = None) -> bool:
         """Wait for the rewrite that is running to finish.
@@ -546,18 +664,17 @@ class LiveMatchEngine:
                 as it takes.
 
         Returns:
-            Whether the rewrite finished.
+            Whether the rewrite finished. A rewrite that failed or was
+            abandoned did not finish, so that is ``False``.
         """
         task = self._rewrite_task
         if task is None:
             return True
         try:
             await asyncio.wait_for(asyncio.shield(task), timeout=timeout)
-        except TimeoutError:
+        except (TimeoutError, asyncio.CancelledError, Exception):
             return False
-        except asyncio.CancelledError:
-            return False
-        return True
+        return not self._rewrite_needs_retry()
 
     async def _rewrite(
         self, audience: Audience, revision: int, focus_ms: int | None = None
@@ -589,6 +706,11 @@ class LiveMatchEngine:
         """
         try:
             async with self._lock:
+                if self._revision != revision or self._active_key != audience.key:
+                    # Superseded while waiting for the lock: a newer
+                    # request has already been recorded, and its rewrite
+                    # is the one that must land.
+                    return
                 jobs: list[tuple[Any, Any]] = []
                 for result in self._results:
                     for candidate in result.candidates:
@@ -596,6 +718,12 @@ class LiveMatchEngine:
                         if narration is None:
                             continue
                         jobs.append((candidate, narration))
+
+                # The cards this rewrite must publish before it counts as
+                # done. The lock is held for the whole rewrite, so the
+                # analysis cannot add a card half way through and move the
+                # target.
+                remaining = {f"ovl-{candidate.candidate_id}" for candidate, _ in jobs}
 
                 focus = 0 if focus_ms is None else int(focus_ms)
                 jobs.sort(
@@ -636,25 +764,49 @@ class LiveMatchEngine:
                             pending, return_when=asyncio.FIRST_COMPLETED
                         )
                         for task in done:
-                            overlay = task.result()
+                            try:
+                                overlay = task.result()
+                            except asyncio.CancelledError:
+                                raise
                             if self._revision != revision:
                                 # Somebody else has been asked for in the
                                 # meantime. This copy is for a reader who
-                                # is no longer reading.
+                                # is no longer reading: it is rejected,
+                                # not published.
                                 return
-                            self._publish(overlay)
+                            self._publish(overlay, revision)
+                            remaining.discard(overlay.overlay_id)
                 finally:
                     for task in tasks:
                         if not task.done():
                             task.cancel()
+                    # A card that already failed keeps its exception on
+                    # the task: retrieve it, or the loop reports it as
+                    # "never retrieved" when the task is dropped.
+                    for task in tasks:
+                        if task.done() and not task.cancelled():
+                            task.exception()
+                if not remaining and self._revision == revision:
+                    # Every required card has been published: only now is
+                    # the rewrite complete.
+                    self._completed_key = audience.key
+                    self._rewrite_error = None
+                    self._active_key = None
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as exc:
             logger.exception(
                 "the rewrite for %s could not be finished", audience.key
             )
+            if self._revision == revision and self._active_key == audience.key:
+                # The failure belongs to this rewrite, so it is recorded
+                # on it: the reader sees one line and a retry control,
+                # and an identical request retries rather than pretending
+                # the feed is finished.
+                self._rewrite_error = _concise_error(exc)
+                self._active_key = None
 
-    def _publish(self, overlay: Overlay) -> None:
+    def _publish(self, overlay: Overlay, revision: int) -> bool:
         """Put one rewritten card on the screen, where it was.
 
         The card keeps its id -- it is the same moment, written for
@@ -663,12 +815,20 @@ class LiveMatchEngine:
 
         Args:
             overlay: The rewritten card.
+            revision: The revision the card was written for. A card from a
+                superseded rewrite is rejected, never published.
+
+        Returns:
+            Whether the card was published.
         """
+        if revision != self._revision:
+            return False
         for index, current in enumerate(self._overlays):
             if current.overlay_id == overlay.overlay_id:
                 self._overlays[index] = overlay
-                return
+                return True
         self._overlays.append(overlay)
+        return True
 
     def _replace_recap(self) -> None:
         """Write the full-time card again, for the reader who is here now.

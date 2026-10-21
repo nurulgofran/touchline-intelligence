@@ -26,7 +26,11 @@ export interface AudienceBarProps {
   options: AudienceOptions | null;
   /** Whether the service is still rewriting the feed. */
   pending: boolean;
+  /** Why the last rewrite did not finish, in one line, if it did not. */
+  rewriteError: string | null;
   onChange: (audience: Audience) => void;
+  /** Try the requested audience's rewrite again. */
+  onRetry: () => void;
 }
 
 const MODE_HINT: Record<AudienceMode, string> = {
@@ -41,7 +45,9 @@ export default function AudienceBar({
   audience,
   options,
   pending,
+  rewriteError,
   onChange,
+  onRetry,
 }: AudienceBarProps) {
   const modes = options?.modes ?? [];
   const locales = options?.locales ?? [];
@@ -110,6 +116,21 @@ export default function AudienceBar({
         {MODE_HINT[audience.mode]}
         {pending ? " — rewriting the feed…" : ""}
       </p>
+
+      {rewriteError && !pending && (
+        <p className="flex flex-wrap items-center gap-2 text-[11px] leading-snug text-amber-300/90">
+          <span>
+            The rewrite did not finish — {rewriteError}
+          </span>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded border border-amber-400/80 bg-amber-400/20 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-amber-200 transition-colors hover:bg-amber-400/30"
+          >
+            Retry
+          </button>
+        </p>
+      )}
 
       <AudiencePicker audience={audience} options={options} players={players} onChange={update} />
     </div>

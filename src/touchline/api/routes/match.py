@@ -182,6 +182,8 @@ async def audience(seed: int = Query(default=42)) -> dict[str, Any]:
             short_names[side] = str(payload.get("short_name", ""))
     return {
         "audience": engine.audience.describe(),
+        "rewriting": engine.rewriting,
+        "rewrite_error": engine.rewrite_error,
         "modes": [
             {"id": mode.value, "label": _MODE_LABELS[mode.value]}
             for mode in AudienceMode

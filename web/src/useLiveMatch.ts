@@ -134,6 +134,12 @@ export interface LiveMatchState {
   audienceOptions: AudienceOptions | null;
   /** Whether the audience has been asked for but not applied yet. */
   audiencePending: boolean;
+  /**
+   * Why the last rewrite did not finish, in one line. Null when the last
+   * rewrite finished or none was asked for - the studio shows it next to
+   * the retry control.
+   */
+  audienceRewriteError: string | null;
 }
 
 export interface LiveMatchApi extends LiveMatchState {
@@ -146,6 +152,11 @@ export interface LiveMatchApi extends LiveMatchState {
   nextMoment: () => void;
   /** Ask the service to write the overlays for a different audience. */
   setAudience: (audience: Audience) => void;
+  /**
+   * Try the requested audience's rewrite again, after it failed or was
+   * abandoned. A no-op when the rewrite is running or has finished.
+   */
+  retryAudience: () => void;
   /** The event with the given id, if the studio has it. */
   eventById: (eventId: string) => MatchEvent | undefined;
 }
@@ -186,6 +197,7 @@ const INITIAL_STATE: LiveMatchState = {
   },
   audienceOptions: null,
   audiencePending: false,
+  audienceRewriteError: null,
 };
 
 function socketUrl(seed: number): string {
@@ -432,10 +444,12 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
             audience: pending ?? frame.audience ?? prev.audience,
             // The service says whether the feed is still being rewritten,
             // so the studio is not left saying it is working when the
-            // work is done -- or the other way about.
+            // work is done -- or the other way about. A failed rewrite
+            // carries one line saying why, next to the retry control.
             audiencePending: pending
               ? true
               : (frame.rewriting ?? prev.audiencePending),
+            audienceRewriteError: frame.rewrite_error ?? null,
           }));
           if (isResume) {
             // The connection dropped. Resume from the clock we last saw,
@@ -583,6 +597,7 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
             ...prev,
             audience: applied,
             audiencePending: frame.rewriting,
+            audienceRewriteError: frame.rewrite_error ?? null,
           }));
           break;
         }
@@ -699,6 +714,7 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
         ...prev,
         audienceOptions: options,
         audience: options.audience ?? prev.audience,
+        audienceRewriteError: options.rewrite_error ?? prev.audienceRewriteError,
       }));
     })();
     return () => {
@@ -894,11 +910,25 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
         ...prev,
         audience,
         audiencePending: true,
+        audienceRewriteError: null,
       }));
       send({ type: "control", action: "audience", value: audience });
     },
     [send],
   );
+
+  /**
+   * Try the requested audience's rewrite again.
+   *
+   * The service only restarts a rewrite that failed or was abandoned;
+   * asking when the rewrite is running or finished is a no-op. The
+   * error clears optimistically -- the service sends the truth in its
+   * next audience frame either way.
+   */
+  const retryAudience = useCallback(() => {
+    setState((prev) => ({ ...prev, audienceRewriteError: null }));
+    send({ type: "control", action: "audience_retry" });
+  }, [send]);
 
   const eventById = useCallback(
     (eventId: string) => state.events.find((event) => event.event_id === eventId),
@@ -929,6 +959,7 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
     seek,
     nextMoment,
     setAudience,
+    retryAudience,
     eventById,
   };
 }

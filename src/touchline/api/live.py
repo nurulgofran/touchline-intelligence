@@ -207,6 +207,7 @@ class LiveSession:
     _trace_cursor: int = 0
     _audience_key: str = ""
     _rewriting: bool = False
+    _rewrite_error: str | None = None
     _events: list[Any] = field(default_factory=list)
     _momentum: list[Any] = field(default_factory=list)
     _seen_overlays: set[tuple[str, int]] = field(default_factory=set)
@@ -222,6 +223,7 @@ class LiveSession:
         # change it has just asked for.
         self._audience_key = self.engine.audience.key
         self._rewriting = self.engine.rewriting
+        self._rewrite_error = self.engine.rewrite_error
 
     # -- the control surface ----------------------------------------------
 
@@ -302,6 +304,18 @@ class LiveSession:
         """
         await self.engine.set_audience(audience, focus_ms=int(self.clock_ms))
 
+    def retry_audience(self) -> bool:
+        """Try the requested audience's rewrite again.
+
+        When the rewrite failed or was abandoned, the reader is left with
+        a half-written feed and one line saying why. This restarts it.
+        It is a no-op when the rewrite is running or has finished.
+
+        Returns:
+            Whether a rewrite was (re)started.
+        """
+        return self.engine.retry_rewrite()
+
     # -- the frames --------------------------------------------------------
 
     def hello(self) -> dict[str, object]:
@@ -324,6 +338,7 @@ class LiveSession:
             "event_count": len(self._events),
             "audience": self.engine.audience.describe(),
             "rewriting": self.engine.rewriting,
+            "rewrite_error": self.engine.rewrite_error,
         }
 
     def tick(self, now: float | None = None) -> list[dict[str, object]]:
@@ -367,15 +382,22 @@ class LiveSession:
         """
         audience = self.engine.audience
         rewriting = self.engine.rewriting
-        if audience.key == self._audience_key and rewriting == self._rewriting:
+        rewrite_error = self.engine.rewrite_error
+        if (
+            audience.key == self._audience_key
+            and rewriting == self._rewriting
+            and rewrite_error == self._rewrite_error
+        ):
             return []
         self._audience_key = audience.key
         self._rewriting = rewriting
+        self._rewrite_error = rewrite_error
         return [
             {
                 "type": "audience",
                 "audience": audience.describe(),
                 "rewriting": rewriting,
+                "rewrite_error": rewrite_error,
             }
         ]
 
