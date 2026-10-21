@@ -574,10 +574,14 @@ PICK_PLAYER = """
 
 # The English text of the moment on screen, so the caption can carry the
 # English alongside a translation the model wrote in another language.
+#
+# It reads the FIRST article -- the recap -- which is the card the German
+# beat shows and rewrites, so the English quoted is the English of the card
+# that changed language, and not of a second card the caption would then
+# claim was its translation.
 READ_INSIGHT = """
 (() => {
-  const cards = [...document.querySelectorAll('article')];
-  const card = cards.find((c) => !c.textContent.includes('RECAP')) ?? cards[0];
+  const card = document.querySelector('article');
   if (!card) return '';
   const title = card.querySelector('h3');
   const body = card.querySelector('p');
