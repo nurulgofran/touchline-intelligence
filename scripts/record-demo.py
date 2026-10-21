@@ -1401,7 +1401,10 @@ def build_timeline() -> Timeline:
     timeline.add(
         Shot(
             name="the whole trace",
-            caption="Follow the typed hand-offs — from the event log to the explanation on screen.",
+            caption=(
+                "Follow the typed hand-offs — "
+                "from the event log to the explanation on screen."
+            ),
             action=click_when_ready("show all"),
             settle=1.0,
             hold=4.0,
@@ -1449,7 +1452,10 @@ def build_timeline() -> Timeline:
     timeline.add(
         Shot(
             name="read it as my team",
-            caption="The same moment, read for one side. The figures still come from the match log.",
+            caption=(
+                "The same moment, read for one side. "
+                "The figures still come from the match log."
+            ),
             action=[SWITCH_SIDE, wait_for_idle],
             settle=2.0,
             hold=4.0,
