@@ -46,6 +46,14 @@
 #   MODE=acr DEST=acr scripts/build-image.sh        # ACR Tasks, push to ACR
 #   TAG=v2 scripts/build-image.sh                   # build and tag v2
 #
+# **Use a new tag for every build.** The Container App pulls the image by
+# tag, and a tag that points somewhere new is not a change its template
+# can see: `az containerapp update --image ...:v4` with the same tag
+# changes nothing, the control plane does not roll the container, and the
+# old code keeps serving. A new tag is a new template, and a new template
+# is a new revision. The image carries the commit it was built from, so
+# the running version can be read from the outside in `/healthz`.
+#
 # Overrides:
 #   DEST, MODE, IMAGE_NAME, TAG, ACR, RG, GHCR_OWNER
 
@@ -147,11 +155,18 @@ say "Build"
 
 cd "$STAGE"
 
+# The commit the image is built from. It is passed in rather than read
+# inside the build, because the staged context has no repository
+# metadata in it.
+APP_REVISION="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+note "revision : $APP_REVISION"
+
 if [ "$MODE" = "acr" ]; then
     # ACR Tasks runs the build on Azure's own agents.
     az acr build \
         --registry "$ACR" \
         --image "$IMAGE_NAME:$TAG" \
+        --build-arg "APP_REVISION=$APP_REVISION" \
         --file Dockerfile \
         .
 else
@@ -244,10 +259,12 @@ else
     # compression: application/vnd.docker.image.rootfs.diff.tar.gzip".
     if ! docker buildx build --builder default --platform "$PLATFORM" \
             --output "type=image,push=true,oci-mediatypes=true" \
+            --build-arg "APP_REVISION=$APP_REVISION" \
             --tag "$IMAGE_REF" --file Dockerfile . 2>/dev/null; then
         note "the registry exporter is unavailable - loading and pushing instead"
         docker buildx build --builder default --platform "$PLATFORM" \
-            --output "type=docker" --tag "$IMAGE_REF" --file Dockerfile .
+            --output "type=docker" --build-arg "APP_REVISION=$APP_REVISION" \
+            --tag "$IMAGE_REF" --file Dockerfile .
         docker push "$IMAGE_REF"
     fi
 fi

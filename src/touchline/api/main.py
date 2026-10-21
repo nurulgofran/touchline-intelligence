@@ -220,6 +220,13 @@ async def healthz() -> JSONResponse:
         content={
             "status": "ok",
             "version": APP_VERSION,
+            # The commit the image was built from. The image is pulled by
+            # tag, and a tag that points somewhere new is not a change
+            # the Container App's template can see -- so a rebuild under
+            # the same tag does not roll the container, and the old code
+            # keeps serving. This is how you can tell which one is
+            # running without going into the container.
+            "revision": os.environ.get("APP_REVISION", "unknown"),
             "provider": snapshot.as_dict(),
             "match": {
                 "seed": engine.seed,

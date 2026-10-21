@@ -80,6 +80,19 @@ COPY --from=web --chown=appuser:appuser /web/dist ./web/dist
 
 ENV PYTHONPATH=/app/src
 
+# The commit the image was built from, so the running version can be
+# answered from the outside. The build script passes it in: the build
+# context is staged without the repository's metadata, so the image
+# cannot find it for itself.
+#
+# It matters more than it looks. The image is pulled by tag, and a tag
+# that points somewhere new is not a change the Container App's template
+# can see -- so a rebuild under the same tag does not roll the
+# container, and the old code keeps serving. The revision has to be
+# able to say which commit it is.
+ARG APP_REVISION=unknown
+ENV APP_REVISION=$APP_REVISION
+
 USER appuser
 EXPOSE 8000
 
