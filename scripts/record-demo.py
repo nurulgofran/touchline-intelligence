@@ -369,17 +369,6 @@ def click_when_ready(text: str) -> str:
     return CLICK_WAITING.format(text=json.dumps(text))
 
 
-# The card the studio is showing: the newest insight, and not the
-# full-time recap. The recap is a deterministic summary of the whole
-# match, so a beat that is about the model rewriting something wants the
-# insight -- the one the model wrote.
-CARD = """
-(() => {{
-  const cards = [...document.querySelectorAll('article')];
-  return cards.find((card) => !card.textContent.includes('RECAP')) ?? cards[0] ?? null;
-}})()
-"""
-
 # Read the moment for one side, and wait for it to be rewritten.
 #
 # The body is compared rather than the title, because a title can be the
