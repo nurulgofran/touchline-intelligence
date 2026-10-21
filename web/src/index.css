@@ -3,10 +3,111 @@
 @tailwind utilities;
 
 /*
- * The studio is a dark broadcast surface. Everything is drawn with plain
- * colours, plain type and hand-written SVG: no kit designs, no crests, no
- * third-party marks, and no web fonts - the system stack is the stack.
+ * The studio is a dark broadcast surface.
+ *
+ * Two typefaces, one accent, and a neutral ramp for everything else.
+ * The graphics are drawn by hand - plain colours, plain type and
+ * hand-written SVG: no kit designs, no crests, no marks of anybody's.
+ *
+ * The two faces are self-hosted, from this repository's own
+ * `web/public/fonts/`, so the studio looks the same everywhere and asks
+ * no third party for a byte. Barlow Condensed is the display face - the
+ * score, the headlines, the clock. Inter is the body face - the copy, the
+ * controls, and every figure. Both are under the SIL Open Font License;
+ * the licence texts sit beside the font files.
  */
+
+/* --- Barlow Condensed: the display face --------------------------------- */
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/barlow-condensed-500-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/barlow-condensed-500-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/barlow-condensed-600-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/barlow-condensed-600-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/barlow-condensed-700-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/barlow-condensed-700-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* --- Inter: the body face ------------------------------------------------ */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/inter-var-400-700-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/inter-var-400-700-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 @layer base {
   html {
@@ -15,17 +116,24 @@
 
   body {
     margin: 0;
-    background-color: theme("colors.studio.950");
-    color: theme("colors.studio.100");
+    background-color: theme("colors.ink.950");
+    color: theme("colors.ink.100");
     font-family: theme("fontFamily.sans");
+    font-feature-settings: "cv05" 1, "ss01" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* The selection colour is the one accent, used once more. */
+  ::selection {
+    background-color: theme("colors.pitch.400");
+    color: theme("colors.ink.950");
   }
 
   /* A slim, dark scrollbar, so the panels do not fight the pitch. */
   * {
     scrollbar-width: thin;
-    scrollbar-color: theme("colors.studio.600") transparent;
+    scrollbar-color: theme("colors.ink.600") transparent;
   }
 
   *::-webkit-scrollbar {
@@ -38,66 +146,100 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    background-color: theme("colors.studio.600");
+    background-color: theme("colors.ink.600");
     border-radius: 999px;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background-color: theme("colors.studio.500");
+    background-color: theme("colors.ink.500");
   }
 }
 
 @layer components {
-  /* The panel every part of the studio sits in. */
+  /*
+   * The panel every part of the studio sits in.
+   *
+   * Flat, hairline-ruled and shadowless: hierarchy in this studio comes
+   * from type and from the one accent, not from a stack of floating
+   * cards. The one surface that does get a shadow is the insight card,
+   * and it asks for it by name.
+   */
   .panel {
-    @apply rounded-lg border border-studio-700/70 bg-studio-900/80 shadow-lg shadow-black/30;
+    @apply rounded-sm border border-ink-800 bg-ink-900/60;
   }
 
+  /* The small uppercase label every panel is titled with. */
   .panel-title {
-    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-studio-400;
+    @apply font-sans text-[10px] font-semibold uppercase tracking-[0.16em]
+      text-ink-400;
   }
 
-  /* The range input is the scrubber, and it is styled rather than
-     replaced, so it keeps the keyboard and the screen reader. */
+  /* The inline metadata label - the routine facts, kept quiet. */
+  .micro-label {
+    @apply font-sans text-[10px] font-medium uppercase tracking-[0.1em]
+      text-ink-400;
+  }
+
+  /* A figure. Tabular, so a column of numbers does not shimmer. */
+  .figure {
+    @apply font-sans font-semibold tabular-nums tracking-tight;
+  }
+
+  /*
+   * The range input is the scrubber, and it is styled rather than
+   * replaced, so it keeps the keyboard and the screen reader.
+   */
   .scrubber {
-    @apply h-1.5 w-full cursor-pointer appearance-none rounded-full bg-studio-700;
-    accent-color: theme("colors.studio.400");
+    @apply h-1 w-full cursor-pointer appearance-none rounded-full bg-ink-700;
+    accent-color: theme("colors.pitch.400");
   }
 
   .scrubber::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    height: 14px;
-    width: 14px;
+    height: 12px;
+    width: 12px;
     border-radius: 999px;
-    background-color: #e2e8f0;
-    border: 2px solid theme("colors.studio.900");
-    box-shadow: 0 0 0 1px theme("colors.studio.500");
+    background-color: theme("colors.pitch.300");
+    border: 2px solid theme("colors.ink.900");
+    box-shadow: 0 0 0 1px theme("colors.ink.600");
   }
 
   .scrubber::-moz-range-thumb {
-    height: 14px;
-    width: 14px;
+    height: 12px;
+    width: 12px;
     border-radius: 999px;
-    background-color: #e2e8f0;
-    border: 2px solid theme("colors.studio.900");
-    box-shadow: 0 0 0 1px theme("colors.studio.500");
+    background-color: theme("colors.pitch.300");
+    border: 2px solid theme("colors.ink.900");
+    box-shadow: 0 0 0 1px theme("colors.ink.600");
   }
 
   .scrubber:focus-visible {
-    outline: 2px solid theme("colors.studio.400");
+    outline: 2px solid theme("colors.pitch.400");
     outline-offset: 4px;
   }
 
   .transport-button {
-    @apply inline-flex select-none items-center justify-center gap-1.5 rounded-md border
-      border-studio-600 bg-studio-800 px-3 py-1.5 text-xs font-semibold text-studio-100
-      transition-colors hover:bg-studio-700 focus:outline-none focus-visible:ring-2
-      focus-visible:ring-studio-400 disabled:cursor-not-allowed disabled:opacity-40
-      disabled:hover:bg-studio-800;
+    @apply inline-flex select-none items-center justify-center gap-1.5 rounded-sm
+      border border-ink-700 bg-ink-800/60 px-2.5 py-1.5 text-[11px] font-semibold
+      text-ink-200 transition-colors hover:border-ink-500 hover:bg-ink-700
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-pitch-400
+      disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-ink-800/60
+      disabled:hover:border-ink-700;
   }
 
   .transport-button[data-active="true"] {
-    @apply border-studio-400 bg-studio-700 text-white;
+    @apply border-pitch-500 bg-pitch-900/70 text-pitch-200;
+  }
+}
+
+@layer utilities {
+  /*
+   * The focus ring, used everywhere a control can be reached by
+   * keyboard. One accent, one ring.
+   */
+  .focus-ring {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-pitch-400
+      focus-visible:ring-offset-1 focus-visible:ring-offset-ink-950;
   }
 }

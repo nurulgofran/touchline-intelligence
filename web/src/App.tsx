@@ -17,6 +17,12 @@ import { useLiveMatch } from "./useLiveMatch";
  * One page, one socket, three panels: the pitch on the left, the insights
  * beside it, and the momentum and the agent trace on the right. There is
  * no router, because there is one thing to watch.
+ *
+ * The proportions are deliberate. The pitch gets the height and the
+ * breathing room, the insight feed gets the width - it is the page's
+ * main content - and the right-hand column is the quiet one: the
+ * momentum, the tracker's score sheet and the hand-off ledger, all of
+ * which are there to be checked rather than admired.
  */
 export default function App() {
   const match = useLiveMatch(42);
@@ -37,7 +43,7 @@ export default function App() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col bg-studio-950 text-studio-100 lg:h-screen lg:overflow-hidden">
+    <div className="flex min-h-screen flex-col bg-ink-950 text-ink-100 lg:h-screen lg:overflow-hidden">
       <TopBar
         teams={match.teams}
         scoreHome={match.scoreHome}
@@ -49,9 +55,9 @@ export default function App() {
       />
 
       <main className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
-        <div className="grid grid-cols-1 gap-3 p-3 lg:h-full lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-2 p-2 lg:h-full lg:grid-cols-[minmax(0,4.4fr)_minmax(0,4.6fr)_minmax(0,3fr)]">
           {/* The main panel: the pitch, and the transport under it. */}
-          <section className="flex min-h-0 flex-col gap-3 lg:col-span-5">
+          <section className="flex min-h-0 flex-col gap-2">
             <Pitch
               teams={match.teams}
               events={match.events}
@@ -60,7 +66,7 @@ export default function App() {
             />
 
             {match.startedAtFirstMoment && !match.userMovedClock && (
-              <p className="px-1 text-[11px] leading-snug text-amber-300/90">
+              <p className="px-1 text-[11px] leading-snug text-ink-300">
                 Started at the first key moment — press Replay to watch from
                 kick-off.
               </p>
@@ -81,7 +87,7 @@ export default function App() {
           </section>
 
           {/* The insights, beside the pitch. */}
-          <section className="flex min-h-0 flex-col gap-3 lg:col-span-4">
+          <section className="flex min-h-0 flex-col gap-2">
             <AudienceBar
               audience={match.audience}
               options={match.audienceOptions}
@@ -91,7 +97,7 @@ export default function App() {
               onRetry={match.retryAudience}
             />
             {match.usingFallback && (
-              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-200">
+              <p className="rounded-sm border border-signal-amber/40 bg-signal-amber/10 px-3 py-1.5 text-[11px] leading-snug text-signal-amber">
                 The live socket has dropped, so the feed is not being pushed
                 — this is what the match had reached. It will pick up again
                 on its own.
@@ -110,7 +116,7 @@ export default function App() {
           </section>
 
           {/* The right panel: the momentum on top, the trace under it. */}
-          <section className="flex min-h-0 flex-col gap-3 lg:col-span-3">
+          <section className="flex min-h-0 flex-col gap-2">
             <MomentumChart
               points={match.momentum}
               clockMs={match.clockMs}
@@ -127,7 +133,12 @@ export default function App() {
         </div>
       </main>
 
-      <footer className="border-t border-studio-700/70 bg-studio-900/95 px-4 py-2 text-[11px] leading-relaxed text-studio-500">
+      {/*
+        The synthetic-data disclosure. It is a compliance requirement,
+        not decoration, so it stays exactly as loud as it was: the
+        studio's own words, in full, in the place a judge reads last.
+      */}
+      <footer className="border-t border-ink-800 bg-ink-900 px-4 py-2 text-[11px] leading-relaxed text-ink-300">
         All match data on this page is synthetic and every club and player is
         fictional. No real competition, club, player or commercial mark is
         represented, and no real match data is used. The insight numbers are

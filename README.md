@@ -170,6 +170,12 @@ is complete.
 
 All six panels are on screen at once — there is no tab to click.
 
+The studio is drawn as a broadcast graphic rather than a dashboard: one accent (the pitch
+green) against a neutral ramp, a condensed display face for the score, the headlines and the
+clock, a grotesque for the copy, and tabular figures everywhere a number appears. The two
+typefaces are self-hosted under `web/public/fonts/`, so the studio looks the same on every
+machine and loads no font from a third party.
+
 | Panel | What it shows |
 |---|---|
 | **Pitch** | The synthetic match, top-down, with the two fictional clubs' colours |

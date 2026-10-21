@@ -680,10 +680,16 @@ READ_BADGE = """
   const badge = document.querySelector(
     '[title="Which provider served the last call."]');
   if (!badge) return '';
-  const chip = [...badge.querySelectorAll('span')].find(
-    (s) => s.className.includes('rounded-full'));
-  const name = [...badge.querySelectorAll('span')].find(
-    (s) => s.className.includes('truncate'));
+  // The badge names its parts with data attributes, so the recorder reads
+  // the provider name and the live/fallback chip by name rather than by
+  // the class they happen to wear. The class lookups are the fallback
+  // for an older build.
+  const chip = badge.querySelector('[data-provider-chip]')
+    || [...badge.querySelectorAll('span')].find(
+      (s) => s.className.includes('rounded-full'));
+  const name = badge.querySelector('[data-provider-name]')
+    || [...badge.querySelectorAll('span')].find(
+      (s) => s.className.includes('truncate'));
   return (name ? name.textContent.trim() : '?') + ' | '
        + (chip ? chip.textContent.trim() : 'no chip');
 }})()
@@ -1099,9 +1105,13 @@ async def record(
 
         # The provider badge is the trust signal, so the take waits for it --
         # and for the chip, not the wrapper, because the wrapper is already
-        # there while the studio still says "connecting...".
+        # there while the studio still says "connecting...". The chip is
+        # found by its data attribute; the class is the fallback for an
+        # older build.
         await cdp.wait_for(
             "!!document.querySelector("
+            "'[title=\"Which provider served the last call.\"] [data-provider-chip]')"
+            " || !!document.querySelector("
             "'[title=\"Which provider served the last call.\"] .rounded-full')",
             timeout=45,
         )

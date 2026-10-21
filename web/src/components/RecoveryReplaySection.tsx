@@ -100,7 +100,7 @@ function useRecoveryFixture(): RecoveryFixtureState {
 
 function StepTitle({ children }: { children: string }) {
   return (
-    <h4 className="mt-2.5 text-[10px] font-bold uppercase tracking-wider text-studio-400 first:mt-1">
+    <h4 className="mt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-ink-400 first:mt-1">
       {children}
     </h4>
   );
@@ -116,48 +116,48 @@ function ReadyFixture({ fixture }: { fixture: RecoveryFixture }) {
   return (
     <div className="text-[11px] leading-snug">
       {/* The schema's honesty label, verbatim. */}
-      <p className="rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1.5 text-amber-200">
+      <p className="border-l-2 border-signal-amber/60 bg-signal-amber/[0.08] px-2.5 py-1.5 text-signal-amber">
         {fixture.label}
       </p>
 
       <StepTitle>1 · The injected fault</StepTitle>
-      <p className="text-studio-300">{fault.description}</p>
+      <p className="text-ink-300">{fault.description}</p>
       <dl className="mt-1 grid grid-cols-2 gap-x-3 text-[11px]">
-        <dt className="text-studio-500">metric</dt>
-        <dd className="text-right font-mono text-studio-300">
+        <dt className="text-ink-500">metric</dt>
+        <dd className="text-right font-mono text-ink-300">
           {fault.metric}
         </dd>
-        <dt className="text-studio-500">claimed</dt>
-        <dd className="text-right font-mono font-semibold text-red-300">
+        <dt className="text-ink-500">claimed</dt>
+        <dd className="text-right font-mono font-semibold tabular-nums text-signal-red">
           {formatMetricValue(fault.claimed_value)}
         </dd>
-        <dt className="text-studio-500">log says</dt>
-        <dd className="text-right font-mono font-semibold text-emerald-300">
+        <dt className="text-ink-500">log says</dt>
+        <dd className="text-right font-mono font-semibold tabular-nums text-pitch-300">
           {formatMetricValue(fault.true_value)}
         </dd>
       </dl>
 
       <StepTitle>2 · The veto</StepTitle>
-      <ul className="list-disc pl-4 text-red-200">
+      <ul className="list-disc pl-4 text-signal-red/90">
         {fixture.recovery.veto.reasons.map((reason, index) => (
           <li key={index}>{reason}</li>
         ))}
       </ul>
 
       <StepTitle>3 · The back edge</StepTitle>
-      <p className="text-studio-300">
-        <span className="font-mono font-semibold text-studio-200">
+      <p className="text-ink-300">
+        <span className="font-mono font-semibold text-ink-200">
           {vetoEntry.from_stage} → {vetoEntry.to_stage}
         </span>{" "}
         refused the claim ({vetoEntry.kind}) and the objection went back
         to the Explainer:
       </p>
-      <p className="mt-0.5 rounded border border-studio-800 bg-studio-850/60 px-2 py-1 font-mono text-[10px] text-studio-400">
+      <p className="mt-0.5 border-l-2 border-ink-700 bg-ink-900/60 px-2.5 py-1 font-mono text-[10px] text-ink-400">
         {vetoEntry.summary}
       </p>
 
       <StepTitle>4 · The correction</StepTitle>
-      <p className="text-studio-300">{corrected.reading}</p>
+      <p className="text-ink-300">{corrected.reading}</p>
       {corrected.metrics.length > 0 && (
         <dl className="mt-1 grid grid-cols-2 gap-x-3 text-[11px]">
           {corrected.metrics.map((metric) => (
@@ -165,50 +165,52 @@ function ReadyFixture({ fixture }: { fixture: RecoveryFixture }) {
               key={metric.name}
               className="col-span-2 grid grid-cols-2 gap-x-3"
             >
-              <dt className="text-studio-500">{metric.name}</dt>
-              <dd className="text-right font-mono tabular-nums text-studio-300">
+              <dt className="text-ink-500">{metric.name}</dt>
+              <dd className="text-right font-mono tabular-nums text-ink-300">
                 {formatMetricValue(metric.value)} {metric.unit}
               </dd>
             </div>
           ))}
         </dl>
       )}
-      <p className="mt-1 text-emerald-300">
+      <p className="mt-1 text-pitch-300">
         {fixture.recovery.acceptance.accepted
           ? "The Grounding step verified the corrected claim and accepted it."
           : "The Grounding step did not accept the corrected claim."}
       </p>
 
       <StepTitle>5 · The accepted overlay</StepTitle>
-      <p className="font-semibold text-white">{acceptedOverlay.title}</p>
-      <p className="text-studio-300">{acceptedOverlay.body}</p>
+      <p className="font-display text-[14px] font-semibold leading-snug text-ink-50">
+        {acceptedOverlay.title}
+      </p>
+      <p className="mt-0.5 text-ink-300">{acceptedOverlay.body}</p>
 
       <StepTitle>Who served the run</StepTitle>
       <dl className="grid grid-cols-2 gap-x-3 text-[11px]">
-        <dt className="text-studio-500">explainer</dt>
-        <dd className="text-right font-mono text-studio-300">
+        <dt className="text-ink-500">explainer</dt>
+        <dd className="text-right font-mono text-ink-300">
           {providers.explainer}
         </dd>
-        <dt className="text-studio-500">narrator</dt>
-        <dd className="text-right font-mono text-studio-300">
+        <dt className="text-ink-500">narrator</dt>
+        <dd className="text-right font-mono text-ink-300">
           {providers.narrator}
         </dd>
-        <dt className="text-studio-500">personalizer</dt>
-        <dd className="text-right font-mono text-studio-300">
+        <dt className="text-ink-500">personalizer</dt>
+        <dd className="text-right font-mono text-ink-300">
           {providers.personalizer}
         </dd>
-        <dt className="text-studio-500">the correction</dt>
-        <dd className="text-right font-mono text-studio-300">
+        <dt className="text-ink-500">the correction</dt>
+        <dd className="text-right font-mono text-ink-300">
           {providers.correction_provider}
         </dd>
-        <dt className="text-studio-500">template fallback</dt>
-        <dd className="text-right font-mono text-studio-300">
+        <dt className="text-ink-500">template fallback</dt>
+        <dd className="text-right font-mono text-ink-300">
           {providers.template_fallback_used ? "used" : "not used"}
         </dd>
       </dl>
 
       <StepTitle>Recorded where</StepTitle>
-      <p className="font-mono text-[10px] leading-relaxed text-studio-500">
+      <p className="font-mono text-[10px] leading-relaxed text-ink-600">
         {fixture.generator.name} {fixture.generator.version} ·{" "}
         {fixture.fixture_version} · {fixture.test_context.match_id} ·{" "}
         {fixture.test_context.audience}/{fixture.test_context.locale}
@@ -223,16 +225,16 @@ function ReadyFixture({ fixture }: { fixture: RecoveryFixture }) {
 
 function NotGenerated() {
   return (
-    <div className="text-[11px] leading-snug text-studio-400">
+    <div className="text-[11px] leading-snug text-ink-400">
       <p>
-        <span className="font-semibold uppercase tracking-wider text-amber-200">
+        <span className="font-semibold uppercase tracking-[0.1em] text-signal-amber">
           Recorded test run
         </span>{" "}
         — no recorded recovery example has been generated yet. The trace
         above is the live match; nothing here is a fabricated example.
       </p>
       <p className="mt-1.5">Generate it on a machine with Foundry credentials:</p>
-      <pre className="mt-1 overflow-x-auto rounded border border-studio-800 bg-studio-950 p-2 font-mono text-[10px] leading-relaxed text-studio-300">
+      <pre className="mt-1 overflow-x-auto rounded-sm border border-ink-800 bg-ink-950 p-2 font-mono text-[10px] leading-relaxed text-ink-300">
         {`python fixtures/recovery/generate_recovery_fixture.py \\
   --provider foundry \\
   --out web/public/fixtures/recovery-example.v1.json`}
@@ -247,45 +249,66 @@ function NotGenerated() {
   );
 }
 
-export default function RecoveryReplaySection() {
+export interface RecoveryReplaySectionProps {
+  /** Whether the replay is open. */
+  open: boolean;
+  /** Open or close the replay. */
+  onToggle: () => void;
+}
+
+export default function RecoveryReplaySection({
+  open,
+  onToggle,
+}: RecoveryReplaySectionProps) {
   const state = useRecoveryFixture();
-  const [open, setOpen] = useState(true);
 
   return (
-    <div className="border-t border-studio-700/70 px-3 py-2">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center justify-between gap-2"
-        aria-expanded={open}
-      >
-        <span className="flex flex-wrap items-center gap-1.5">
-          <span className="panel-title !text-left">
-            Recovery example
+    <div
+      className={[
+        "flex min-h-0 flex-col border-t border-ink-800",
+        open ? "flex-1" : "shrink-0",
+      ].join(" ")}
+    >
+      <div className="px-3.5 py-2.5">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex w-full items-center justify-between gap-2 text-left focus-ring"
+          aria-expanded={open}
+        >
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="panel-title !text-left">
+              Recovery example
+            </span>
+            {/*
+              The honesty label, in the same words the fixture uses. It
+              is the thing that stops a reader mistaking a recorded test
+              for a live incident, so it is not a whisper.
+            */}
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-signal-amber">
+              recorded test run
+            </span>
           </span>
-          <span className="rounded border border-amber-400/60 bg-amber-400/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-amber-300">
-            recorded test run
+          <span className="font-mono text-[11px] text-ink-500" aria-hidden="true">
+            {open ? "−" : "+"}
           </span>
-        </span>
-        <span className="font-mono text-[11px] text-studio-500" aria-hidden="true">
-          {open ? "−" : "+"}
-        </span>
-      </button>
-      <p className="mt-0.5 text-[10px] leading-snug text-studio-500">
-        Replaying this changes neither the live match nor the shared
-        audience, and it makes no model calls.
-      </p>
+        </button>
+        <p className="mt-1 text-[10px] leading-snug text-ink-600">
+          Replaying this changes neither the live match nor the shared
+          audience, and it makes no model calls.
+        </p>
+      </div>
 
       {open && (
-        <div className="max-h-72 overflow-y-auto pb-1 pt-1">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3.5 pb-2.5">
           {state.kind === "loading" && (
-            <p className="py-3 text-center text-[11px] text-studio-500">
+            <p className="py-3 text-center text-[11px] text-ink-500">
               looking for the recorded run…
             </p>
           )}
           {state.kind === "not-generated" && <NotGenerated />}
           {state.kind === "invalid" && (
-            <p className="rounded border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-[11px] text-red-200">
+            <p className="border-l-2 border-signal-red/60 bg-signal-red/[0.07] px-2.5 py-1.5 text-[11px] text-signal-red">
               {state.reason}
             </p>
           )}

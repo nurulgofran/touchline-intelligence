@@ -4,7 +4,20 @@ export default {
   theme: {
     extend: {
       fontFamily: {
+        // The display face: a condensed grotesk, the way a broadcast puts a
+        // score or a headline on screen. Self-hosted, so it is the same
+        // everywhere and costs no third-party request.
+        display: [
+          "Barlow Condensed",
+          "Avenir Next Condensed",
+          "Roboto Condensed",
+          "Arial Narrow",
+          "Helvetica Neue",
+          "sans-serif",
+        ],
+        // The body face: a clean grotesque for copy, controls and figures.
         sans: [
+          "Inter",
           "system-ui",
           "-apple-system",
           "BlinkMacSystemFont",
@@ -24,23 +37,65 @@ export default {
           "monospace",
         ],
       },
+      fontSize: {
+        // A real type scale, not one size at four weights. Each step has
+        // its own voice: display, headline, title, body, small, and the
+        // micro-labels that carry the routine metadata.
+        display: ["2.5rem", { lineHeight: "1", letterSpacing: "0.005em" }],
+        score: ["1.75rem", { lineHeight: "1", letterSpacing: "0.01em" }],
+        headline: ["1.125rem", { lineHeight: "1.25", letterSpacing: "0.005em" }],
+        title: ["0.9375rem", { lineHeight: "1.3", letterSpacing: "0.005em" }],
+        body: ["0.8125rem", { lineHeight: "1.55" }],
+        small: ["0.75rem", { lineHeight: "1.45" }],
+        micro: ["0.6875rem", { lineHeight: "1.25", letterSpacing: "0.06em" }],
+        nano: ["0.625rem", { lineHeight: "1.2", letterSpacing: "0.08em" }],
+      },
       colors: {
-        // A single dark, slightly blue-grey ramp for the whole studio.
-        // Low numbers are light (text), high numbers are dark (surfaces).
-        studio: {
-          50: "#f8fafc",
-          100: "#eef2f7",
-          200: "#dbe3ec",
-          300: "#b3c0cf",
-          400: "#8494a8",
-          500: "#5c6c82",
-          600: "#44546b",
-          700: "#334155",
-          800: "#232f42",
-          850: "#1a2434",
-          900: "#121a27",
-          950: "#0a0f18",
+        // The neutral ramp. A single family for every surface, every
+        // border and every piece of copy - so the accent is the only
+        // colour on the page that means anything.
+        //
+        // Low numbers are light (text), high numbers are dark (surfaces),
+        // the way a colour scale is normally read.
+        ink: {
+          50: "#f2f6f3",
+          100: "#dfe7e2",
+          200: "#bcc9c1",
+          300: "#93a49a",
+          400: "#6d7e74",
+          500: "#4f5f56",
+          600: "#3a4840",
+          700: "#2a3630",
+          800: "#1c2620",
+          900: "#121a16",
+          950: "#0a0f0c",
         },
+        // The one accent: the pitch green. Live provider, confidence, the
+        // active tab, the ball on the pitch. Nothing else is allowed to
+        // be a colour.
+        pitch: {
+          50: "#e9f9ef",
+          100: "#c6f0d6",
+          200: "#8fe0af",
+          300: "#57cb87",
+          400: "#33b26a",
+          500: "#1f9455",
+          600: "#167545",
+          700: "#135c39",
+          800: "#12482f",
+          900: "#0f3a27",
+          950: "#061f14",
+        },
+        // Status, and only status: something degraded, something refused.
+        // Never a series colour, never decoration.
+        signal: {
+          amber: "#e3a94a",
+          red: "#ef5f5f",
+        },
+      },
+      boxShadow: {
+        // One shadow, for the one surface that earns it.
+        card: "0 1px 0 0 rgba(255,255,255,0.03), 0 8px 24px -12px rgba(0,0,0,0.7)",
       },
       keyframes: {
         "card-in": {

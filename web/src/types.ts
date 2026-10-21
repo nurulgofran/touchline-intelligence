@@ -784,3 +784,42 @@ export function rgbToCss(colour: Rgb): string {
 export function rgbToCssWithAlpha(colour: Rgb, alpha: number): string {
   return `rgba(${colour[0]}, ${colour[1]}, ${colour[2]}, ${alpha})`;
 }
+
+/**
+ * A club colour, prepared for a dark screen.
+ *
+ * The clubs' colours are muted on purpose - they are plain RGB triples,
+ * not anybody's palette - and a straight mix towards white washes the
+ * two of them into the same pale wash. So the colour is pushed away from
+ * grey first, which keeps the hue, and only then lifted to a level the
+ * dark ground can carry.
+ *
+ * `lift` is how far towards white it goes: 0 keeps the full colour, 1
+ * is white.
+ */
+function displayChannels(colour: Rgb, lift: number): [number, number, number] {
+  const mean = (colour[0] + colour[1] + colour[2]) / 3;
+  const boost = 1.35;
+  const channel = (value: number) => {
+    const vivid = mean + (value - mean) * boost;
+    const lifted = vivid + (255 - vivid) * lift;
+    return Math.max(0, Math.min(255, Math.round(lifted)));
+  };
+  return [channel(colour[0]), channel(colour[1]), channel(colour[2])];
+}
+
+/** A club colour, prepared for a dark screen, as a CSS colour. */
+export function rgbToDisplayCss(colour: Rgb, lift = 0.3): string {
+  const [r, g, b] = displayChannels(colour, lift);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/** A club colour, prepared for a dark screen, as a translucent CSS colour. */
+export function rgbToDisplayRgba(
+  colour: Rgb,
+  lift: number,
+  alpha: number,
+): string {
+  const [r, g, b] = displayChannels(colour, lift);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}

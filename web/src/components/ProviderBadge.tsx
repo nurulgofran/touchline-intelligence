@@ -18,6 +18,12 @@ import type { ProviderState } from "../types";
  *   configured provider is shown separately, as small static text, so the
  *   two facts never contradict each other: the big name is what answered,
  *   the small name is what the service intends to use.
+ *
+ * The chip is a quiet marker, not a pill: a dot and two letters. The badge
+ * is a trust signal, and a trust signal does not need to shout - but it
+ * does need to be findable, which is what the data attributes are for.
+ * The demo recorder reads the badge out of the page, and it looks these
+ * up by name rather than by the class it happens to wear this week.
  */
 
 export interface ProviderBadgeProps {
@@ -67,13 +73,11 @@ export default function ProviderBadge({ provider }: ProviderBadgeProps) {
   if (!provider) {
     return (
       <div
-        className="flex items-center gap-2 rounded-md border border-studio-700 bg-studio-850 px-2.5 py-1.5"
+        className="flex items-center gap-2"
         title="Which provider served the last call."
       >
-        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-studio-500">
-          Provider
-        </span>
-        <span className="text-xs text-studio-400">connecting…</span>
+        <span className="micro-label">Provider</span>
+        <span className="text-[12px] text-ink-400">connecting…</span>
       </div>
     );
   }
@@ -82,30 +86,37 @@ export default function ProviderBadge({ provider }: ProviderBadgeProps) {
 
   return (
     <div
-      className="flex items-center gap-2 rounded-md border border-studio-700 bg-studio-850 px-2.5 py-1.5"
+      className="flex items-center gap-2"
       title="Which provider served the last call."
     >
-      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-studio-500">
-        Provider
-      </span>
-      <span className="max-w-[16rem] truncate text-xs font-medium text-studio-100">
+      <span className="micro-label">Provider</span>
+      <span
+        data-provider-name
+        className="max-w-[16rem] truncate text-[12px] font-medium text-ink-100"
+      >
         {label}
       </span>
       {chip === "live" && (
-        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/60 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        <span
+          data-provider-chip
+          className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-pitch-300"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-pitch-400" />
           live
         </span>
       )}
       {chip === "fallback" && (
-        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/60 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+        <span
+          data-provider-chip
+          className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-signal-amber"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-signal-amber" />
           fallback
         </span>
       )}
       {provider.model_configured && (
         <span
-          className="max-w-[12rem] truncate text-[10px] text-studio-500"
+          className="max-w-[12rem] truncate text-[10px] text-ink-500"
           title="The provider the service is configured to use."
         >
           configured: {provider.configured_provider}

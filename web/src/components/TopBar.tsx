@@ -1,13 +1,22 @@
-import { formatClock, rgbToCss, type ConnectionStatus, type ProviderState, type Teams } from "../types";
+import { formatClock, rgbToDisplayCss, type ConnectionStatus, type ProviderState, type Teams } from "../types";
 import ProviderBadge from "./ProviderBadge";
 
 /**
- * The top bar: the product, the two clubs, the score, the clock, and the
+ * The scorebar: the product, the two clubs, the score, the clock, and the
  * provider badge.
+ *
+ * It is laid out the way a broadcast lays out a scoreline - the two
+ * clubs' colour tabs, the score between them, the clock in its own box -
+ * because that is the one piece of chrome every viewer already knows how
+ * to read.
  *
  * The club names and colours come from the service. Nothing about a club
  * is hard-coded here - the clubs are fictional and they change with the
  * seed, so the studio reads them rather than knows them.
+ *
+ * The club colour is a *tab*, not the name's colour: the colours the
+ * service sends are muted, and a muted navy as 20px body type on a dark
+ * ground is unreadable. The tab keeps the identity; the name stays legible.
  */
 
 export interface TopBarProps {
@@ -22,18 +31,23 @@ export interface TopBarProps {
 
 function ClubName({
   name,
+  shortName,
   colour,
 }: {
   name: string;
+  shortName: string | undefined;
   colour: string | undefined;
 }) {
   return (
-    <span
-      className="text-base font-bold tracking-wide sm:text-lg"
-      style={{ color: colour }}
-      title={name}
-    >
-      {name}
+    <span className="flex items-center gap-2" title={shortName ? `${name} (${shortName})` : name}>
+      <span
+        className="h-4 w-[3px] shrink-0 rounded-[1px]"
+        style={{ backgroundColor: colour ?? "transparent" }}
+        aria-hidden="true"
+      />
+      <span className="font-display text-[19px] font-semibold uppercase leading-none tracking-[0.04em] text-ink-50">
+        {name}
+      </span>
     </span>
   );
 }
@@ -52,48 +66,65 @@ export default function TopBar({
   const reconnecting = status === "reconnecting" || status === "connecting";
 
   return (
-    <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-studio-700/70 bg-studio-900/95 px-4 py-2.5">
+    <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-ink-800 bg-ink-900 px-4 py-2.5">
       <div className="min-w-0">
-        <h1 className="truncate text-sm font-bold tracking-tight text-white sm:text-base">
+        <h1 className="flex items-center gap-2 font-display text-[15px] font-semibold uppercase leading-none tracking-[0.2em] text-ink-50">
+          <span
+            className="h-3.5 w-[3px] shrink-0 rounded-[1px] bg-pitch-400"
+            aria-hidden="true"
+          />
           Touchline Intelligence
         </h1>
-        <p className="truncate text-[11px] text-studio-400">
+        {/*
+          The synthetic-data disclosure. It is a compliance requirement,
+          so it is a first-class line here, not a footnote.
+        */}
+        <p className="mt-1 truncate text-[11px] text-ink-300">
           Synthetic data · fictional clubs
           {matchId ? (
-            <span className="text-studio-600"> · {matchId}</span>
+            <span className="text-ink-500"> · {matchId}</span>
           ) : null}
         </p>
       </div>
 
-      <div className="flex items-center gap-3 sm:gap-4">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3 sm:gap-5">
+        <div className="flex items-center gap-3 sm:gap-4">
           <ClubName
-            name={home?.short_name ?? "—"}
-            colour={home ? rgbToCss(home.primary_colour) : undefined}
+            name={home?.name ?? "—"}
+            shortName={home?.short_name}
+            colour={home ? rgbToDisplayCss(home.primary_colour, 0.1) : undefined}
           />
           <span
-            className="rounded-md bg-studio-800 px-2.5 py-1 font-mono text-sm font-bold tabular-nums text-white"
+            className="font-display text-score font-bold tabular-nums leading-none text-ink-50"
             title="The score"
           >
-            {scoreHome} – {scoreAway}
+            {scoreHome}
+            <span className="px-1.5 text-ink-600">–</span>
+            {scoreAway}
           </span>
           <ClubName
-            name={away?.short_name ?? "—"}
-            colour={away ? rgbToCss(away.primary_colour) : undefined}
+            name={away?.name ?? "—"}
+            shortName={away?.short_name}
+            colour={away ? rgbToDisplayCss(away.primary_colour, 0.1) : undefined}
           />
         </div>
+
+        {/*
+          The clock, in its own box. The figures are tabular, so the
+          minutes do not shuffle sideways as the seconds tick.
+        */}
         <div
-          className="rounded-md border border-studio-700 bg-studio-850 px-2.5 py-1 font-mono text-sm font-semibold tabular-nums text-studio-100"
+          className="rounded-sm border border-ink-700 bg-ink-950 px-2.5 py-1 font-display text-[20px] font-semibold leading-none tabular-nums text-ink-50"
           title="The match clock"
         >
           {formatClock(clockMs)}
         </div>
       </div>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-3">
         {reconnecting && (
-          <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/60 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-300">
-            <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-amber-400" />
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-signal-amber">
+            <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-signal-amber" />
             {status === "connecting" ? "connecting…" : "reconnecting…"}
           </span>
         )}

@@ -25,8 +25,17 @@ repository's code or on the hackathon submission.
 | [TypeScript](https://www.typescriptlang.org) | Apache-2.0 | Frontend language |
 | [Vite](https://vite.dev) | MIT | Frontend build tool and dev server |
 | [Tailwind CSS](https://tailwindcss.com) | MIT | Frontend styling |
+| [Barlow Condensed](https://github.com/jpt/barlow) | SIL Open Font License 1.1 | The studio's display face — scores, headlines, the match clock. Self-hosted in `web/public/fonts/`; the licence text sits beside the font files |
+| [Inter](https://github.com/rsms/inter) | SIL Open Font License 1.1 | The studio's body face — copy, controls and figures. Self-hosted in `web/public/fonts/`; the licence text sits beside the font files |
 
 Transitive dependencies carry their own licences, as published with each package.
+
+## A note on the fonts
+
+The studio's two typefaces are **self-hosted**: the `.woff2` files live in this repository
+under `web/public/fonts/`, and each family ships with the text of its SIL Open Font License 1.1
+(`OFL-BarlowCondensed.txt`, `OFL-Inter.txt`). Nothing is fetched from a third-party font CDN at
+runtime, so the studio looks the same everywhere and asks nobody for a byte.
 
 ## A note on the `openai-python` dependency
 
@@ -47,4 +56,5 @@ Microsoft Foundry client. It must not be removed from the lockfile.
 - **The video feed is rendered from our own simulation.** It contains no broadcast footage.
 - **No copyrighted music** is used in the demo video.
 - The only non-original assets in the repository are the screenshots and diagram in the README and
-  the architecture diagram, all produced from this project.
+  the architecture diagram, all produced from this project, and the two self-hosted open-licence
+  typefaces listed above.

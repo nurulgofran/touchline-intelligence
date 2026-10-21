@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { rgbToCss, type MomentumPoint, type Teams } from "../types";
+import { rgbToDisplayCss, type MomentumPoint, type Teams } from "../types";
 
 /**
  * The momentum chart.
  *
  * One line per side, in the clubs' own colours, with the area between
  * them filled in - so "who is on top" is readable at a glance.
+ *
+ * It is a diverging chart: the zero line is the balance of the match, and
+ * the fill above it belongs to the home side and the fill below it to the
+ * away side. The fill is flat, not a gradient - a gradient from one club
+ * to the other muddies the very thing the chart is for. The axes and the
+ * grid are hairlines, so the two lines are the only things with weight.
  *
  * The important rule is that **the future is never on screen**: only the
  * points the clock has already reached are drawn, and a vertical line
@@ -62,6 +68,14 @@ function linePath(
     .join(" ");
 }
 
+/**
+ * A momentum value, written the way a broadcast writes it.
+ */
+function momentumValue(value: number): string {
+  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+  return `${sign}${Math.abs(value).toFixed(2)}`;
+}
+
 export default function MomentumChart({
   points,
   clockMs,
@@ -69,9 +83,14 @@ export default function MomentumChart({
   teams,
 }: MomentumChartProps) {
   const [containerRef, size] = useElementSize<HTMLDivElement>();
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
-  const homeColour = teams ? rgbToCss(teams.home.primary_colour) : "#38bdf8";
-  const awayColour = teams ? rgbToCss(teams.away.primary_colour) : "#f472b6";
+  const homeColour = teams
+    ? rgbToDisplayCss(teams.home.primary_colour, 0.3)
+    : "#9fb3c7";
+  const awayColour = teams
+    ? rgbToDisplayCss(teams.away.primary_colour, 0.3)
+    : "#c4b3c7";
 
   const chart = useMemo(() => {
     const width = size.width;
@@ -136,29 +155,59 @@ export default function MomentumChart({
       bottomY: yOf(DOMAIN_MIN),
       ticks: ticks.map((clock) => ({ clock, x: xOf(clock) })),
       xOf,
+      yOf,
+      reached,
     };
   }, [size, points, clockMs, durationMs]);
 
+  /**
+   * The hover layer.
+   *
+   * The state holds the *index* of the point under the pointer, and it
+   * only changes when the pointer crosses into a new point - so dragging
+   * across the chart does not re-render it on every mouse move.
+   */
+  const handlePointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (!chart) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - bounds.left;
+    let nearest = -1;
+    let best = Number.POSITIVE_INFINITY;
+    chart.reached.forEach((point, index) => {
+      const distance = Math.abs(chart.xOf(point.match_clock_ms) - x);
+      if (distance < best) {
+        best = distance;
+        nearest = index;
+      }
+    });
+    setHoverIndex(nearest >= 0 ? nearest : null);
+  };
+
+  const hovered =
+    chart && hoverIndex !== null ? chart.reached[hoverIndex] : undefined;
+  const hoverX =
+    chart && hovered ? chart.xOf(hovered.match_clock_ms) : 0;
+
   return (
     <div className="panel flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between px-3 pt-2.5">
+      <div className="flex items-center justify-between gap-2 px-3.5 pb-1 pt-2.5">
         <h2 className="panel-title">Momentum</h2>
         <div className="flex items-center gap-3 text-[11px]">
           <span className="flex items-center gap-1.5">
             <span
-              className="h-0.5 w-4 rounded-full"
+              className="h-[2px] w-4 rounded-full"
               style={{ backgroundColor: homeColour }}
             />
-            <span className="text-studio-300">
+            <span className="text-ink-300">
               {teams?.home.short_name ?? "Home"}
             </span>
           </span>
           <span className="flex items-center gap-1.5">
             <span
-              className="h-0.5 w-4 rounded-full"
+              className="h-[2px] w-4 rounded-full"
               style={{ backgroundColor: awayColour }}
             />
-            <span className="text-studio-300">
+            <span className="text-ink-300">
               {teams?.away.short_name ?? "Away"}
             </span>
           </span>
@@ -174,14 +223,24 @@ export default function MomentumChart({
             className="block"
             role="img"
             aria-label="The momentum of the two sides over the match clock."
+            onPointerMove={handlePointerMove}
+            onPointerLeave={() => setHoverIndex(null)}
           >
             <defs>
-              <linearGradient id="momentum-area" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={homeColour} stopOpacity={0.4} />
-                <stop offset="50%" stopColor={homeColour} stopOpacity={0.06} />
-                <stop offset="50%" stopColor={awayColour} stopOpacity={0.06} />
-                <stop offset="100%" stopColor={awayColour} stopOpacity={0.4} />
-              </linearGradient>
+              {/* The fill is split at the zero line, so the area above it
+                  belongs to the home side and the area below it to the
+                  away side. */}
+              <clipPath id="momentum-above">
+                <rect x={0} y={0} width={chart.width} height={chart.zeroY} />
+              </clipPath>
+              <clipPath id="momentum-below">
+                <rect
+                  x={0}
+                  y={chart.zeroY}
+                  width={chart.width}
+                  height={Math.max(0, chart.height - chart.zeroY)}
+                />
+              </clipPath>
             </defs>
 
             {/* The zero line: the balance of the match. */}
@@ -190,10 +249,8 @@ export default function MomentumChart({
               y1={chart.zeroY}
               x2={chart.width - PADDING.right}
               y2={chart.zeroY}
-              stroke="#94a3b8"
-              strokeOpacity={0.45}
+              stroke="#3a4840"
               strokeWidth={1}
-              strokeDasharray="3 3"
             />
 
             {/* The x-axis ticks. */}
@@ -203,16 +260,15 @@ export default function MomentumChart({
                   x1={tick.x}
                   y1={chart.height - PADDING.bottom}
                   x2={tick.x}
-                  y2={chart.height - PADDING.bottom + 4}
-                  stroke="#64748b"
-                  strokeOpacity={0.6}
+                  y2={chart.height - PADDING.bottom + 3}
+                  stroke="#2a3630"
                   strokeWidth={1}
                 />
                 <text
                   x={tick.x}
-                  y={chart.height - PADDING.bottom + 14}
+                  y={chart.height - PADDING.bottom + 13}
                   fontSize={9}
-                  fill="#64748b"
+                  fill="#4f5f56"
                   textAnchor="middle"
                 >
                   {Math.round(tick.clock / 60000)}′
@@ -224,7 +280,7 @@ export default function MomentumChart({
               x={PADDING.left - 4}
               y={chart.topY + 4}
               fontSize={9}
-              fill="#64748b"
+              fill="#4f5f56"
               textAnchor="end"
             >
               +1
@@ -233,7 +289,7 @@ export default function MomentumChart({
               x={PADDING.left - 4}
               y={chart.zeroY + 3}
               fontSize={9}
-              fill="#64748b"
+              fill="#4f5f56"
               textAnchor="end"
             >
               0
@@ -242,15 +298,22 @@ export default function MomentumChart({
               x={PADDING.left - 4}
               y={chart.bottomY}
               fontSize={9}
-              fill="#64748b"
+              fill="#4f5f56"
               textAnchor="end"
             >
               −1
             </text>
 
-            {/* The area between the two lines. */}
+            {/* The area between the two lines, split at the balance. */}
             {chart.area && (
-              <path d={chart.area} fill="url(#momentum-area)" />
+              <>
+                <g clipPath="url(#momentum-above)">
+                  <path d={chart.area} fill={homeColour} fillOpacity={0.16} />
+                </g>
+                <g clipPath="url(#momentum-below)">
+                  <path d={chart.area} fill={awayColour} fillOpacity={0.16} />
+                </g>
+              </>
             )}
 
             {/* The two lines. */}
@@ -258,7 +321,7 @@ export default function MomentumChart({
               d={linePath(chart.homeLine)}
               fill="none"
               stroke={homeColour}
-              strokeWidth={1.8}
+              strokeWidth={2}
               strokeLinejoin="round"
               strokeLinecap="round"
             />
@@ -266,10 +329,40 @@ export default function MomentumChart({
               d={linePath(chart.awayLine)}
               fill="none"
               stroke={awayColour}
-              strokeWidth={1.8}
+              strokeWidth={2}
               strokeLinejoin="round"
               strokeLinecap="round"
             />
+
+            {/* The crosshair, when the reader is pointing at the chart. */}
+            {hovered && (
+              <g>
+                <line
+                  x1={hoverX}
+                  y1={PADDING.top}
+                  x2={hoverX}
+                  y2={chart.height - PADDING.bottom}
+                  stroke="#6d7e74"
+                  strokeWidth={1}
+                />
+                <circle
+                  cx={hoverX}
+                  cy={chart.yOf(hovered.home)}
+                  r={3}
+                  fill={homeColour}
+                  stroke="#121a16"
+                  strokeWidth={2}
+                />
+                <circle
+                  cx={hoverX}
+                  cy={chart.yOf(hovered.away)}
+                  r={3}
+                  fill={awayColour}
+                  stroke="#121a16"
+                  strokeWidth={2}
+                />
+              </g>
+            )}
 
             {/* Where the match is now. */}
             <line
@@ -277,14 +370,49 @@ export default function MomentumChart({
               y1={PADDING.top}
               x2={chart.nowX}
               y2={chart.height - PADDING.bottom}
-              stroke="#f8fafc"
-              strokeOpacity={0.7}
+              stroke="#57cb87"
+              strokeOpacity={0.6}
               strokeWidth={1}
             />
           </svg>
         )}
+
+        {hovered && chart && (
+          <div
+            className="pointer-events-none absolute top-1 z-10 rounded-sm border border-ink-700 bg-ink-950/95 px-2 py-1 text-[10px] leading-tight shadow-card"
+            style={{
+              left: Math.min(
+                Math.max(hoverX - 46, 0),
+                Math.max(0, chart.width - 96),
+              ),
+            }}
+          >
+            <div className="font-display text-[13px] font-semibold tabular-nums text-ink-100">
+              {Math.floor(hovered.match_clock_ms / 60000)}′
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span
+                className="h-[2px] w-3 rounded-full"
+                style={{ backgroundColor: homeColour }}
+              />
+              <span className="tabular-nums text-ink-200">
+                {momentumValue(hovered.home)}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span
+                className="h-[2px] w-3 rounded-full"
+                style={{ backgroundColor: awayColour }}
+              />
+              <span className="tabular-nums text-ink-200">
+                {momentumValue(hovered.away)}
+              </span>
+            </div>
+          </div>
+        )}
+
         {(!chart || points.length === 0) && (
-          <p className="absolute inset-0 flex items-center justify-center text-[11px] text-studio-500">
+          <p className="absolute inset-0 flex items-center justify-center text-[11px] text-ink-500">
             waiting for the momentum curve
           </p>
         )}

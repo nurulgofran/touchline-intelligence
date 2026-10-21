@@ -73,7 +73,7 @@ export default function Transport({
   };
 
   return (
-    <div className="panel px-3 py-2.5">
+    <div className="panel px-3.5 py-2.5">
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -121,7 +121,7 @@ export default function Transport({
         </button>
 
         <div
-          className="flex items-center gap-1 rounded-md border border-studio-600 bg-studio-850 p-0.5"
+          className="flex items-center gap-0.5 rounded-sm border border-ink-700 bg-ink-900 p-0.5"
           role="group"
           aria-label="Playback speed, in match-seconds per second"
         >
@@ -131,7 +131,7 @@ export default function Transport({
               type="button"
               onClick={() => onSpeed(choice)}
               data-active={speed === choice}
-              className="transport-button !border-transparent !bg-transparent !px-2 !py-1 hover:!bg-studio-700 data-[active=true]:!bg-studio-600 data-[active=true]:!text-white"
+              className="rounded-[2px] px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-ink-400 transition-colors hover:bg-ink-800 hover:text-ink-100 focus-ring data-[active=true]:bg-pitch-900/70 data-[active=true]:text-pitch-200"
               title={`${choice} match-seconds a second`}
             >
               {choice}×
@@ -139,9 +139,13 @@ export default function Transport({
           ))}
         </div>
 
-        <div className="ml-auto flex items-baseline gap-2 font-mono text-xs tabular-nums">
-          <span className="text-studio-100">{formatClock(shown)}</span>
-          <span className="text-studio-500">/ {formatDuration(durationMs)}</span>
+        <div className="ml-auto flex items-baseline gap-2">
+          <span className="font-display text-[17px] font-semibold leading-none tabular-nums text-ink-100">
+            {formatClock(shown)}
+          </span>
+          <span className="text-[11px] tabular-nums text-ink-500">
+            / {formatDuration(durationMs)}
+          </span>
         </div>
       </div>
 
@@ -164,7 +168,7 @@ export default function Transport({
           aria-label="The match clock"
           aria-valuetext={formatClock(shown)}
         />
-        <span className="w-12 shrink-0 text-right font-mono text-[10px] tabular-nums text-studio-500">
+        <span className="w-11 shrink-0 text-right text-[10px] tabular-nums text-ink-500">
           {progress.toFixed(1)}%
         </span>
       </div>

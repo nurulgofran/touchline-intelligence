@@ -20,6 +20,10 @@ import type {
  * So the bar asks one more question depending on the reading, and that
  * question is the pickers underneath: whose side, which player, which
  * metric.
+ *
+ * The readings are a tab bar rather than a row of buttons: one of them is
+ * the reading in force, and a tab says that in a way a row of buttons
+ * does not.
  */
 export interface AudienceBarProps {
   audience: Audience;
@@ -61,11 +65,9 @@ export default function AudienceBar({
   };
 
   return (
-    <div className="panel flex flex-col gap-2 px-3 py-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-studio-500">
-          Read it as
-        </span>
+    <div className="panel flex flex-col gap-2 px-3.5 py-2.5">
+      <div className="flex flex-wrap items-baseline gap-x-1 gap-y-1">
+        <span className="micro-label mr-1">Read it as</span>
         {modes.map((mode) => {
           const active = audience.mode === mode.id;
           return (
@@ -75,11 +77,12 @@ export default function AudienceBar({
               onClick={() => update({ mode: mode.id as AudienceMode })}
               data-active={active}
               title={MODE_HINT[mode.id as AudienceMode]}
-              className={
+              className={[
+                "border-b-2 px-2 pb-1 pt-0.5 text-[12px] font-medium transition-colors focus-ring",
                 active
-                  ? "rounded border border-amber-400/80 bg-amber-400/20 px-2 py-0.5 text-[11px] font-semibold text-amber-200"
-                  : "rounded border border-studio-600 bg-studio-800 px-2 py-0.5 text-[11px] font-medium text-studio-300 transition-colors hover:border-studio-400 hover:text-white"
-              }
+                  ? "border-pitch-400 text-ink-50"
+                  : "border-transparent text-ink-400 hover:border-ink-600 hover:text-ink-200",
+              ].join(" ")}
             >
               {mode.label}
             </button>
@@ -87,20 +90,22 @@ export default function AudienceBar({
         })}
       </div>
 
-      <p className="text-[11px] leading-snug text-studio-500">
+      <p className="text-[11px] leading-snug text-ink-500">
         {MODE_HINT[audience.mode]}
-        {pending ? " — rewriting the feed…" : ""}
+        {pending ? (
+          <span className="text-pitch-300"> — rewriting the feed…</span>
+        ) : null}
       </p>
 
       {rewriteError && !pending && (
-        <p className="flex flex-wrap items-center gap-2 text-[11px] leading-snug text-amber-300/90">
+        <p className="flex flex-wrap items-center gap-2 text-[11px] leading-snug text-signal-amber">
           <span>
             The rewrite did not finish — {rewriteError}
           </span>
           <button
             type="button"
             onClick={onRetry}
-            className="rounded border border-amber-400/80 bg-amber-400/20 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-amber-200 transition-colors hover:bg-amber-400/30"
+            className="font-semibold uppercase tracking-[0.1em] underline decoration-transparent underline-offset-2 transition-colors hover:decoration-signal-amber/60 focus-ring"
           >
             Retry
           </button>
@@ -132,9 +137,7 @@ function AudiencePicker({
   if (audience.mode === "my_team") {
     return (
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-studio-500">
-          Your side
-        </span>
+        <span className="micro-label">Your side</span>
         {(options?.teams ?? []).map((team) => {
           const active = audience.side === team.side;
           return (
@@ -143,11 +146,12 @@ function AudiencePicker({
               type="button"
               onClick={() => onChange({ side: team.side })}
               data-active={active}
-              className={
+              className={[
+                "rounded-sm border px-2 py-0.5 text-[11px] transition-colors focus-ring",
                 active
-                  ? "rounded border border-amber-400/80 bg-amber-400/20 px-2 py-0.5 text-[11px] font-semibold text-amber-200"
-                  : "rounded border border-studio-600 bg-studio-800 px-2 py-0.5 text-[11px] text-studio-300 transition-colors hover:border-studio-400 hover:text-white"
-              }
+                  ? "border-pitch-500 bg-pitch-900/60 text-pitch-200"
+                  : "border-ink-700 bg-ink-800/50 text-ink-300 hover:border-ink-500 hover:text-ink-100",
+              ].join(" ")}
             >
               {team.name}
             </button>
@@ -160,9 +164,7 @@ function AudiencePicker({
   if (audience.mode === "player") {
     return (
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-studio-500">
-          Player
-        </span>
+        <span className="micro-label">Player</span>
         <select
           value={audience.player_id ?? ""}
           onChange={(event) => {
@@ -174,7 +176,7 @@ function AudiencePicker({
               player_name: player?.name ?? null,
             });
           }}
-          className="max-w-[16rem] rounded border border-studio-600 bg-studio-800 px-1.5 py-0.5 text-[11px] text-studio-200"
+          className="max-w-[18rem] rounded-sm border border-ink-700 bg-ink-800 px-2 py-1 text-[11px] text-ink-200 focus-ring"
         >
           <option value="">Choose a player…</option>
           {players.map((player) => (
@@ -190,13 +192,11 @@ function AudiencePicker({
   if (audience.mode === "metric_lens") {
     return (
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-studio-500">
-          Lens
-        </span>
+        <span className="micro-label">Lens</span>
         <select
           value={audience.metric ?? ""}
           onChange={(event) => onChange({ metric: event.target.value || null })}
-          className="max-w-[16rem] rounded border border-studio-600 bg-studio-800 px-1.5 py-0.5 text-[11px] text-studio-200"
+          className="max-w-[18rem] rounded-sm border border-ink-700 bg-ink-800 px-2 py-1 text-[11px] text-ink-200 focus-ring"
         >
           <option value="">Choose a metric…</option>
           {(options?.metrics ?? []).map((metric) => (

@@ -11,8 +11,10 @@ import type { TrackingReport } from "../types";
  * they are the tracker's own score sheet, measured against ground truth
  * it could not have seen.
  *
- * The panel is deliberately small. The point is that a judge can see the
- * measurement, not that they can admire the interface.
+ * The panel is deliberately small and deliberately quiet. The point is
+ * that a judge can see the measurement, not that they can admire the
+ * interface - so the figures are set in plain ink on hairlines, with no
+ * badge to decorate them.
  */
 export interface TrackingPanelProps {
   seed: number;
@@ -54,9 +56,9 @@ export default function TrackingPanel({ seed }: TrackingPanelProps) {
 
   if (!report || !report.ready || !report.overall) {
     return (
-      <div className="panel px-3 py-2">
+      <div className="panel px-3.5 py-2.5">
         <h2 className="panel-title">Vision tracker</h2>
-        <p className="mt-1 text-[11px] leading-snug text-studio-500">
+        <p className="mt-1 text-[11px] leading-snug text-ink-500">
           Watching a synthetic feed of the same match, and scoring the
           tracker against the truth it was rendered from…
         </p>
@@ -68,14 +70,14 @@ export default function TrackingPanel({ seed }: TrackingPanelProps) {
   const ball = report.ball;
 
   return (
-    <div className="panel px-3 py-2">
+    <div className="panel px-3.5 py-2.5">
       <h2 className="panel-title">Vision tracker</h2>
-      <p className="mt-0.5 text-[10px] leading-snug text-studio-500">
+      <p className="mt-0.5 text-[10px] leading-snug text-ink-500">
         {report.frames} frames at {report.fps} fps, scored against the
         ground truth.
       </p>
 
-      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
         <Stat
           label="Precision"
           value={`${(overall.precision * 100).toFixed(1)}%`}
@@ -121,14 +123,14 @@ function Stat({
   hint: string;
 }) {
   return (
-    <div className="min-w-0">
-      <dt className="text-[10px] uppercase tracking-wider text-studio-500">
+    <div className="min-w-0 border-t border-ink-800 pt-1.5">
+      <dt className="text-[10px] uppercase tracking-[0.08em] text-ink-500">
         {label}
       </dt>
-      <dd className="font-mono text-[12px] font-semibold tabular-nums text-studio-200">
+      <dd className="mt-0.5 font-display text-[17px] font-semibold leading-none tabular-nums text-ink-100">
         {value}
       </dd>
-      <dd className="text-[10px] leading-tight text-studio-600">{hint}</dd>
+      <dd className="mt-1 text-[10px] leading-tight text-ink-600">{hint}</dd>
     </div>
   );
 }

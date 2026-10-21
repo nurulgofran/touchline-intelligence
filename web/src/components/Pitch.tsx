@@ -1,11 +1,12 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   EVENT_FADE_MS,
   PITCH_EVENT_LIMIT,
 } from "../useLiveMatch";
 import {
-  rgbToCss,
+  rgbToDisplayCss,
+  rgbToDisplayRgba,
   type MatchEvent,
   type Side,
   type Teams,
@@ -13,6 +14,11 @@ import {
 
 /**
  * The pitch: a top-down view of the last thing that happened.
+ *
+ * This is the hero of the studio, so it is drawn to be looked at rather
+ * than read: the grass is a deep broadcast green, the markings are crisp
+ * and unembellished, and the only bright thing on it is the action. The
+ * frame around it is a hairline, so the pitch itself is the surface.
  *
  * The geometry is hand-written SVG - no kit designs, no crests, no marks
  * of anybody's. It is a football pitch, drawn in stripes, with the two
@@ -52,7 +58,53 @@ const GOAL_WIDTH_M = 7.32;
 const GOAL_DEPTH_M = 2;
 
 /** A neutral colour for the events that belong to nobody. */
-const NEUTRAL = "#cbd5e1";
+const NEUTRAL = "#b3c2b9";
+
+/** The two stripes of the grass. */
+const GRASS_A = "#225f3c";
+const GRASS_B = "#1e5736";
+
+/** The grass beyond the touchlines, which is not mown in stripes. */
+const GRASS_OUT = "#194a2f";
+
+/** The accent, for the moment the reader is pointing at. */
+const ACCENT = "#57cb87";
+
+/** How wide one mown stripe is, in metres. */
+const STRIPE_M = PITCH_LENGTH_M / 10;
+
+/**
+ * The margin around the pitch that the frame keeps in view, in metres.
+ *
+ * It is wide enough for the goals, which are drawn just outside the
+ * goal lines, and for a little grass beyond the touchlines.
+ */
+const MARGIN_M = 3;
+
+/** Measure the drawing area, so the frame can be drawn to fit it. */
+function useElementSize<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      setSize((prev) =>
+        prev.width === width && prev.height === height
+          ? prev
+          : { width, height },
+      );
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, size] as const;
+}
 
 export interface PitchProps {
   teams: Teams | null;
@@ -82,14 +134,33 @@ function screenY(percent: number): number {
   return ((100 - percent) / 100) * PITCH_WIDTH_M;
 }
 
+/**
+ * A club colour, lifted towards white.
+ *
+ * The clubs' own colours are muted on purpose - they are plain RGB
+ * triples, not anybody's palette - and a muted navy dot on deep grass is
+ * a dot nobody can find. Lifting the colour keeps the identity and makes
+ * the mark legible against the pitch.
+ */
 export default function Pitch({
   teams,
   events,
   clockMs,
   highlightedEventId,
 }: PitchProps) {
-  const homeColour = teams ? rgbToCss(teams.home.primary_colour) : "#38bdf8";
-  const awayColour = teams ? rgbToCss(teams.away.primary_colour) : "#f472b6";
+  const [frameRef, frameSize] = useElementSize<HTMLDivElement>();
+  const homeColour = teams
+    ? rgbToDisplayCss(teams.home.primary_colour, 0.5)
+    : "#9fb3c7";
+  const awayColour = teams
+    ? rgbToDisplayCss(teams.away.primary_colour, 0.5)
+    : "#c4b3c7";
+  const homeTrail = teams
+    ? rgbToDisplayRgba(teams.home.primary_colour, 0.5, 0.22)
+    : "rgba(159,179,199,0.22)";
+  const awayTrail = teams
+    ? rgbToDisplayRgba(teams.away.primary_colour, 0.5, 0.22)
+    : "rgba(196,179,199,0.22)";
 
   const { bright, trail, latest, highlighted } = useMemo(() => {
     // Only the most recent events are kept, and only the ones the clock
@@ -114,56 +185,109 @@ export default function Pitch({
   const colourFor = (side: Side | null) =>
     side === "HOME" ? homeColour : side === "AWAY" ? awayColour : NEUTRAL;
 
+  const trailFor = (side: Side | null) =>
+    side === "HOME" ? homeTrail : side === "AWAY" ? awayTrail : "rgba(179,194,185,0.22)";
+
   const lineOpacity = (event: MatchEvent) => {
     const age = clockMs - event.match_clock_ms;
     const fade = Math.max(0, Math.min(1, 1 - age / EVENT_FADE_MS));
     return 0.15 + 0.75 * fade;
   };
 
+  /**
+   * The frame.
+   *
+   * The whole pitch is always in view - the goals, the touchlines, all of
+   * it - but the frame around it is drawn to the shape of the panel, so
+   * the grass fills the space instead of the panel holding a picture of
+   * a pitch in a dark void. What the extra room buys is more grass, the
+   * way a broadcast camera frames more of the ground than the markings
+   * need.
+   */
+  const frame = useMemo(() => {
+    const contentW = PITCH_LENGTH_M + MARGIN_M * 2;
+    const contentH = PITCH_WIDTH_M + MARGIN_M * 2;
+    if (frameSize.width <= 0 || frameSize.height <= 0) {
+      return {
+        x: -MARGIN_M,
+        y: -MARGIN_M,
+        w: contentW,
+        h: contentH,
+      };
+    }
+    const aspect = frameSize.width / frameSize.height;
+    if (aspect >= contentW / contentH) {
+      // Wider than the pitch: the extra room is on the left and right.
+      const w = contentH * aspect;
+      return { x: (PITCH_LENGTH_M - w) / 2, y: -MARGIN_M, w, h: contentH };
+    }
+    // Taller than the pitch: the extra room is above and below.
+    const h = contentW / aspect;
+    return { x: -MARGIN_M, y: (PITCH_WIDTH_M - h) / 2, w: contentW, h };
+  }, [frameSize]);
+
   return (
-    <div className="panel flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex items-center justify-between px-3 pt-2.5">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-sm border border-ink-800 bg-ink-900/40">
+      <div className="flex items-baseline justify-between gap-2 px-3.5 pb-2 pt-2.5">
         <h2 className="panel-title">Pitch</h2>
-        <p className="text-[11px] text-studio-500">
+        <p className="text-[11px] tabular-nums text-ink-500">
           {events.length > 0
             ? `${events.length} events logged`
             : "waiting for the first pass"}
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 p-2.5">
+      <div ref={frameRef} className="min-h-0 flex-1 p-2.5">
         <svg
-          viewBox={`0 0 ${PITCH_LENGTH_M} ${PITCH_WIDTH_M}`}
-          className="h-full w-full rounded-md"
-          preserveAspectRatio="xMidYMid meet"
+          viewBox={`${frame.x} ${frame.y} ${frame.w} ${frame.h}`}
+          className="h-full w-full overflow-hidden rounded-[2px]"
+          preserveAspectRatio="xMidYMid slice"
           role="img"
           aria-label="A top-down view of the pitch, showing the most recent action."
         >
           <defs>
             <clipPath id="pitch-clip">
-              <rect x={0} y={0} width={PITCH_LENGTH_M} height={PITCH_WIDTH_M} />
+              <rect x={frame.x} y={frame.y} width={frame.w} height={frame.h} />
             </clipPath>
           </defs>
 
-          {/* The grass: plain stripes, nothing else. */}
+          {/* The grass beyond the touchlines: mown flat, not in stripes. */}
           <g clipPath="url(#pitch-clip)">
-            {Array.from({ length: 10 }, (_, index) => (
-              <rect
-                key={index}
-                x={index * (PITCH_LENGTH_M / 10)}
-                y={0}
-                width={PITCH_LENGTH_M / 10}
-                height={PITCH_WIDTH_M}
-                fill={index % 2 === 0 ? "#2f6f46" : "#296540"}
-              />
-            ))}
+            <rect
+              x={frame.x}
+              y={frame.y}
+              width={frame.w}
+              height={frame.h}
+              fill={GRASS_OUT}
+            />
+          </g>
+
+          {/* The pitch: plain stripes, nothing else. */}
+          <g clipPath="url(#pitch-clip)">
+            {Array.from(
+              { length: Math.ceil(frame.w / STRIPE_M) + 2 },
+              (_, index) => {
+                const x = Math.floor(frame.x / STRIPE_M) * STRIPE_M + index * STRIPE_M;
+                if (x > frame.x + frame.w) return null;
+                return (
+                  <rect
+                    key={index}
+                    x={x}
+                    y={0}
+                    width={STRIPE_M}
+                    height={PITCH_WIDTH_M}
+                    fill={Math.round(x / STRIPE_M) % 2 === 0 ? GRASS_A : GRASS_B}
+                  />
+                );
+              },
+            )}
           </g>
 
           {/* The markings. */}
           <g
             fill="none"
             stroke="#ffffff"
-            strokeOpacity={0.42}
+            strokeOpacity={0.52}
             strokeWidth={0.22}
           >
             <rect
@@ -212,7 +336,7 @@ export default function Pitch({
               cy={PITCH_WIDTH_M / 2}
               r={0.35}
               fill="#ffffff"
-              fillOpacity={0.42}
+              fillOpacity={0.52}
               stroke="none"
             />
             <circle
@@ -220,7 +344,7 @@ export default function Pitch({
               cy={PITCH_WIDTH_M / 2}
               r={0.35}
               fill="#ffffff"
-              fillOpacity={0.42}
+              fillOpacity={0.52}
               stroke="none"
             />
             <path
@@ -232,7 +356,7 @@ export default function Pitch({
           </g>
 
           {/* The goals, drawn just outside the lines. */}
-          <g fill="#ffffff" fillOpacity={0.22} stroke="#ffffff" strokeOpacity={0.5} strokeWidth={0.2}>
+          <g fill="#ffffff" fillOpacity={0.18} stroke="#ffffff" strokeOpacity={0.45} strokeWidth={0.2}>
             <rect
               x={-GOAL_DEPTH_M}
               y={(PITCH_WIDTH_M - GOAL_WIDTH_M) / 2}
@@ -263,8 +387,7 @@ export default function Pitch({
                 cx={screenX(event.x, event.side)}
                 cy={screenY(event.y)}
                 r={event.type === "GOAL" ? 1.5 : 0.8}
-                fill={colourFor(event.side)}
-                fillOpacity={0.16}
+                fill={trailFor(event.side)}
               />
             ))}
           </g>
@@ -322,7 +445,26 @@ export default function Pitch({
             })}
           </g>
 
-          {/* The event the viewer is pointing at, however old it is. */}
+          {/*
+            The moment the ball is at right now, ringed in white so it can
+            be found on a busy pitch.
+          */}
+          {latest && (
+            <circle
+              cx={screenX(latest.x, latest.side)}
+              cy={screenY(latest.y)}
+              r={2.2}
+              fill="none"
+              stroke="#ffffff"
+              strokeOpacity={0.55}
+              strokeWidth={0.3}
+            />
+          )}
+
+          {/*
+            The event the viewer is pointing at, however old it is. This
+            is the one accent on the pitch: the reader is pointing here.
+          */}
           {highlighted && (
             <g>
               <circle
@@ -330,8 +472,8 @@ export default function Pitch({
                 cy={screenY(highlighted.y)}
                 r={2.6}
                 fill="none"
-                stroke="#f8fafc"
-                strokeWidth={0.5}
+                stroke={ACCENT}
+                strokeWidth={0.55}
                 strokeDasharray="1.2 0.9"
               />
             </g>
@@ -342,11 +484,12 @@ export default function Pitch({
             <text
               x={screenX(latest.x, latest.side) + 1.8}
               y={screenY(latest.y) - 1.6}
-              fontSize={2}
+              fontSize={2.2}
               fontWeight={600}
+              fontFamily="Barlow Condensed, sans-serif"
               fill="#ffffff"
-              stroke="#0b111b"
-              strokeWidth={0.45}
+              stroke="#0a2417"
+              strokeWidth={0.5}
               paintOrder="stroke"
               strokeLinejoin="round"
               textAnchor={
@@ -361,7 +504,7 @@ export default function Pitch({
         </svg>
       </div>
 
-      <p className="px-3 pb-2.5 text-[11px] text-studio-500">
+      <p className="px-3.5 pb-2.5 text-[10.5px] leading-snug text-ink-500">
         Home attacks left to right, away attacks right to left. The most
         recent action fades over eight seconds of match time.
       </p>
