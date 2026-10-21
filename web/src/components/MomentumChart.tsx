@@ -189,7 +189,7 @@ export default function MomentumChart({
     chart && hovered ? chart.xOf(hovered.match_clock_ms) : 0;
 
   return (
-    <div className="panel flex flex-col overflow-hidden">
+    <div className="panel flex min-h-[170px] flex-col overflow-hidden lg:min-h-0">
       <div className="flex items-center justify-between gap-2 px-3.5 pb-1 pt-2.5">
         <h2 className="panel-title">Momentum</h2>
         <div className="flex items-center gap-3 text-[11px]">

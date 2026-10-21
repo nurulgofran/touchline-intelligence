@@ -68,7 +68,7 @@ export default function TracePanel({
   }, [visible.length, focus]);
 
   return (
-    <div className="panel flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="panel flex min-h-[260px] max-h-[460px] flex-1 flex-col overflow-hidden lg:min-h-0 lg:max-h-none">
       <div className="flex items-baseline justify-between gap-2 border-b border-ink-800 px-3.5 py-2">
         <h2 className="panel-title">Agent trace</h2>
         <div className="flex items-baseline gap-2 text-[11px] text-ink-500">
