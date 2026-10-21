@@ -28,6 +28,13 @@ silent take and adds quiet music with fades. See [MUSIC.md](./MUSIC.md) for the
 creator, licence, optional description credit and verification. The silent take
 described below remains available.
 
+## Version with creator credit
+
+`build/touchline-demo-credited.mp4` adds **Created by Md Norul Gofran** beneath
+the opening title, with a short fade. It retains the CC0 soundtrack. The video
+is re-encoded to composite this credit; the studio recording and captions are
+otherwise retained. The earlier music and silent versions remain available.
+
 ## What it is
 
 A silent, captioned recording of the live deployment, made with Chrome DevTools
