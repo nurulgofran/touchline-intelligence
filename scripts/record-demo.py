@@ -1134,6 +1134,12 @@ async def record(
         # the take opens on whatever the last visitor left behind.
         print("resetting the reader to Analyst / English")
         await reset_audience(cdp)
+        if not await verify_reader(cdp, seed):
+            raise SystemExit("The reader did not settle on Analyst / English.")
+        # A whole-feed reset can take minutes while playback keeps running.
+        # Start the capture from kick-off after that wait, not at full time.
+        await cdp.evaluate(CLICK.format(text=json.dumps("Replay")))
+        await wait_for_idle(cdp)
         await asyncio.sleep(1.0)
         # The counters are read after the reset, so what moves them
         # during the capture is the take's own beats.
