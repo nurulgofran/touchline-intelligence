@@ -685,16 +685,18 @@ export interface RecoveryFixture {
   /** The honesty label. The UI surfaces it verbatim. */
   label: string;
   injected_fault: RecoveryInjectedFault;
-  /** The invalid claim, with the injected fault. */
-  invalid_claim: RecoveryClaim;
-  /** The veto: accepted=false with the specific reasons. */
-  veto: RecoveryVerdict;
-  /** grounding -> explainer with accepted=false, the back edge. */
-  veto_trace_entry: RecoveryTraceEntry;
-  /** The Explainer's corrected claim, accepted by the Grounding step. */
-  corrected_claim: RecoveryClaim;
-  acceptance: RecoveryVerdict;
-  overlay: RecoveryOverlay;
+  recovery: {
+    /** The invalid claim, with the injected fault. */
+    invalid_claim: RecoveryClaim;
+    /** The veto: accepted=false with the specific reasons. */
+    veto: RecoveryVerdict;
+    /** grounding -> explainer with accepted=false, the back edge. */
+    veto_trace_entry: RecoveryTraceEntry;
+    /** The Explainer's corrected claim, accepted by the Grounding step. */
+    corrected_claim: RecoveryClaim;
+    acceptance: RecoveryVerdict;
+    overlay: RecoveryOverlay;
+  };
   providers: RecoveryProviders;
   trace: RecoveryTraceEntry[];
   test_context: RecoveryTestContext;

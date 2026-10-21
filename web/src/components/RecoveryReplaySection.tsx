@@ -28,22 +28,24 @@ const FIXTURE_URL = "/fixtures/recovery-example.v1.json";
 function isRecoveryFixture(value: unknown): value is RecoveryFixture {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
+  const recovery = record.recovery as Record<string, unknown> | null;
+  if (typeof recovery !== "object" || recovery === null) return false;
   return (
     record.fixture_format === "touchline.recovery-example" &&
     record.kind === "recorded-test-run" &&
     typeof record.label === "string" &&
     typeof record.injected_fault === "object" &&
     record.injected_fault !== null &&
-    typeof record.veto === "object" &&
-    record.veto !== null &&
-    typeof record.veto_trace_entry === "object" &&
-    record.veto_trace_entry !== null &&
-    typeof record.corrected_claim === "object" &&
-    record.corrected_claim !== null &&
-    typeof record.acceptance === "object" &&
-    record.acceptance !== null &&
-    typeof record.overlay === "object" &&
-    record.overlay !== null &&
+    typeof recovery.veto === "object" &&
+    recovery.veto !== null &&
+    typeof recovery.veto_trace_entry === "object" &&
+    recovery.veto_trace_entry !== null &&
+    typeof recovery.corrected_claim === "object" &&
+    recovery.corrected_claim !== null &&
+    typeof recovery.acceptance === "object" &&
+    recovery.acceptance !== null &&
+    typeof recovery.overlay === "object" &&
+    recovery.overlay !== null &&
     typeof record.providers === "object" &&
     record.providers !== null
   );
@@ -106,9 +108,9 @@ function StepTitle({ children }: { children: string }) {
 
 function ReadyFixture({ fixture }: { fixture: RecoveryFixture }) {
   const fault = fixture.injected_fault;
-  const vetoEntry = fixture.veto_trace_entry;
-  const corrected = fixture.corrected_claim;
-  const acceptedOverlay = fixture.overlay;
+  const vetoEntry = fixture.recovery.veto_trace_entry;
+  const corrected = fixture.recovery.corrected_claim;
+  const acceptedOverlay = fixture.recovery.overlay;
   const providers = fixture.providers;
 
   return (
@@ -137,7 +139,7 @@ function ReadyFixture({ fixture }: { fixture: RecoveryFixture }) {
 
       <StepTitle>2 · The veto</StepTitle>
       <ul className="list-disc pl-4 text-red-200">
-        {fixture.veto.reasons.map((reason, index) => (
+        {fixture.recovery.veto.reasons.map((reason, index) => (
           <li key={index}>{reason}</li>
         ))}
       </ul>
@@ -172,7 +174,7 @@ function ReadyFixture({ fixture }: { fixture: RecoveryFixture }) {
         </dl>
       )}
       <p className="mt-1 text-emerald-300">
-        {fixture.acceptance.accepted
+        {fixture.recovery.acceptance.accepted
           ? "The Grounding step verified the corrected claim and accepted it."
           : "The Grounding step did not accept the corrected claim."}
       </p>
