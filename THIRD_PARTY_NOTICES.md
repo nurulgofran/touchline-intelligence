@@ -18,7 +18,7 @@ repository's code or on the hackathon submission.
 | [Pydantic](https://docs.pydantic.dev) | MIT | Event, insight, and overlay schemas |
 | [openai-python](https://github.com/openai/openai-python) | Apache-2.0 | Chat transport for the Microsoft Foundry client — `agent-framework-foundry` depends on `agent-framework-openai`, which depends on `openai`. No OpenAI-compatible third-party endpoint is used |
 | [Azure Identity](https://github.com/Azure/azure-sdk-for-python) | MIT | Managed-identity / key auth for Foundry, Azure Container Apps, and Azure Container Registry |
-| [SQLAlchemy](https://www.sqlalchemy.org) / [psycopg](https://www.psycopg.org) | MIT / LGPL-3.0 | Optional durable store for the event log and handoff trace |
+| [httpx](https://www.python-httpx.org) | BSD-3-Clause | Async HTTP client: the A2A client speaks JSON-RPC to the Explainer through it (ASGI transport in the deployed default) |
 | [pytest](https://pytest.org) | MIT | Test suite |
 | [mypy](https://mypy-lang.org) / [Ruff](https://docs.astral.sh/ruff) | MIT | Type checking and linting |
 | [React](https://react.dev) | MIT | Frontend UI |

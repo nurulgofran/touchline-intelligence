@@ -1,5 +1,11 @@
 # The demo video
 
+## Status: not yet recorded
+
+The old take at `build/touchline-demo.mp4` (recorded 2026-10-20) is **not approved
+for publication**. The video described below has not yet been recorded or uploaded
+(2026-10-21) — those need the owner's account and a verified deployment.
+
 ## What it is
 
 A silent, captioned recording of the live deployment, made with Chrome DevTools
@@ -7,61 +13,94 @@ Protocol by [`scripts/record-demo.py`](../scripts/record-demo.py) — no editing
 re-creating, no mock. Every frame is the real studio on the real Container App
 talking to the real Foundry deployment.
 
-- **Length:** under 2:00 (the rules' limit is 2:00; the plan's target was 1:50)
+- **Length:** target 110 seconds, hard limit under 120 seconds (the rules' limit is
+  2:00 — judges are not required to watch beyond it).
 - **Sound:** silent. The rules allow silence and forbid copyrighted music, and
   English on-screen text is the safest form of the narration.
-- **Marks:** none. The repository contains no image file of any kind, so there
-  is no crest, no kit, no logo and no wordmark graphic to appear.
+- **Language:** English captions throughout. The one beat in German carries its
+  accurate English alongside it.
+- **Marks:** none. The repository contains no image file of any kind, so there is no
+  crest, no kit, no logo and no wordmark graphic to appear.
 - **Trademarks:** "Microsoft Foundry" appears as plain text in the provider badge
-  and in the closing caption. That is the hackathon's own required technology
-  name, not a third party's mark, and the Premier League name appears nowhere.
-- **Language:** the interface chrome is English throughout. The one beat in
-  Deutsch carries its English alongside it in the caption.
+  and in the closing caption. That is the hackathon's own required technology name,
+  not a third party's mark, and the Premier League name appears nowhere.
 
-## How it was made
+## The six beats (from the plan, §6)
+
+1. **The problem and the live studio.** A scoreline explains nothing; an event log
+   explains nothing without a human. The studio: the pitch, the momentum curve, the
+   insights as they are explained, the agent trace — all live at once.
+2. **One explanation, with the evidence inspector.** Open one insight, show its
+   cited events and metrics, then *Inspect evidence*: the recomputed values, the
+   baseline, the grounding verdict — calculated facts distinguished from model
+   interpretation.
+3. **Handoffs and the labelled recovery replay.** The agent trace, with the A2A
+   chip on the Narrator → Explainer hop; then the explicitly labelled
+   *Recovery example — recorded test run*: an invalid claim rejected, routed back
+   to the Explainer, corrected, accepted.
+4. **The full-time recap.** Jump to the end of the match: the deterministic recap.
+5. **The same moment, personalized.** The same moment rewritten for *My team*
+   (Riverside United), and then in German — with the accurate English alongside in
+   the caption, so the judge sees the language change and the unchanged numbers.
+6. **Closing value and technology credits.** One value statement; then the credits:
+   Microsoft Foundry, Microsoft Agent Framework, A2A, Azure Container Apps, Azure
+   Container Registry, managed identity (keyless).
+
+## How it is made
 
 ```bash
 python scripts/record-demo.py --out build/touchline-demo.mp4
 ```
 
-The recorder launches Chrome, waits for the provider badge to report `live`,
-then drives the studio over CDP while capturing a screencast into ffmpeg. It
-reads the provider badge after every beat and refuses a take that shows a
-template fallback — that check is in the script, not in someone's memory.
+The recorder launches Chrome, waits for the provider badge to report `live`, then
+drives the studio over CDP while capturing a screencast into ffmpeg. A take is
+written to a temporary path and promoted to the final filename **only after
+validation**: the recorder targets 110 seconds and **rejects any take at or over
+120 seconds**; it rejects a take for missing required beats, an unsuccessful
+language change, a provider fallback during capture (it compares counters across
+the capture interval rather than sampling the badge), or prose substitution. A
+rejected take is kept at the temporary path for inspection. Cleanup restores
+Analyst/English and verifies the restore — cleanup failure is reported, never
+described as a successful reset.
 
-Re-record it with one command whenever the deployment changes.
+Before recording, wait for the deployment's analysis to complete (historically
+about 17 minutes) and restore Analyst/English.
 
 ## Before uploading
 
 1. **Check the badge.** The recording log must show `provider badge: Microsoft
-   Foundry | live` and no line reading `WARNING: the provider fell back`.
+   Foundry | live` and no fallback warning — the recorder rejects such a take
+   itself, so a promoted file is clean.
 2. **Check the length.** `ffprobe -v error -show_entries format=duration -of
    csv=p=0 build/touchline-demo.mp4` — it must be under 120 seconds.
 3. **Check the frames.** Cut a few and look at them, especially the opening
-   title card, the agent trace beat, the Deutsch beat and the closing caption.
+   title card, the evidence inspector beat, the German beat with its English
+   alongside, and the closing caption. **Watch the entire finished video, not just
+   screenshots.**
 
-## Uploading
+## Uploading (needs the owner's account)
 
-Public, not unlisted — the rules are explicit about that. YouTube, Vimeo, Facebook
-Video or Youku all qualify.
+Public, not unlisted — the rules are explicit about that. **YouTube** is the
+chosen host (Vimeo, Facebook Video or Youku would also qualify).
 
 **Title**
 
 ```
-Touchline Intelligence — five agents that explain a football match, live
+Touchline Intelligence — three agents that explain a football match, live
 ```
 
 **Description**
 
 ```
 Touchline Intelligence turns a synthetic football event stream into explainable
-intelligence: 1,051 events over 90 minutes, 45 explained moments, every claim
-cited to the event ids it was computed from, and a grounding pass that recomputes
-each cited metric from the log and vetoes any claim that does not hold up.
+intelligence: 1,051 events over 90 minutes, 44 explained moments plus one full-time
+recap, every claim cited to the event ids it was computed from, and a grounding pass
+that recomputes each cited metric from the log and vetoes any claim that does not
+hold up.
 
 The numbers are computed in deterministic code. The model only writes the words.
-Five agents share one live match state, orchestrated with the Microsoft Agent
-Framework, with the Explainer and Narrator talking over A2A.
+Three model-driven agents share one live match state, orchestrated with the
+Microsoft Agent Framework, with the Explainer and Narrator talking over A2A.
 
 Live demo: https://touchline-app.icywave-bfcbf183.germanywestcentral.azurecontainerapps.io
 Repository: https://github.com/nurulgofran/touchline-intelligence
@@ -76,8 +115,7 @@ match data, competition, club, player or commercial mark is used or represented.
 ## Then
 
 - Paste [`PITCH.md`](./PITCH.md) into the project page.
+- Put the public video URL into the pitch's links table and into the project page.
 - Link the project to **challenge 5078** — *The Synthetic Match Insights Engine
   for Premier League Studio*.
-- Put the public video URL into the pitch's links table and into the project page.
-- Work down [`CHECKLIST.md`](./CHECKLIST.md) — the three open lines are the
-  upload, the challenge link, and the project page itself.
+- Work down [`CHECKLIST.md`](./CHECKLIST.md).
