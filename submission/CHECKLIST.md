@@ -61,3 +61,28 @@ Cost Management and Consumption APIs report no rows for this subscription. So th
 balance has to be read in the portal — the four commands above are the signals
 that something has gone wrong, and a lapsed subscription stops the revision
 before it stops answering for long.
+
+## Supplied official requirements — delivery evidence
+
+Cross-checked against the official rules and challenge text supplied by the owner
+on 2026-10-21. This records implementation evidence; account eligibility and final
+submission are confirmed by the owner.
+
+| Requirement | Evidence / remaining action |
+|---|---|
+| Five functional stages (§4.1) | Synthetic ingestion → deterministic interpretation → explanation → on-screen rendering → personalization. Grounding is an additional validation executor; there are three model-driven agents, not five AI agents. |
+| Synthetic data and original footage (§4.7) | Seeded simulator, fictional clubs/players, custom synthetic pitch rendering. The video records this application, with no real match footage. |
+| Explainability and recovery | Read-only evidence inspector and genuine Foundry recovery fixture; the recorded test is explicitly labelled and isolated from live state. |
+| Multiple-language capability (§4.1 vi) | EN/DE/BN remain covered in service tests and evaluation. The studio and submission video intentionally use English only. |
+| Pitch and real-functioning video (§4.4) | `PITCH.md` includes a short project-page elevator pitch. The final MP4 is recorded from the Azure deployment and must pass the recorder's sub-120-second and provider checks. |
+| Public video URL (§4.4) | Owner selected delivery of the approved MP4 for manual upload. Upload to a listed public video platform, then paste the public URL into the project page and pitch. |
+| Public GitHub repository (§4.4) | Verified public: https://github.com/nurulgofran/touchline-intelligence |
+| Unrestricted judging access (§4.8) | Live ACA FQDN, no login or paywall, min/max replicas 1. Keep it available through the end of judging; November credit checks remain operational obligations. |
+| English materials (§4.9) | English pitch, judge instructions, interface and video captions. |
+| Dependency licences (§4.11) | MIT project licence and `THIRD_PARTY_NOTICES.md`, including the self-hosted fonts' SIL licences. |
+| Existing registration and submission (§1, §4) | Supplied rules close registration on Oct 20 and submissions on Oct 27 at 23:59 Pacific (Oct 28, 07:59 CET in Berlin). Owner confirms existing registration, challenge association and submission receipt. Target remains Oct 26. |
+
+The Foundry comparison supports the correction and fallback mechanics. Both
+approaches passed the same checks; it does not establish a correctness advantage
+for multiple agents. The category case is the explicit responsibilities, typed
+handoffs, shared state and inspectable recovery shown in the application.

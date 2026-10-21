@@ -1349,8 +1349,8 @@ def build_timeline() -> Timeline:
         Shot(
             name="the citations",
             caption=(
-                "Every number is recomputed from the event log — "
-                "and shown with the event ids it came from."
+                "Computed metrics, with the event ids behind them. "
+                "Focus an event to locate it on the pitch."
             ),
             action=FOCUS_EVENT,
             settle=1.5,
@@ -1365,8 +1365,8 @@ def build_timeline() -> Timeline:
         Shot(
             name="inspect evidence",
             caption=(
-                "One explanation, checked against the event log — "
-                "the metrics recomputed, the events named."
+                "The numbers, checked against the event log — "
+                "displayed values beside their recomputed values."
             ),
             action=[OPEN_EVIDENCE, wait_for_idle],
             # The drawer is only worth showing if it opened with the
@@ -1401,7 +1401,7 @@ def build_timeline() -> Timeline:
     timeline.add(
         Shot(
             name="the whole trace",
-            caption="340 hand-offs, every one of them typed and visible as it happens.",
+            caption="Follow the typed hand-offs — from the event log to the explanation on screen.",
             action=click_when_ready("show all"),
             settle=1.0,
             hold=4.0,
@@ -1416,8 +1416,8 @@ def build_timeline() -> Timeline:
         Shot(
             name="labelled recovery replay",
             caption=(
-                "A recorded test run: a claim injected invalid on purpose, "
-                "refused, and corrected. Not a live incident."
+                "A recorded test run: an incorrect distance is rejected, "
+                "sent back, and corrected. Not a live incident."
             ),
             action=[SHOW_RECOVERY, wait_for_idle],
             # The caption may only call it a recorded test run if the
@@ -1449,7 +1449,7 @@ def build_timeline() -> Timeline:
     timeline.add(
         Shot(
             name="read it as my team",
-            caption="The same moment, rewritten for one side — over the same events.",
+            caption="The same moment, read for one side. The figures still come from the match log.",
             action=[SWITCH_SIDE, wait_for_idle],
             settle=2.0,
             hold=4.0,

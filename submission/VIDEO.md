@@ -15,16 +15,16 @@ talking to the real Foundry deployment.
 
 - **Length:** target 110 seconds, hard limit under 120 seconds (the rules' limit is
   2:00 — judges are not required to watch beyond it).
-- **Sound:** silent. The rules allow silence and forbid copyrighted music, and
-  English on-screen text is the safest form of the narration.
+- **Sound:** silent. There is no music or third-party audio. English on-screen
+  captions carry the narration.
 - **Language:** English throughout — the captions, the interface and the explanation
   the model writes. The studio has no language switcher, so nothing on screen is
   in a language the judge has to read twice.
 - **Marks:** none. The repository contains no image file of any kind, so there is no
   crest, no kit, no logo and no wordmark graphic to appear.
-- **Trademarks:** "Microsoft Foundry" appears as plain text in the provider badge
-  and in the closing caption. That is the hackathon's own required technology name,
-  not a third party's mark, and the Premier League name appears nowhere.
+- **Technology identification:** "Microsoft Foundry" appears as plain text in the
+  provider badge and closing caption to identify the actual stack. No sponsor or
+  club logos, crests, or brand graphics are used.
 
 ## The six beats (from the plan, §6)
 
@@ -41,7 +41,7 @@ talking to the real Foundry deployment.
    to the Explainer, corrected, accepted.
 4. **The full-time recap.** Jump to the end of the match: the deterministic recap.
 5. **The same moment, personalized.** The same moment rewritten for *My team*
-   (Riverside United) — over the same cited events, with the numbers unchanged.
+   (Riverside United), with the figures recomputed for the chosen side from the same synthetic match.
 6. **Closing value and technology credits.** One value statement; then the credits:
    Microsoft Foundry, Microsoft Agent Framework, A2A, Azure Container Apps, Azure
    Container Registry, managed identity (keyless).

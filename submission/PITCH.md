@@ -10,10 +10,19 @@ Three model-driven agents share one live match state and turn a synthetic footba
 event stream into explainable intelligence, broadcast-ready overlays, and
 personalised fan experiences — the same match, retold for five reader modes.
 
+## Project-page elevator pitch
+
+Touchline Intelligence helps football producers and fans understand why a moment
+matters and inspect the evidence behind it. It turns seeded synthetic match events
+into cited explanations, timed overlays, a full-time recap and five reader modes.
+Three model-driven agents run on Microsoft Foundry, coordinated by Microsoft Agent
+Framework and A2A, with deterministic metric checks and a visible correction loop.
+The live Azure Container Apps studio lets judges open the evidence, follow agent
+handoffs and inspect a genuine recorded recovery run.
+
 ## The problem
 
-A football scoreline tells you nothing. A full event log tells you everything and
-explains nothing: 1,051 events over 90 minutes, each one a row of a table, each row
+A scoreline hides the context; a raw event log overwhelms a live production desk: 1,051 events over 90 minutes, each one a row of a table, each row
 needing a human to work out what it meant. Broadcasters, analysts and fans each want
 the same events explained differently, and today that explanation is a human being in
 a room.
@@ -32,14 +41,15 @@ as a broadcast overlay, and rewrites it for whoever is reading.
 - **Explains them, with receipts.** The Explainer writes what happened and why. Every
   claim carries the ids of the events it rests on, and a grounding pass recomputes
   every cited metric from the event log and vetoes any claim that does not hold up.
-- **Renders it.** The Narrator produces timed broadcast overlays, commentary and a
-  full-time recap. It asks the Explainer for each reading over A2A — a genuine
+- **Renders it.** The Narrator prepares the title, body and commentary; the studio
+  displays timed overlays. The full-time recap is deterministic and makes no model call.
+  The Narrator asks the Explainer for each reading over A2A — a genuine
   JSON-RPC exchange through the deployed app's own ASGI transport, visible in the
   agent trace.
 - **Personalises it.** The Personalizer rewrites the same moments for an analyst, a
   fan, one player, one side, or one metric.
 
-**The numbers are never invented by the model.** Metric values are computed in
+**Published metrics are computed, then checked.** Metric values are computed in
 deterministic code; the model only writes prose around them, and the grounding pass
 recomputes every cited metric from the event log and vetoes any claim that does not
 hold up. (The grounding verifies numbers against the log; it is not a verification
@@ -55,7 +65,6 @@ of what the prose means.)
 | **Azure Container Apps** | The only host. One Container App on a Consumption (Express) environment, `minReplicas: 1` so the demo URL never scales to zero, `maxReplicas: 1` so the in-process shared state stays consistent, liveness and readiness probes on `/healthz`, and an external ingress carrying the live WebSocket feed. |
 | **Azure Container Registry** | The image registry, in the same subscription as the app. |
 | **Azure AI Foundry projects** | The Foundry account and project hold the model deployment the app talks to. |
-| **Azure Key Vault** | Not used. The deployment holds no key at all: the app authenticates to Foundry and pulls its image with a managed identity. |
 | **Managed identity** | A user-assigned identity (`touchline-identity`) carries both the Foundry access and the registry pull, so the Container App stores no registry credential and no model key — `configuration.secrets` is null. |
 
 Foundry is the only model provider in the project. The deterministic template engine is
@@ -78,7 +87,7 @@ audit; live counters on `/healthz` move as the demo is used):
   recomputed from the log.
 - **The vision tracker, scored against ground truth** (read 2026-10-20): 100%
   precision, 85.4% recall, 0.07 m mean position error, 4 of 4 shots tracked.
-- **Five reader modes**, all rewriting the same events.
+- **Five reader modes**, all grounded in the same synthetic match.
 
 ## Links
 
