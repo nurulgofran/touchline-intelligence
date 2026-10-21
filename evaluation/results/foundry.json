@@ -1,0 +1,1599 @@
+{
+  "evaluation": "touchline-intelligence: multi-agent pipeline vs single agent",
+  "manifest_version": "1.0.0",
+  "project_revision": "b75e550fc8dc8f43cd7cfdf5a08087a675d667b2",
+  "provider": "foundry",
+  "provider_label": "foundry (foundry)",
+  "honest_label": "foundry run: real model behind both approaches.",
+  "workload": "one-candidate-v1",
+  "manifest_sha256": "9d56b8b357f32e3c96aa7ffea8b60b5e48c6925aa6b7d40c97128fda3e4f95f7",
+  "scenarios_planned": 12,
+  "scenarios_run": 12,
+  "complete": true,
+  "results": [
+    {
+      "scenario_id": "s01",
+      "approach": "pipeline",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 3,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 13735.38208399259,
+      "call_latencies_ms": [
+        8129.210083003272,
+        3226.3476670050295,
+        2224.470667002606
+      ],
+      "notes": [],
+      "published_output": {
+        "schema_version": "1.0",
+        "overlay_id": "ovl-cand-0003",
+        "type": "TACTICAL",
+        "start_ms": 1335000,
+        "end_ms": 1343000,
+        "match_clock_ms": 1335000,
+        "title": "How Dovercrest managed the press",
+        "body": "Dovercrest Athletic play through the press. longest spell of possession 8, completed passes 16 and control 82%. The sequence shows deliberate retention rather than risky clearance. A long run of possession with many short completions and dominant control indicates they prioritized circulation to draw opponents out, relieve pressure and create space for an attacking transition. Every number above comes straight from the event log.",
+        "metrics": [
+          {
+            "name": "longest_run",
+            "value": 8.0,
+            "unit": "",
+            "label": "longest spell of possession",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "passes_completed",
+            "value": 16.0,
+            "unit": "",
+            "label": "completed passes",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "control_pct",
+            "value": 82.3529411764706,
+            "unit": "%",
+            "label": "control",
+            "side": "AWAY",
+            "subject": null
+          }
+        ],
+        "cited_event_ids": [
+          "ev-000204",
+          "ev-000205",
+          "ev-000206",
+          "ev-000207",
+          "ev-000208",
+          "ev-000209",
+          "ev-000210",
+          "ev-000211",
+          "ev-000212",
+          "ev-000213",
+          "ev-000214",
+          "ev-000215",
+          "ev-000216",
+          "ev-000217",
+          "ev-000218",
+          "ev-000219",
+          "ev-000220",
+          "ev-000221",
+          "ev-000222",
+          "ev-000223",
+          "ev-000224",
+          "ev-000225",
+          "ev-000226",
+          "ev-000227",
+          "ev-000228",
+          "ev-000229",
+          "ev-000230",
+          "ev-000231",
+          "ev-000232",
+          "ev-000233",
+          "ev-000234",
+          "ev-000235",
+          "ev-000236",
+          "ev-000237",
+          "ev-000238",
+          "ev-000239",
+          "ev-000240",
+          "ev-000241",
+          "ev-000242",
+          "ev-000243",
+          "ev-000244",
+          "ev-000245",
+          "ev-000246",
+          "ev-000247",
+          "ev-000248",
+          "ev-000249",
+          "ev-000250",
+          "ev-000251",
+          "ev-000252",
+          "ev-000253",
+          "ev-000254",
+          "ev-000255",
+          "ev-000256",
+          "ev-000257",
+          "ev-000258",
+          "ev-000259",
+          "ev-000260",
+          "ev-000261",
+          "ev-000262",
+          "ev-000263"
+        ],
+        "locale": "en",
+        "confidence": 0.85,
+        "revision": 0,
+        "provenance_provider": null,
+        "prose_substituted": false,
+        "deterministic_prose": false
+      }
+    },
+    {
+      "scenario_id": "s01",
+      "approach": "single_agent",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 1,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 5066.352834008285,
+      "call_latencies_ms": [
+        5065.2813330088975
+      ],
+      "notes": [],
+      "published_output": {
+        "title": "Dovercrest play through the press",
+        "body": "They held the ball through a press-breaking sequence: 16.0 completed passes, 8.0s longest spell of possession, and 82.3529411764706% control — patient circulation that released the press and advanced play.",
+        "reading": "Dovercrest Athletic sustained an intense press-breaking sequence that kept possession for a long spell: an 8.0-second longest uninterrupted possession during this phase, completing 16.0 passes and controlling 82.3529411764706% of the ball across the sequence. That combination shows efficient, patient ball progression under pressure — they repeatedly circulated the ball (16.0 completed passes) to release the press and kept possession for the large majority of the sequence (82.3529411764706% control), culminating in their longest single spell of possession of 8.0 seconds. This sustained control reduced turnover risk and allowed them to advance play while bypassing the opponent’s press.",
+        "locale": "en"
+      }
+    },
+    {
+      "scenario_id": "s02",
+      "approach": "pipeline",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 3,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 8220.921500003897,
+      "call_latencies_ms": [
+        2505.0940410001203,
+        2225.2260000095703,
+        3341.9725419953465
+      ],
+      "notes": [],
+      "published_output": {
+        "schema_version": "1.0",
+        "overlay_id": "ovl-cand-0011",
+        "type": "TACTICAL",
+        "start_ms": 1746857,
+        "end_ms": 1754857,
+        "match_clock_ms": 1746857,
+        "title": "Direkter Freistoß, gefährlicher Schuss",
+        "body": "„Dovercrest Athletic work the free kick into a shot from 29 metres“. Schüsse 1, erwartete Tore 0, Schussdistanz 28.6 m und vollendete Pässe 2. Was für ein schneller Ablauf — nach kurzem Passspiel feuerten sie aus der Distanz aufs Tor. Das war nahe dran, die Abwehr musste aufpassen. Mutiger Versuch, der Druck aufs Tor aufgebaut hat. Ein Moment, über den das Publikum später noch spricht.",
+        "metrics": [
+          {
+            "name": "shots",
+            "value": 1.0,
+            "unit": "",
+            "label": "Schüsse",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "xg",
+            "value": 0.04,
+            "unit": "",
+            "label": "erwartete Tore",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "shot_distance_m",
+            "value": 28.58,
+            "unit": "m",
+            "label": "Schussdistanz",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "passes_completed",
+            "value": 2.0,
+            "unit": "",
+            "label": "vollendete Pässe",
+            "side": "AWAY",
+            "subject": null
+          }
+        ],
+        "cited_event_ids": [
+          "ev-000345",
+          "ev-000346",
+          "ev-000347",
+          "ev-000348",
+          "ev-000349"
+        ],
+        "locale": "de",
+        "confidence": 0.808,
+        "revision": 0,
+        "provenance_provider": null,
+        "prose_substituted": false,
+        "deterministic_prose": false
+      }
+    },
+    {
+      "scenario_id": "s02",
+      "approach": "single_agent",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 1,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 4454.235750003136,
+      "call_latencies_ms": [
+        4453.655874996912
+      ],
+      "notes": [],
+      "published_output": {
+        "title": "Freistoß kombiniert zum Distanzschuss",
+        "body": "Dovercrest Athletic spielte einen Freistoß über 2 erfolgreiche Pässe bis zu einem Schuss aus 28.58 m (1 Schuss, xG 0.04). Gefahr aus der Ferne, aber geringe Abschlusswahrscheinlichkeit.",
+        "reading": "Dovercrest Athletic nutzte einen Freistoß und kombinierte sich über zwei erfolgreiche Pässe bis zu einem Schuss aus 28.58 Metern Entfernung. Der Abschluss ergab 1 Schuss mit einem erwarteten Torwert (xG) von 0.04 — eine vorsichtige Gefahr aus der Distanz, aber kein hochprozentiger Abschluss. Für Fans bedeutet das: Die Mannschaft sucht aktiv Abschlüsse nach Standardsituationen und bleibt auch aus der Distanz gefährlich, wenn auch mit geringer Abschlusswahrscheinlichkeit. (Quellen: ev-000345, ev-000346, ev-000347, ev-000348, ev-000349)",
+        "locale": "de"
+      }
+    },
+    {
+      "scenario_id": "s03",
+      "approach": "pipeline",
+      "outcome": "verified_after_correction",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 4,
+      "attempts": 2,
+      "vetoes": 1,
+      "fallback_used": false,
+      "latency_ms": 48883.295207997435,
+      "call_latencies_ms": [
+        34100.60712498671,
+        5358.412790999864,
+        4842.6241660054075,
+        4429.507791996002
+      ],
+      "notes": [],
+      "published_output": {
+        "schema_version": "1.0",
+        "overlay_id": "ovl-cand-0031",
+        "type": "TACTICAL",
+        "start_ms": 2490000,
+        "end_ms": 2498000,
+        "match_clock_ms": 2490000,
+        "title": "আপনার দল: ডোভারক্রেস্ট আক্রমণে স্পষ্ট সতর্কতা তৈরি করেছে",
+        "body": "“Dovercrest Athletic-এর জন্য: Dovercrest Athletic create a clear opening”। শট 2 এবং প্রত্যাশিত গোল 0.3। গত আক্রমণে আমাদের দল ভাল অবস্থান নিয়ে প্রতিপক্ষকে হুংকার দিলো; শটগুলো সফল হলে ব্যবহার করা যেত। এখন রক্ষণে আরও মনোযোগ দরকার, চাপ অব্যাহত রাখলেই সুবিধা আসবে। আপনার দলের সংখ্যা, ঠিক যে ইভেন্টগুলো এই কার্ডে উল্লেখ করা।",
+        "metrics": [
+          {
+            "name": "shots",
+            "value": 2.0,
+            "unit": "",
+            "label": "শট",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "xg",
+            "value": 0.301,
+            "unit": "",
+            "label": "প্রত্যাশিত গোল",
+            "side": "AWAY",
+            "subject": null
+          }
+        ],
+        "cited_event_ids": [
+          "ev-000437",
+          "ev-000438",
+          "ev-000439",
+          "ev-000440",
+          "ev-000441",
+          "ev-000442",
+          "ev-000443",
+          "ev-000444",
+          "ev-000445",
+          "ev-000446",
+          "ev-000447",
+          "ev-000448",
+          "ev-000449",
+          "ev-000450",
+          "ev-000451",
+          "ev-000452",
+          "ev-000453",
+          "ev-000454",
+          "ev-000455",
+          "ev-000456",
+          "ev-000457",
+          "ev-000458",
+          "ev-000459",
+          "ev-000460",
+          "ev-000461",
+          "ev-000462",
+          "ev-000463",
+          "ev-000464",
+          "ev-000465",
+          "ev-000466",
+          "ev-000467",
+          "ev-000468",
+          "ev-000469",
+          "ev-000470",
+          "ev-000471",
+          "ev-000472",
+          "ev-000473",
+          "ev-000474",
+          "ev-000475",
+          "ev-000476",
+          "ev-000477",
+          "ev-000478",
+          "ev-000479",
+          "ev-000480",
+          "ev-000481",
+          "ev-000482",
+          "ev-000483",
+          "ev-000484",
+          "ev-000485",
+          "ev-000486",
+          "ev-000487",
+          "ev-000488",
+          "ev-000489",
+          "ev-000490",
+          "ev-000491"
+        ],
+        "locale": "bn",
+        "confidence": 0.85,
+        "revision": 0,
+        "provenance_provider": null,
+        "prose_substituted": false,
+        "deterministic_prose": false
+      }
+    },
+    {
+      "scenario_id": "s03",
+      "approach": "single_agent",
+      "outcome": "verified_after_correction",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 2,
+      "attempts": 2,
+      "vetoes": 1,
+      "fallback_used": false,
+      "latency_ms": 11287.956541011226,
+      "call_latencies_ms": [
+        7129.756834008731,
+        4157.6227089972235
+      ],
+      "notes": [],
+      "published_output": {
+        "title": "Dovercrest Athletic সুযোগ তৈরি করেছে",
+        "body": "2 শট · xG 0.301\nডোভারক্রেস্টের এই আক্রমণ লক্ষ্যভেদে ভালো সুযোগ ছিল — 0.301 xG মানে এই মুহূর্তে গোলের সম্ভাবনা উল্লেখযোগ্য। দলের জন্য এখন দরকার ধারাবাহিক আক্রমণ ও আরও স্পষ্ট সমাপ্তি।",
+        "reading": "ডোভারক্রেস্ট অ্যাথলেটিক আক্রমণে পরিষ্কার সুযোগ তৈরি করেছে: দলটি 2টি শট নিয়েছিল এবং ঐ মুহূর্তগুলোর মোট সম্ভাব্য গোল (xG) ছিল 0.301। অর্থাৎ এই আক্রমণে দলটি গোল করার বাস্তবসম্ভাব্যতা প্রায় 0.301 ছিল — খেলায় বলিয়ে রাখা গুরুত্ব হলো, এগুলো গন্তব্যে না গেলে পরবর্তীতে আরও সুযোগ তৈরি করতে হবে।",
+        "locale": "bn"
+      }
+    },
+    {
+      "scenario_id": "s04",
+      "approach": "pipeline",
+      "outcome": "fallback_published",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 4,
+      "attempts": 2,
+      "vetoes": 2,
+      "fallback_used": true,
+      "latency_ms": 39636.426541997935,
+      "call_latencies_ms": [
+        4547.5081670010695,
+        3842.476457997691,
+        22368.06033299945,
+        8725.088666004012
+      ],
+      "notes": [
+        "cand-0034: the claim was vetoed 2 times (shots: claimed 66, recomputed 2); the deterministic claim was used instead"
+      ],
+      "published_output": {
+        "schema_version": "1.0",
+        "overlay_id": "ovl-cand-0034",
+        "type": "TACTICAL",
+        "start_ms": 2670000,
+        "end_ms": 2678000,
+        "match_clock_ms": 2670000,
+        "title": "Your view: Hold the chance — it's yours to protect",
+        "body": "Dovercrest Athletic create a clear opening. shots 2 and expected goals 0.3. You’ve opened up a good opportunity. Keep the ball, slow the tempo and wait for the right finish. Don’t rush risky passes — guide the move into a high-quality shot rather than forcing it. It is the kind of detail the players on the pitch can feel.",
+        "metrics": [
+          {
+            "name": "shots",
+            "value": 2.0,
+            "unit": "",
+            "label": "shots",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "xg",
+            "value": 0.305,
+            "unit": "",
+            "label": "expected goals",
+            "side": "AWAY",
+            "subject": null
+          }
+        ],
+        "cited_event_ids": [
+          "ev-000469",
+          "ev-000470",
+          "ev-000471",
+          "ev-000472",
+          "ev-000473",
+          "ev-000474",
+          "ev-000475",
+          "ev-000476",
+          "ev-000477",
+          "ev-000478",
+          "ev-000479",
+          "ev-000480",
+          "ev-000481",
+          "ev-000482",
+          "ev-000483",
+          "ev-000484",
+          "ev-000485",
+          "ev-000486",
+          "ev-000487",
+          "ev-000488",
+          "ev-000489",
+          "ev-000490",
+          "ev-000491",
+          "ev-000492",
+          "ev-000493",
+          "ev-000494",
+          "ev-000495",
+          "ev-000496",
+          "ev-000497",
+          "ev-000498",
+          "ev-000499",
+          "ev-000500",
+          "ev-000501",
+          "ev-000502",
+          "ev-000503",
+          "ev-000504",
+          "ev-000505",
+          "ev-000506",
+          "ev-000507",
+          "ev-000508",
+          "ev-000509",
+          "ev-000510",
+          "ev-000511",
+          "ev-000512",
+          "ev-000513",
+          "ev-000514",
+          "ev-000515",
+          "ev-000516",
+          "ev-000517",
+          "ev-000518",
+          "ev-000519",
+          "ev-000520",
+          "ev-000521",
+          "ev-000522",
+          "ev-000523",
+          "ev-000524"
+        ],
+        "locale": "en",
+        "confidence": 0.85,
+        "revision": 0,
+        "provenance_provider": null,
+        "prose_substituted": false,
+        "deterministic_prose": false
+      }
+    },
+    {
+      "scenario_id": "s04",
+      "approach": "single_agent",
+      "outcome": "fallback_published",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 2,
+      "attempts": 2,
+      "vetoes": 2,
+      "fallback_used": true,
+      "latency_ms": 12072.808541997802,
+      "call_latencies_ms": [
+        7070.720957999583,
+        5000.989749998553
+      ],
+      "notes": [],
+      "published_output": {
+        "title": "Chance created at the 44th minute",
+        "body": "This is the part of the match the player on the pitch felt first.",
+        "reading": "A clear opening, and the value of the chance is the number worth holding on to.",
+        "locale": "en"
+      }
+    },
+    {
+      "scenario_id": "s05",
+      "approach": "pipeline",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 3,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 11326.499167000293,
+      "call_latencies_ms": [
+        4922.5889169902075,
+        2143.5404170042602,
+        4126.761708990671
+      ],
+      "notes": [],
+      "published_output": {
+        "schema_version": "1.0",
+        "overlay_id": "ovl-cand-0010",
+        "type": "TACTICAL",
+        "start_ms": 1425000,
+        "end_ms": 1433000,
+        "match_clock_ms": 1425000,
+        "title": "Your view: We opened a real chance",
+        "body": "Dovercrest Athletic create a clear opening. shots 2 and expected goals 0.4. I felt the run pull defenders back and create a gap for a shot — that sequence gave us a genuine opportunity to finish, just needed the last touch to be cleaner. It is the kind of detail the players on the pitch can feel.",
+        "metrics": [
+          {
+            "name": "shots",
+            "value": 2.0,
+            "unit": "",
+            "label": "shots",
+            "side": "HOME",
+            "subject": null
+          },
+          {
+            "name": "xg",
+            "value": 0.357,
+            "unit": "",
+            "label": "expected goals",
+            "side": "HOME",
+            "subject": null
+          }
+        ],
+        "cited_event_ids": [
+          "ev-000182",
+          "ev-000183",
+          "ev-000184",
+          "ev-000185",
+          "ev-000186",
+          "ev-000187",
+          "ev-000188",
+          "ev-000189",
+          "ev-000190",
+          "ev-000191",
+          "ev-000192",
+          "ev-000193",
+          "ev-000194",
+          "ev-000195",
+          "ev-000196",
+          "ev-000197",
+          "ev-000198",
+          "ev-000199",
+          "ev-000200",
+          "ev-000201",
+          "ev-000202",
+          "ev-000203",
+          "ev-000204",
+          "ev-000205",
+          "ev-000206",
+          "ev-000207",
+          "ev-000208",
+          "ev-000209",
+          "ev-000210",
+          "ev-000211",
+          "ev-000212",
+          "ev-000213",
+          "ev-000214",
+          "ev-000215",
+          "ev-000216",
+          "ev-000217",
+          "ev-000218",
+          "ev-000219",
+          "ev-000220",
+          "ev-000221",
+          "ev-000222",
+          "ev-000223",
+          "ev-000224",
+          "ev-000225",
+          "ev-000226",
+          "ev-000227"
+        ],
+        "locale": "en",
+        "confidence": 0.85,
+        "revision": 0,
+        "provenance_provider": null,
+        "prose_substituted": false,
+        "deterministic_prose": false
+      }
+    },
+    {
+      "scenario_id": "s05",
+      "approach": "single_agent",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 1,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 7217.771625000751,
+      "call_latencies_ms": [
+        7217.300834003254
+      ],
+      "notes": [],
+      "published_output": {
+        "title": "Dovercrest Athletic create a clear opening",
+        "body": "2 shots, 0.357 xG — Dovercrest threaten with a high-quality attack",
+        "reading": "Dovercrest Athletic produced two shots in this passage of play, combining for an expected goals (xG) total of 0.357. That level of xG indicates a clear opening that carried a meaningful probability of resulting in a goal — the team generated multiple attempts and a chance profile that put the home side in a promising attacking position.",
+        "locale": "en"
+      }
+    },
+    {
+      "scenario_id": "s06",
+      "approach": "pipeline",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 3,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 31636.034957991797,
+      "call_latencies_ms": [
+        21845.195249989047,
+        6570.306291003362,
+        3083.1614999915473
+      ],
+      "notes": [],
+      "published_output": {
+        "schema_version": "1.0",
+        "overlay_id": "ovl-cand-0001",
+        "type": "ALERT",
+        "start_ms": 1200000,
+        "end_ms": 1206000,
+        "match_clock_ms": 1200000,
+        "title": "আপনার দল: আশফিল্ড টাউনের জন্য সতর্কবার্তা",
+        "body": "“Ashfield Town-এর জন্য: Ashfield Town are over-committing in the challenge”। কার্ড 0 এবং ফাউল 4। প্রারম্ভিক সময়ে আমাদের খেলোয়াড়রা বেশি কড়া চ্যালেঞ্জে যাচ্ছে; এখনো কোন কার্ড হয়নি কিন্তু এভাবে ফাউল বাড়ালে ম্যাচে সমস্যায় পড়া যায়—নিরোধীভাবে খেলতে ও নিয়ন্ত্রিত চ্যালেঞ্জ করতে বলুন। আপনার দলের সংখ্যা, ঠিক যে ইভেন্টগুলো এই কার্ডে উল্লেখ করা।",
+        "metrics": [
+          {
+            "name": "cards",
+            "value": 0.0,
+            "unit": "",
+            "label": "কার্ড",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "fouls",
+            "value": 4.0,
+            "unit": "",
+            "label": "ফাউল",
+            "side": "AWAY",
+            "subject": null
+          }
+        ],
+        "cited_event_ids": [
+          "ev-000150",
+          "ev-000151",
+          "ev-000152",
+          "ev-000153",
+          "ev-000154",
+          "ev-000155",
+          "ev-000156",
+          "ev-000157",
+          "ev-000158",
+          "ev-000159",
+          "ev-000160",
+          "ev-000161",
+          "ev-000162",
+          "ev-000163",
+          "ev-000164",
+          "ev-000165",
+          "ev-000166",
+          "ev-000167",
+          "ev-000168",
+          "ev-000169",
+          "ev-000170",
+          "ev-000171",
+          "ev-000172",
+          "ev-000173",
+          "ev-000174",
+          "ev-000175",
+          "ev-000176",
+          "ev-000177",
+          "ev-000178",
+          "ev-000179",
+          "ev-000180",
+          "ev-000181",
+          "ev-000182",
+          "ev-000183",
+          "ev-000184",
+          "ev-000185",
+          "ev-000186",
+          "ev-000187",
+          "ev-000188",
+          "ev-000189",
+          "ev-000190",
+          "ev-000191"
+        ],
+        "locale": "bn",
+        "confidence": 0.85,
+        "revision": 0,
+        "provenance_provider": null,
+        "prose_substituted": false,
+        "deterministic_prose": false
+      }
+    },
+    {
+      "scenario_id": "s06",
+      "approach": "single_agent",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 1,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 9636.728124998626,
+      "call_latencies_ms": [
+        9636.247749993345
+      ],
+      "notes": [],
+      "published_output": {
+        "title": "অতিরিক্ত চ্যালেঞ্জ: অ্যাশফিল্ড টাউন",
+        "body": "ওয়্যারিং: 4টি ফাউল, 0টি কার্ড — টাউন অতিরিক্ত আক্রমণাত্মক চ্যালেঞ্জ নিচ্ছে; সতর্কতা ও কৌশলগত স্থিতি দরকার (ev-000150–ev-000191).",
+        "reading": "অ্যাশফিল্ড টাউন ম্যাচের প্রথম 20 মিনিটে অত্যন্ত আক্রসী প্রতিযোগীতা দেখাচ্ছে: তারা এখন পর্যন্ত 4টি ফাউল করেছেন এবং কোনো কার্ড পাননি (ev-000150–ev-000191)। এটা দলের আক্রমণাত্মক চ্যালেঞ্জ মোকাবিলায় অপ্রস্তুত বা অতিরিক্ত ঝুঁকি নিচ্ছে—এটি বিরতির পরে প্রকৃতপক্ষে বিপদজনক হতে পারে কারণ ধারাবাহিক ফাউল অ্যাডজাস্টমেন্ট বা রিপোর্টযোগ্য অনুশাসনগত ঘটনার দিকে নিয়ে যেতে পারে। দর্শক হিসেবে আপনার দলের পজিশনিং ও কনসেনট্রেশন বাড়িয়ে জানার দরকার যে প্রতিপক্ষের আক্রমণ চালাতে ফাউলের সংখ্যা বাড়লে এটিকে দ্রুত ব্যবহার করা সম্ভব হবে।",
+        "locale": "bn"
+      }
+    },
+    {
+      "scenario_id": "s07",
+      "approach": "pipeline",
+      "outcome": "fallback_published",
+      "verification": {
+        "ok": true,
+        "summary": "prose advisories: '32.6'",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": [
+          {
+            "text": "32.6",
+            "context": "...digkeit [32.6] m/s und Sch..."
+          }
+        ]
+      },
+      "model_calls": 4,
+      "attempts": 2,
+      "vetoes": 2,
+      "fallback_used": true,
+      "latency_ms": 17054.502125,
+      "call_latencies_ms": [
+        5657.747457997175,
+        4190.06508399616,
+        3400.1560830074595,
+        3669.698709010845
+      ],
+      "notes": [
+        "cand-0016: the claim was vetoed 2 times (max_speed_mps: the cited events are not in the log; shots: the cited events are not in the log); the deterministic claim was used instead"
+      ],
+      "published_output": {
+        "schema_version": "1.0",
+        "overlay_id": "ovl-cand-0016",
+        "type": "ALERT",
+        "start_ms": 1695000,
+        "end_ms": 1701000,
+        "match_clock_ms": 1695000,
+        "title": "Ashfield Town prescht vor",
+        "body": "„Ashfield Town strike at serious speed“. Höchstgeschwindigkeit 32.6 m/s und Schüsse 3. Wow — die Angriffswelle der Gäste rollt weiter! Wenn die Abwehr jetzt nicht sofort den Raum zustellt und den Ballträger unter Druck setzt, geht das noch richtig schief für uns. Volle Konzentration nötig! Ein Moment, über den das Publikum später noch spricht.",
+        "metrics": [
+          {
+            "name": "max_speed_mps",
+            "value": 32.56,
+            "unit": "m/s",
+            "label": "Höchstgeschwindigkeit",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "shots",
+            "value": 3.0,
+            "unit": "",
+            "label": "Schüsse",
+            "side": "AWAY",
+            "subject": null
+          }
+        ],
+        "cited_event_ids": [
+          "ev-000222",
+          "ev-000223",
+          "ev-000224",
+          "ev-000225",
+          "ev-000226",
+          "ev-000227",
+          "ev-000228",
+          "ev-000229",
+          "ev-000230",
+          "ev-000231",
+          "ev-000232",
+          "ev-000233",
+          "ev-000234",
+          "ev-000235",
+          "ev-000236",
+          "ev-000237",
+          "ev-000238",
+          "ev-000239",
+          "ev-000240",
+          "ev-000241",
+          "ev-000242",
+          "ev-000243",
+          "ev-000244",
+          "ev-000245",
+          "ev-000246",
+          "ev-000247",
+          "ev-000248",
+          "ev-000249",
+          "ev-000250",
+          "ev-000251",
+          "ev-000252",
+          "ev-000253",
+          "ev-000254",
+          "ev-000255",
+          "ev-000256",
+          "ev-000257",
+          "ev-000258",
+          "ev-000259",
+          "ev-000260",
+          "ev-000261",
+          "ev-000262",
+          "ev-000263",
+          "ev-000264",
+          "ev-000265",
+          "ev-000266",
+          "ev-000267",
+          "ev-000268",
+          "ev-000269",
+          "ev-000270",
+          "ev-000271",
+          "ev-000272",
+          "ev-000273",
+          "ev-000274",
+          "ev-000275"
+        ],
+        "locale": "de",
+        "confidence": 0.85,
+        "revision": 0,
+        "provenance_provider": null,
+        "prose_substituted": false,
+        "deterministic_prose": false
+      }
+    },
+    {
+      "scenario_id": "s07",
+      "approach": "single_agent",
+      "outcome": "fallback_published",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 2,
+      "attempts": 2,
+      "vetoes": 2,
+      "fallback_used": true,
+      "latency_ms": 30076.812333005364,
+      "call_latencies_ms": [
+        24297.296208009357,
+        5779.094541998347
+      ],
+      "notes": [],
+      "published_output": {
+        "title": "Gefahr entsteht bei der 28. Minute",
+        "body": "Ein Moment, über den man auf dem Heimweg noch streitet.",
+        "reading": "Der Zug ist noch nicht zu Ende, und die verteidigende Seite muss den Raum jetzt schließen.",
+        "locale": "de"
+      }
+    },
+    {
+      "scenario_id": "s08",
+      "approach": "pipeline",
+      "outcome": "verified_after_correction",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 4,
+      "attempts": 2,
+      "vetoes": 1,
+      "fallback_used": false,
+      "latency_ms": 20737.433333997615,
+      "call_latencies_ms": [
+        2892.025624998496,
+        7042.01112499868,
+        4796.937291001086,
+        5860.460124997189
+      ],
+      "notes": [],
+      "published_output": {
+        "schema_version": "1.0",
+        "overlay_id": "ovl-cand-0028",
+        "type": "TACTICAL",
+        "start_ms": 2151442,
+        "end_ms": 2159442,
+        "match_clock_ms": 2151442,
+        "title": "Set-piece delivered a high-probability near-post attempt",
+        "body": "Ashfield Town work the corner into a shot from 1 metres. shots 1, expected goals 0.5, shot distance 1.1 m and completed passes 1. The corner sequence showed efficient ball recycling and a short finish from inside the six-yard area, creating a clear high-value chance. This reflects strong set-piece execution and positional advantage in the box. Every number above comes straight from the event log.",
+        "metrics": [
+          {
+            "name": "shots",
+            "value": 1.0,
+            "unit": "",
+            "label": "shots",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "xg",
+            "value": 0.513,
+            "unit": "",
+            "label": "expected goals",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "shot_distance_m",
+            "value": 1.05,
+            "unit": "m",
+            "label": "shot distance",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "passes_completed",
+            "value": 1.0,
+            "unit": "",
+            "label": "completed passes",
+            "side": "AWAY",
+            "subject": null
+          }
+        ],
+        "cited_event_ids": [
+          "ev-000359",
+          "ev-000360",
+          "ev-000361",
+          "ev-000362",
+          "ev-000363"
+        ],
+        "locale": "en",
+        "confidence": 0.808,
+        "revision": 0,
+        "provenance_provider": null,
+        "prose_substituted": false,
+        "deterministic_prose": false
+      }
+    },
+    {
+      "scenario_id": "s08",
+      "approach": "single_agent",
+      "outcome": "verified_after_correction",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 2,
+      "attempts": 2,
+      "vetoes": 1,
+      "fallback_used": false,
+      "latency_ms": 9280.304874991998,
+      "call_latencies_ms": [
+        6509.463082998991,
+        2770.1089999900432
+      ],
+      "notes": [],
+      "published_output": {
+        "title": "Set Piece: Corner into 1.05 m Shot",
+        "body": "Ashfield Town worked the corner into a quick sequence — 1 completed pass and a shot from 1.05 m (xG 0.513). High-quality chance from a set piece; defense needed to react immediately.",
+        "reading": "Ashfield Town worked a corner quickly into the box and finished with a very short-range shot. The sequence recorded one completed pass from the corner routine, followed by a shot taken from 1.05 m that carried an expected-goals value of 0.513. This matters because the corner produced an immediate high-quality chance (xG 0.513) from almost on the goal line, indicating a dangerous set-piece execution that required urgent defensive attention.",
+        "locale": "en"
+      }
+    },
+    {
+      "scenario_id": "s09",
+      "approach": "pipeline",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 3,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 34867.9376670043,
+      "call_latencies_ms": [
+        23747.35583399888,
+        5774.052542008576,
+        5197.328666006797
+      ],
+      "notes": [],
+      "published_output": {
+        "schema_version": "1.0",
+        "overlay_id": "ovl-cand-0007",
+        "type": "TACTICAL",
+        "start_ms": 1230000,
+        "end_ms": 1238000,
+        "match_clock_ms": 1230000,
+        "title": "Press sequence sustained control",
+        "body": "Ashfield Town play through the press. longest spell of possession 8, completed passes 10 and control 84%. Ashfield Town’s sequence shows a deliberate structure: they maintained possession through quick, directed passing under pressure to force the opponent backwards and set the game’s tempo. The high control figure reflects territorial dominance during the phase. Every number above comes straight from the event log.",
+        "metrics": [
+          {
+            "name": "longest_run",
+            "value": 8.0,
+            "unit": "",
+            "label": "longest spell of possession",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "passes_completed",
+            "value": 10.0,
+            "unit": "",
+            "label": "completed passes",
+            "side": "AWAY",
+            "subject": null
+          },
+          {
+            "name": "control_pct",
+            "value": 84.0,
+            "unit": "%",
+            "label": "control",
+            "side": "AWAY",
+            "subject": null
+          }
+        ],
+        "cited_event_ids": [
+          "ev-000157",
+          "ev-000158",
+          "ev-000159",
+          "ev-000160",
+          "ev-000161",
+          "ev-000162",
+          "ev-000163",
+          "ev-000164",
+          "ev-000165",
+          "ev-000166",
+          "ev-000167",
+          "ev-000168",
+          "ev-000169",
+          "ev-000170",
+          "ev-000171",
+          "ev-000172",
+          "ev-000173",
+          "ev-000174",
+          "ev-000175",
+          "ev-000176",
+          "ev-000177",
+          "ev-000178",
+          "ev-000179",
+          "ev-000180",
+          "ev-000181",
+          "ev-000182",
+          "ev-000183",
+          "ev-000184",
+          "ev-000185",
+          "ev-000186",
+          "ev-000187",
+          "ev-000188",
+          "ev-000189",
+          "ev-000190",
+          "ev-000191",
+          "ev-000192",
+          "ev-000193",
+          "ev-000194",
+          "ev-000195",
+          "ev-000196",
+          "ev-000197",
+          "ev-000198",
+          "ev-000199",
+          "ev-000200",
+          "ev-000201",
+          "ev-000202",
+          "ev-000203",
+          "ev-000204",
+          "ev-000205",
+          "ev-000206",
+          "ev-000207",
+          "ev-000208"
+        ],
+        "locale": "en",
+        "confidence": 0.85,
+        "revision": 0,
+        "provenance_provider": null,
+        "prose_substituted": false,
+        "deterministic_prose": false
+      }
+    },
+    {
+      "scenario_id": "s09",
+      "approach": "single_agent",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 1,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 8727.12962499645,
+      "call_latencies_ms": [
+        8726.768250009627
+      ],
+      "notes": [],
+      "published_output": {
+        "title": "Ashfield Town play through the press",
+        "body": "Away: 8.0s longest spell • 10.0 passes completed • 84.0% control — Broke the press with quick, composed passing and dominant control to relieve pressure and transition play.",
+        "reading": "Ashfield Town executed a press break sequence for the away side lasting a longest spell of possession of 8.0 seconds, during which they completed 10.0 passes and maintained 84.0% control of possession across the sequence. This shows the team’s ability to progress out from press under sustained control: despite the opposition pressure, Ashfield Town stringed together multiple passes (10.0) in a single 8.0-second spell and kept the ball for the large majority of that moment (84.0% control). That combination of quick, composed passing and dominant control allowed them to relieve pressure and transition play effectively on the break.",
+        "locale": "en"
+      }
+    },
+    {
+      "scenario_id": "s10",
+      "approach": "pipeline",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 3,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 11373.376542003825,
+      "call_latencies_ms": [
+        4155.152583989548,
+        4410.483500003465,
+        2593.7304999970365
+      ],
+      "notes": [],
+      "published_output": {
+        "schema_version": "1.0",
+        "overlay_id": "ovl-cand-0012",
+        "type": "TACTICAL",
+        "start_ms": 1455000,
+        "end_ms": 1463000,
+        "match_clock_ms": 1455000,
+        "title": "Was für eine Chance für Riverside!",
+        "body": "„Riverside United create a clear opening“. Schüsse 2 und erwartete Tore 0.9. Hammermoment! Riverside hat den Gegner eingekesselt und schnuppert am Führungstreffer – das war zum Greifen nah. Jetzt gilt: weiter aufdrehen und den Druck nicht nachlassen! Ein Moment, über den das Publikum später noch spricht.",
+        "metrics": [
+          {
+            "name": "shots",
+            "value": 2.0,
+            "unit": "",
+            "label": "Schüsse",
+            "side": "HOME",
+            "subject": null
+          },
+          {
+            "name": "xg",
+            "value": 0.855,
+            "unit": "",
+            "label": "erwartete Tore",
+            "side": "HOME",
+            "subject": null
+          }
+        ],
+        "cited_event_ids": [
+          "ev-000196",
+          "ev-000197",
+          "ev-000198",
+          "ev-000199",
+          "ev-000200",
+          "ev-000201",
+          "ev-000202",
+          "ev-000203",
+          "ev-000204",
+          "ev-000205",
+          "ev-000206",
+          "ev-000207",
+          "ev-000208",
+          "ev-000209",
+          "ev-000210",
+          "ev-000211",
+          "ev-000212",
+          "ev-000213",
+          "ev-000214",
+          "ev-000215",
+          "ev-000216",
+          "ev-000217",
+          "ev-000218",
+          "ev-000219",
+          "ev-000220",
+          "ev-000221",
+          "ev-000222",
+          "ev-000223",
+          "ev-000224",
+          "ev-000225",
+          "ev-000226",
+          "ev-000227",
+          "ev-000228",
+          "ev-000229",
+          "ev-000230",
+          "ev-000231",
+          "ev-000232",
+          "ev-000233",
+          "ev-000234",
+          "ev-000235",
+          "ev-000236",
+          "ev-000237",
+          "ev-000238",
+          "ev-000239",
+          "ev-000240",
+          "ev-000241",
+          "ev-000242",
+          "ev-000243",
+          "ev-000244",
+          "ev-000245"
+        ],
+        "locale": "de",
+        "confidence": 0.85,
+        "revision": 0,
+        "provenance_provider": null,
+        "prose_substituted": false,
+        "deterministic_prose": false
+      }
+    },
+    {
+      "scenario_id": "s10",
+      "approach": "single_agent",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "prose advisories: '0.855', '0.855'",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": [
+          {
+            "text": "0.855",
+            "context": "...sse, xG [0.855] . Hohe Absch..."
+          },
+          {
+            "text": "0.855",
+            "context": "...xG) von [0.855] ergeben. Da..."
+          }
+        ]
+      },
+      "model_calls": 1,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 6685.142667003674,
+      "call_latencies_ms": [
+        6684.961499995552
+      ],
+      "notes": [],
+      "published_output": {
+        "title": "Klare Chance für Riverside",
+        "body": "Riverside United: 2 Schüsse, xG 0.855. Hohe Abschlussgefahr — jetzt weiter Druck machen!",
+        "reading": "Riverside United haben in kurzer Folge zwei Schüsse erzeugt, die zusammen ein erwartetes Torwert (xG) von 0.855 ergeben. Das bedeutet: eine klare Torchance — gefährliche Situationen vor dem Tor, die sehr gut ins Netz hätten gehen können. Für die Fans heißt das, das Team presst und kreiert Abschlussgelegenheiten, jetzt Druck weiter aufrechterhalten.",
+        "locale": "de"
+      }
+    },
+    {
+      "scenario_id": "s11",
+      "approach": "pipeline",
+      "outcome": "verified_after_correction",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 4,
+      "attempts": 2,
+      "vetoes": 1,
+      "fallback_used": false,
+      "latency_ms": 37070.23533299798,
+      "call_latencies_ms": [
+        19534.334582989686,
+        5574.491457999102,
+        5509.466916992096,
+        6316.233249992365
+      ],
+      "notes": [],
+      "published_output": {
+        "schema_version": "1.0",
+        "overlay_id": "ovl-cand-0002",
+        "type": "TACTICAL",
+        "start_ms": 748942,
+        "end_ms": 756942,
+        "match_clock_ms": 748942,
+        "title": "আপনার দৃষ্টিভঙ্গি: সেট-পিস থেকে আমি কাছ থেকেই শট বানালাম",
+        "body": "“Riverside United work the free kick into a shot from 1 metres”। শট 1, প্রত্যাশিত গোল 0.4, শটের দূরত্ব 1.1 m এবং সম্পন্ন পাস 0। পেনাল্টি এলাকায় দাঁড়িয়ে ঠিক মতো কন্ট্রোল করে শট পাঠাতে পেরে আত্মবিশ্বাস বাড়লো — প্রতিপক্ষের চাপে ফাঁক দেখলাম এবং গোলের সুযোগ তৈরি করলাম। মাঠের খেলোয়াড়রা যা বুঝতে পারেন, এমন একটি বিবরণ।",
+        "metrics": [
+          {
+            "name": "shots",
+            "value": 1.0,
+            "unit": "",
+            "label": "শট",
+            "side": "HOME",
+            "subject": null
+          },
+          {
+            "name": "xg",
+            "value": 0.365,
+            "unit": "",
+            "label": "প্রত্যাশিত গোল",
+            "side": "HOME",
+            "subject": null
+          },
+          {
+            "name": "shot_distance_m",
+            "value": 1.05,
+            "unit": "m",
+            "label": "শটের দূরত্ব",
+            "side": "HOME",
+            "subject": null
+          },
+          {
+            "name": "passes_completed",
+            "value": 0.0,
+            "unit": "",
+            "label": "সম্পন্ন পাস",
+            "side": "HOME",
+            "subject": null
+          }
+        ],
+        "cited_event_ids": [
+          "ev-000126",
+          "ev-000127",
+          "ev-000128"
+        ],
+        "locale": "bn",
+        "confidence": 0.725,
+        "revision": 0,
+        "provenance_provider": null,
+        "prose_substituted": false,
+        "deterministic_prose": false
+      }
+    },
+    {
+      "scenario_id": "s11",
+      "approach": "single_agent",
+      "outcome": "verified_after_correction",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 2,
+      "attempts": 2,
+      "vetoes": 1,
+      "fallback_used": false,
+      "latency_ms": 23154.04095800477,
+      "call_latencies_ms": [
+        19896.762916992884,
+        3256.956415993045
+      ],
+      "notes": [],
+      "published_output": {
+        "title": "ফ্রি-কিক থেকে শট — রিভারসাইড ইউনাইটেড",
+        "body": "1 শট · 0.365 xG · শট দূরত্ব 1.05 ম · সম্পন্ন পাস 0.0 (ev-000126, ev-000127, ev-000128)",
+        "reading": "রিভারসাইড ইউনাইটেড একটি ফ্রি-কিক থেকে দ্রুত দেখে শট তৈরি করেছে: দলটি 1টি শট নেয় (ev-000126, ev-000127, ev-000128), যার সম্ভাব্যতা 0.365 xG। শটটি লক্ষ্য থেকে মাত্র 1.05 মিটার দূর থেকে নেওয়া হয়েছিল এবং এটিকে মানা পাস ছিল না — সম্পন্ন করা পাস 0.0। এর অর্থ: দলটি প্রতিপক্ষের কাছাকাছি অবস্থান থেকে উচ্চ-মানের সুযোগ তৈরি করেছে, কিন্তু সম্ভাব্য গোল তৈরির ক্ষেত্রে পাস বিল্ড-আপ ছিল না।",
+        "locale": "bn"
+      }
+    },
+    {
+      "scenario_id": "s12",
+      "approach": "pipeline",
+      "outcome": "fallback_published",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 4,
+      "attempts": 2,
+      "vetoes": 2,
+      "fallback_used": true,
+      "latency_ms": 26189.328250009567,
+      "call_latencies_ms": [
+        3426.656958006788,
+        1877.7852499915753,
+        12570.82954098587,
+        8170.158375010942
+      ],
+      "notes": [
+        "cand-0014: the claim was vetoed 2 times (player_total_distance_m: claimed 66, recomputed 3020.38); the deterministic claim was used instead"
+      ],
+      "published_output": {
+        "schema_version": "1.0",
+        "overlay_id": "ovl-cand-0014",
+        "type": "STAT",
+        "start_ms": 1594087,
+        "end_ms": 1601087,
+        "match_clock_ms": 1594087,
+        "title": "Your side: Quornvale's work-rate keeping us ticking",
+        "body": "For Riverside United: Pelar Quornvale has covered 3,020 metres of ground. player ground covered in total 3020.4 m. A steady engine in midfield — Quornvale’s huge shift has helped sustain our tempo and defensive shape, plugging gaps and keeping the team moving through the contest. Your side's numbers, over exactly the events this card names.",
+        "metrics": [
+          {
+            "name": "player_total_distance_m",
+            "value": 3020.38,
+            "unit": "m",
+            "label": "player ground covered in total",
+            "side": "HOME",
+            "subject": null
+          }
+        ],
+        "cited_event_ids": [
+          "ev-000003",
+          "ev-000012",
+          "ev-000023",
+          "ev-000039",
+          "ev-000049",
+          "ev-000070",
+          "ev-000072",
+          "ev-000128",
+          "ev-000196",
+          "ev-000218",
+          "ev-000238",
+          "ev-000268"
+        ],
+        "locale": "en",
+        "confidence": 0.7,
+        "revision": 0,
+        "provenance_provider": null,
+        "prose_substituted": false,
+        "deterministic_prose": false
+      }
+    },
+    {
+      "scenario_id": "s12",
+      "approach": "single_agent",
+      "outcome": "fallback_published",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 2,
+      "attempts": 2,
+      "vetoes": 2,
+      "fallback_used": true,
+      "latency_ms": 10417.152249996434,
+      "call_latencies_ms": [
+        5022.303457997623,
+        5394.327874993905
+      ],
+      "notes": [],
+      "published_output": {
+        "title": "Milestone at the 26th minute",
+        "body": "Your side's reading of the same moment, counted over the same events.",
+        "reading": "A moment worth marking in the match record.",
+        "locale": "en"
+      }
+    }
+  ],
+  "summary": {
+    "pipeline": {
+      "scenarios": 12,
+      "verification_success": 12,
+      "published_output_failures": 0,
+      "recovery_success": 6,
+      "verified_first_try": 6,
+      "verified_after_correction": 3,
+      "fallback_published": 3,
+      "total_model_calls": 42,
+      "total_latency_ms": 300731.4
+    },
+    "single_agent": {
+      "scenarios": 12,
+      "verification_success": 12,
+      "published_output_failures": 0,
+      "recovery_success": 6,
+      "verified_first_try": 6,
+      "verified_after_correction": 3,
+      "fallback_published": 3,
+      "total_model_calls": 18,
+      "total_latency_ms": 138076.4
+    }
+  }
+}

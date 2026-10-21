@@ -5,8 +5,8 @@
 #
 # One image, one process, one container. Azure Container Apps runs it as a
 # single replica (minReplicas 1 so the demo URL is never cold, maxReplicas 1
-# because MatchStateStore is in-process), pulling it anonymously from a public
-# GHCR package.
+# because MatchStateStore is in-process), pulling from Azure Container Registry
+# with its user-assigned managed identity.
 #
 # The studio is built in its own stage and copied into the runtime image, so
 # the container serves the app and the API from one origin — no CORS, no

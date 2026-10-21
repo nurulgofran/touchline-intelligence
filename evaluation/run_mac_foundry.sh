@@ -23,11 +23,11 @@
 #          agent-framework-core agent-framework-foundry azure-identity \
 #          "a2a-sdk>=1.0.0" "sse-starlette>=2.1" pydantic numpy
 #
-# Cost note: the pipeline approach makes roughly 126-133 model calls per
-# scenario (3 agents x ~44 feed candidates, template-measured); 12
-# scenarios are ~1,550 calls plus retries. The single-agent approach makes
-# 1-2 calls per scenario. Watch the deployment's rate limits; the runner
-# makes no parallelism assumptions and runs sequentially.
+# Cost note: both paths process one selected candidate per scenario. Expect
+# roughly 50-60 model calls for the 12 scenarios, including controlled retries,
+# paced sequentially at eight requests per minute. The runner checkpoints each
+# completed pair and resumes only compatible checkpoints; keep this workload
+# separate from video recording and production startup analysis.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

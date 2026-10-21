@@ -80,10 +80,11 @@ everywhere; full method in [`evaluation/methodology.md`](./evaluation/methodolog
 |---|---|---|
 | **Template-local** (`evaluation/results/template_local.json`) | Mechanics only: fault injection, the veto-and-correct loop, validator behaviour. The deterministic template engine is behind both approaches and is **never presented as Foundry output**. | 12 scenarios × 2 approaches: 6 verified on the first try, 3 corrected after a veto, 3 published from the deterministic fallback on retry exhaustion, 0 published-output failures on the decisive checks (citation validity, metric recomputation). |
 | **Live-API probe** (`evaluation/results/live_api_seed42.json`) | Real Foundry evidence for the *pipeline's published outputs only*: the deployed service's seed-42 overlays, validated against a locally simulated seed-42 event log. | **45/45 published overlays pass citation validity and metric recomputation.** One prose advisory (a derived figure the metric list does not carry) — a known heuristic limit, not a defect. |
-| **Foundry comparison** | The definitive run: a real Foundry model behind *both* approaches (`evaluation/run_mac_foundry.sh`, needs `az login` + Foundry env, run on a machine with credentials). | **Pending.** Until it exists, no claim about model behaviour is made and no superiority claim for either approach is supported. |
+| **Foundry comparison** (`evaluation/results/foundry.json`) | 12 fixed scenarios, the same single candidate on both paths, real Foundry inference, equal citation/metric checks and correction allowance. | **24/24 outputs pass the decisive checks**: per approach, 6 first-try, 3 corrected, 3 intentional fallback. Pipeline: 42 calls / 300.7 s; single agent: 18 calls / 138.1 s. No correctness superiority is established; three prose advisories remain disclosed. |
 
 The scenario manifest ([`evaluation/manifest.json`](./evaluation/manifest.json)) pins the 12
-scenarios and the revision they were measured against; it must be re-pinned at feature freeze.
+scenarios. Each results file records its actual measurement revision; the exact
+manifest hashed during the run is retained as `evaluation/results/manifest-at-measurement.json`.
 
 ## Evidence and recovery replay
 
@@ -267,10 +268,10 @@ public repository; the source, the scripts, this README and [`submission/`](./su
 the whole of it. [`submission/`](./submission/) holds the pitch, the testing instructions for a
 judge, the submission checklists with what was verified and when, and the demo-video plan.
 
-Open items, stated plainly (2026-10-21): the Foundry comparative evaluation was deferred under the
-quota exception (roughly 1,550 calls at eight requests per minute); the demo video has
-not yet been recorded or published; the project is not yet linked to challenge 5078 and the
-submission has not been made — those need the owner's account. See
+The Foundry comparison is complete (2026-10-21), with actual results and published
+copy in `evaluation/results/foundry.json`. Video publication, challenge 5078
+association, and final submission require the owner's account; their current
+status is recorded in the submission checklist. See
 [`submission/CHECKLIST.md`](./submission/CHECKLIST.md) for the full evidence-backed list.
 
 One account-level caveat, stated plainly: the GitHub Actions runner for this account is

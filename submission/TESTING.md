@@ -195,10 +195,14 @@ identity — there is no API key to configure, and nothing to sign up for.
 
 ## What the evaluation measured
 
-The comparative evaluation (`evaluation/`) is honest about its limits: a bounded
-engineering check, not statistically conclusive research. As of 2026-10-21 two runs
-are complete — the template-local run (mechanics validation only; the template is
-never presented as Microsoft output) and the live-API probe (**45/45 published
-overlays pass citation validity and metric recomputation**). The Foundry comparison
-was deferred under the quota exception (roughly 1,550 calls); until it exists, no superiority claim is
-made. Method and results: `evaluation/methodology.md`, `evaluation/results/README.md`.
+The comparative evaluation uses 12 fixed scenarios with one candidate on each
+approach. The complete Microsoft Foundry run publishes 24/24 outputs that pass
+citation and metric checks: per approach, six first-try, three corrected, and
+three intentional persistent-fault fallbacks. Pipeline: 42 model calls, 300.7 s;
+single agent: 18 calls, 138.1 s. These small results establish no correctness
+superiority. Three numeric-prose advisories are disclosed; the heuristic does
+not verify semantic prose or substitute for human language review.
+
+The template-local run validates mechanics; the live-API probe separately
+checks the deployed seed-42 outputs. Method and results:
+`evaluation/methodology.md`, `evaluation/results/README.md`.

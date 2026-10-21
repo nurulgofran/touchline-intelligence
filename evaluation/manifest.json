@@ -60,7 +60,7 @@
     },
     "unknown_citation": "cited_event_ids are replaced with ids not present in the event log (ev-unknown-*)"
   },
-  "project_revision_measured": "cf32ee5d2098f784f21e206b03f8c5d62bb74da4",
+  "project_revision_measured": "b75e550fc8dc8f43cd7cfdf5a08087a675d667b2",
   "question": "Compare the multi-agent pipeline (Explainer -> Grounding -> Narrator -> Personalizer) against ONE agent performing explanation + presentation in a single response, under identical inputs and identical verification.",
   "scenarios": [
     {
@@ -208,5 +208,6 @@
       "seed": 99
     }
   ],
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "revision_note": "Measured application source is recorded in each result. The exact original manifest hashed by these results is archived at results/manifest-at-measurement.json; scenario inputs are unchanged."
 }

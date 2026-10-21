@@ -11,13 +11,6 @@
 #                default and the route the deployment uses.
 #   DEST=ghcr    a public GitHub Container Registry package, which Azure
 #                Container Apps pulls anonymously. The alternative route.
-#   DEST=acr     an Azure Container Registry in the same subscription. The
-#                pull then needs a credential -- the Express (Consumption)
-#                environment refuses the managed-identity pull, and registry-
-#                wide anonymous pull needs the Premium tier -- so this
-#                destination is for a registry the app authenticates to by
-#                another route.
-#
 # Two transports for the build:
 #
 #   MODE=docker  the build runs in a local container runtime.
@@ -42,7 +35,7 @@
 # megabytes.
 #
 # Usage:
-#   scripts/build-image.sh                          # local build, push to GHCR
+#   scripts/build-image.sh                          # local build, push to ACR
 #   MODE=acr DEST=acr scripts/build-image.sh        # ACR Tasks, push to ACR
 #   TAG=v2 scripts/build-image.sh                   # build and tag v2
 #

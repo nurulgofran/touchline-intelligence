@@ -24,6 +24,12 @@ locale: en/de/bn), and the fault (`none`, `unknown_citation`,
 Six scenarios are ordinary; six are controlled faults, evenly split between
 unknown citations and incorrect metrics.
 
+Both approaches process **one selected candidate per scenario**. The pipeline
+still executes the real six-executor `MatchWorkflow`, with normal event ingestion,
+deterministic analysis, grounding and the retry back edge. An evaluation-only
+analyst filters the feed to the manifest candidate before any model is called;
+metrics and citations are unchanged.
+
 Both approaches receive **identical inputs**: the same synthetic events
 from `touchline.sim.generator.simulate(seed)`, the same feed candidate,
 the same audience requirements, the same model configuration, the same
@@ -96,12 +102,13 @@ call, timed). Aggregates per approach in the results file's `summary`.
    injected through the API; the single-agent baseline has no live
    endpoint and is not measured here.
 
-3. **Foundry run** -- PENDING. `evaluation/run_mac_foundry.sh` runs the same
+3. **Foundry run** -- see `results/foundry.json` for completion and results. `evaluation/run_mac_foundry.sh` runs the same
    12 scenarios with a real Foundry model behind both approaches, on the
-   Mac where `az login` exists. The runner accepts the Foundry chat client
+   Mac where `az login` exists. Each result also saves the published copy so
+   language/audience review can be performed. The runner accepts the Foundry chat client
    built by `touchline.providers.foundry.build_foundry_chat_client`
    (`FOUNDRY_PROJECT_ENDPOINT` / `FOUNDRY_MODEL`, keyless). Until that run
-   exists, no claim about model behaviour is made.
+   completes, no comparative claim about model behaviour is made.
 
 ## Manual language/audience rubric (EN/DE/BN)
 
@@ -122,8 +129,9 @@ For each published overlay, in each of English, German and Bengali, score
 - **Localisation sense**: units, separators and phrasing read naturally in
   the target language (German decimal commas, Bengali phrasing).
 
-Record scores in a simple per-scenario sheet when the Foundry run lands;
-the template's prose is known-good by construction and is not scored.
+The result files retain each published title/body for review. Record human
+scores in a separate per-scenario sheet; the automatic acceptance totals do not
+claim to measure language quality. The template's prose is known-good by construction and is not scored.
 
 ## Limitations (read before citing any number)
 
@@ -137,10 +145,13 @@ the template's prose is known-good by construction and is not scored.
 - The numeric-prose check is heuristic (see above); one advisory on the
   live data ("32.5 m/s", a derived figure) is a known limitation, not a
   defect.
-- Latency and call counts for the pipeline cover a *full match* per
-  scenario (all ~44 feed candidates), while the single agent handles one
-  candidate -- the per-scenario comparison is scenario-framed, not
-  per-candidate-normalised. Say so when quoting.
+- Workload `one-candidate-v1` compares the same candidate on both paths.
+  Pipeline latency includes deterministic ingestion/analysis and three model
+  stages; single-agent latency includes its combined response and correction
+  loop. These are end-to-end approach costs, not isolated inference benchmarks.
+- Earlier full-match results used different workloads and are not mixed into
+  the current comparison. The original partial report is retained in the local
+  `build/evaluation-archive/` directory.
 - No superiority claim is supported until the Foundry run exists, and even
   then only within these bounds.
 
@@ -170,3 +181,20 @@ python3 -m venv ~/.venvs/touchline-eval
 The `evaluation/` tree is strictly additive: nothing outside it is
 modified. The venv lives outside the repo (`~/.venvs` or
 `~/workspace/.venvs`); no secrets are written anywhere in the repo.
+
+## Progress and resumption
+
+Each completed scenario/approach pair is written atomically. `scenarios_planned`
+is the manifest size; `scenarios_run` counts scenarios for which **both** outputs
+exist. `complete` is true only when all 24 pairs are present. `--resume` accepts
+only a matching provider, workload, source revision and manifest hash, and refuses
+duplicate or unknown results. A normal run starts a fresh report; retain the
+previous report under another filename before rerunning if it is needed.
+
+```bash
+python -m evaluation.runner --provider foundry --out evaluation/results/foundry.json --resume
+```
+
+The normal Foundry run is isolated from the live match and never changes its
+reader. Do not run it while the Container App is analysing a fresh match or while
+recording: local and cloud processes share the model deployment's quota.

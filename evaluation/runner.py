@@ -777,6 +777,11 @@ def main() -> None:
         default=str(HERE / "results" / "results.json"),
         help="Where to write the results JSON.",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume --out from the same source revision, manifest and workload.",
+    )
     args = parser.parse_args()
 
     out = Path(args.out)
@@ -788,9 +793,13 @@ def main() -> None:
         Called after every scenario, so an interrupted run leaves a
         readable file behind rather than nothing at all.
         """
-        out.write_text(json.dumps(report, indent=2, ensure_ascii=False))
+        temporary = out.with_name(out.name + ".tmp")
+        temporary.write_text(json.dumps(report, indent=2, ensure_ascii=False))
+        temporary.replace(out)
 
-    checkpoint = json.loads(out.read_text()) if out.exists() else None
+    if args.resume and not out.exists():
+        parser.error("--resume requires an existing --out report")
+    checkpoint = json.loads(out.read_text()) if args.resume else None
     report = asyncio.run(
         run_all(args.provider, on_progress=write, checkpoint=checkpoint)
     )
