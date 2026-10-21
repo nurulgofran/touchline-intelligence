@@ -560,7 +560,10 @@ async def reset_audience(cdp: CDP, *, replay: bool = False) -> None:
     if replay:
         await cdp.evaluate(CLICK.format(text=json.dumps("Replay")))
         await wait_for_idle(cdp)
-    await cdp.evaluate(CLICK.format(text=json.dumps("Analyst")))
+    # An unchanged selection produces no new audience frame. Avoid marking
+    # the page optimistically pending when the service is already settled.
+    if not await verify_reader(cdp):
+        await cdp.evaluate(CLICK.format(text=json.dumps("Analyst")))
     await wait_for_idle(cdp)
     await wait_for_rewrite(cdp)
 
