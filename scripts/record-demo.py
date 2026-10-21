@@ -143,8 +143,8 @@ class CDP:
         self, expression: str, timeout: float = 30.0, interval: float = 0.25
     ) -> bool:
         """Poll a JS expression until it is truthy."""
-        deadline = time.time() + timeout
-        while time.time() < deadline:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
             try:
                 if await self.evaluate(expression):
                     return True
@@ -314,6 +314,20 @@ class Shot:
     hold: float = 3.0
     title: tuple[str, str, str] | None = None
     caption_after: Any = None
+    #: An extra check run after the action: a JS expression string or a
+    #: callable taking the CDP connection. Falsy means the beat did not
+    #: land (e.g. the language switch never arrived) and the take is
+    #: rejected.
+    check: Any = None
+
+
+@dataclass
+class BeatResult:
+    """Whether one beat of the take actually happened."""
+
+    name: str
+    ok: bool
+    detail: str = ""
 
 
 @dataclass
@@ -451,13 +465,13 @@ async def wait_for_idle(cdp: CDP, quiet_ms: int = 200, timeout: float = 30.0) ->
     long: the video is under two minutes and a beat that waits for
     nothing is a beat that spends the video.
     """
-    deadline = time.time() + timeout
+    deadline = time.monotonic() + timeout
     quiet = 0
-    while time.time() < deadline:
-        started = time.time()
+    while time.monotonic() < deadline:
+        started = time.monotonic()
         with contextlib.suppress(RuntimeError):
             await cdp.evaluate("1")
-        elapsed = (time.time() - started) * 1000
+        elapsed = (time.monotonic() - started) * 1000
         quiet = quiet + 1 if elapsed < quiet_ms else 0
         if quiet >= 3:
             return True
@@ -505,8 +519,8 @@ async def wait_for_rewrite(cdp: CDP, timeout: float = 420.0) -> bool:
     deployment with a feed that is finished and leaving it with one that
     is still being written.
     """
-    deadline = time.time() + timeout
-    while time.time() < deadline:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
         if not await cdp.evaluate(REWRITING):
             return True
         await asyncio.sleep(2.0)
@@ -653,6 +667,237 @@ READ_BADGE = """
 """
 
 
+# --- take validation ---------------------------------------------------------
+#
+# A take is only promoted when it can be shown to be clean. The checks are
+# the ones the demo's trust rests on: every beat happened, the language
+# switch landed, and the provider counters moved the way a clean take
+# moves them. Badge snapshots alone are insufficient -- the badge only
+# shows the last call -- so the counters are compared across the capture
+# interval.
+
+#: The longest a take may be, in seconds, before it is rejected. The
+#: target is 110; the encoded video must stay under two minutes.
+MAX_ENCODED_SECONDS = 120.0
+
+
+async def read_provider_counters(cdp: CDP, seed: int = 42) -> dict[str, int]:
+    """The provider's counters, read off the service.
+
+    ``call_count`` counts the model calls served; ``fallback_count`` the
+    ones the template engine served instead; ``substitution_count`` the
+    times validated prose was rejected. Compared before and after the
+    capture, they say what happened during the take -- which a badge
+    snapshot of the last call cannot.
+    """
+    script = (
+        "fetch('/api/match?seed="
+        + str(int(seed))
+        + "').then((r) => r.json()).then((j) => j.provider)"
+    )
+    provider = await cdp.evaluate(script) or {}
+    return {
+        key: int(provider.get(key) or 0)
+        for key in ("call_count", "fallback_count", "substitution_count")
+    }
+
+
+async def read_substituted_cards(cdp: CDP, seed: int = 42) -> list[str]:
+    """The ids of cards whose prose was substituted, if any."""
+    script = (
+        "fetch('/api/match/insights?seed="
+        + str(int(seed))
+        + "').then((r) => r.json()).then((j) => j.insights"
+        " .filter((i) => i.prose_substituted).map((i) => i.overlay_id))"
+    )
+    return list(await cdp.evaluate(script) or [])
+
+
+def probe_duration(path: Path) -> float | None:
+    """The encoded duration of a video file, in seconds.
+
+    Returns ``None`` when ffprobe is missing or the file cannot be read,
+    which the validation treats as a rejection: a take whose length
+    cannot be verified is not a take that can be published.
+    """
+    if shutil.which("ffprobe") is None:
+        return None
+    try:
+        completed = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "csv=p=0",
+                str(path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (subprocess.SubprocessError, ValueError):
+        return None
+    try:
+        return float(completed.stdout.strip())
+    except ValueError:
+        return None
+
+
+VERIFY_READER = """
+(() => {
+  const active = (label) => {
+    const b = [...document.querySelectorAll('button')]
+      .find((x) => x.textContent.includes(label));
+    return !!b && b.dataset.active === 'true';
+  };
+  return active('Analyst') && active('English')
+    && !document.body.innerText.includes('rewriting the feed');
+})()
+"""
+
+
+async def verify_reader(cdp: CDP) -> bool:
+    """Check the shared reader is back on Analyst / English and settled.
+
+    The cleanup always restores the reader; this verifies it, so a
+    half-restored deployment is reported rather than assumed.
+    """
+    try:
+        return bool(await cdp.evaluate(VERIFY_READER))
+    except Exception:
+        return False
+
+
+@dataclass
+class TakeValidation:
+    """Whether a take may be promoted."""
+
+    ok: bool
+    reasons: list[str] = field(default_factory=list)
+
+
+async def validate_take(
+    cdp: CDP,
+    *,
+    seed: int,
+    beats: list[BeatResult],
+    counters_before: dict[str, int],
+    counters_after: dict[str, int],
+    video_path: Path,
+) -> TakeValidation:
+    """Decide whether a take is clean enough to promote.
+
+    A take is rejected when a required beat did not land, when the
+    provider fell back or substituted prose during the capture, when no
+    provider calls were served at all, or when the encoded video runs to
+    two minutes or more.
+    """
+    reasons: list[str] = []
+    for beat in beats:
+        if not beat.ok:
+            reasons.append(
+                f"beat {beat.name!r} did not land"
+                + (f": {beat.detail}" if beat.detail else "")
+            )
+
+    calls_before = counters_before.get("call_count", 0)
+    calls_after = counters_after.get("call_count", 0)
+    fallbacks_before = counters_before.get("fallback_count", 0)
+    fallbacks_after = counters_after.get("fallback_count", 0)
+    subs_before = counters_before.get("substitution_count", 0)
+    subs_after = counters_after.get("substitution_count", 0)
+    if calls_after <= calls_before:
+        reasons.append("no provider calls were served during the take")
+    if fallbacks_after != fallbacks_before:
+        reasons.append(
+            "provider fallbacks during the take "
+            f"({fallbacks_before} -> {fallbacks_after})"
+        )
+    if subs_after != subs_before:
+        reasons.append(
+            "prose substitutions during the take "
+            f"({subs_before} -> {subs_after})"
+        )
+    substituted = await read_substituted_cards(cdp, seed)
+    if substituted:
+        shown = ", ".join(substituted[:5])
+        reasons.append(f"cards with substituted prose: {shown}")
+
+    duration = probe_duration(video_path)
+    if duration is None:
+        reasons.append("the encoded duration could not be verified")
+    elif duration >= MAX_ENCODED_SECONDS:
+        reasons.append(
+            f"the encoded duration is {duration:.1f}s "
+            f"(>= {MAX_ENCODED_SECONDS:.0f}s)"
+        )
+    return TakeValidation(ok=not reasons, reasons=reasons)
+
+
+async def _play_shot(cdp: CDP, shot: Shot, hold: float) -> tuple[bool, str]:
+    """Play one beat of the timeline.
+
+    Returns whether the beat landed, with a detail when it did not. A
+    step that finds nothing -- a button that is not there -- means the
+    beat is missing, except for ``wait_for_idle``, which is a settle aid:
+    a page that never goes quiet is slow, not missing.
+    """
+    caption = shot.caption
+    if callable(caption):
+        caption = await caption(cdp)
+    if shot.title is not None:
+        await set_title(cdp, *shot.title)
+    else:
+        await set_title(cdp, "", "", "")
+    await set_caption(cdp, caption or "")
+
+    if shot.action is not None:
+        steps = shot.action if isinstance(shot.action, list) else [shot.action]
+        for step in steps:
+            result = await step(cdp) if callable(step) else await cdp.evaluate(step)
+            if result is False and step is not wait_for_idle:
+                return False, "a step found nothing"
+
+    if shot.caption_after is not None:
+        after = shot.caption_after
+        text = await after(cdp) if callable(after) else after
+        await set_caption(cdp, text or "")
+
+    if shot.check is not None:
+        check = shot.check
+        landed = await check(cdp) if callable(check) else await cdp.evaluate(check)
+        if not landed:
+            return False, "the beat's check did not land"
+
+    await asyncio.sleep(shot.settle)
+    await asyncio.sleep(hold)
+    return True, ""
+
+
+async def _stop_capture(
+    cdp: CDP | None,
+    writer: FrameWriter,
+    pump_task: asyncio.Task[None] | None,
+) -> None:
+    """Stop the screencast and finalize the video.
+
+    This runs **before** the shared reader is reset: the reset's clicks
+    are cleanup, and they must not be part of the take.
+    """
+    if cdp is not None:
+        with contextlib.suppress(Exception):
+            await cdp.send("Page.stopScreencast")
+    if pump_task is not None:
+        pump_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await pump_task
+    writer.pump()
+    writer.close()
+
+
 # --- the recording -----------------------------------------------------------
 
 
@@ -678,9 +923,9 @@ async def wait_for_target(profile: Path, timeout: float = 30.0) -> str:
     import urllib.request
 
     port_file = profile / "DevToolsActivePort"
-    deadline = time.time() + timeout
+    deadline = time.monotonic() + timeout
     port = 0
-    while time.time() < deadline:
+    while time.monotonic() < deadline:
         if port_file.exists():
             try:
                 port = int(port_file.read_text().splitlines()[0])
@@ -692,7 +937,7 @@ async def wait_for_target(profile: Path, timeout: float = 30.0) -> str:
     if not port:
         raise SystemExit("Chrome did not report a debugging port in time.")
 
-    while time.time() < deadline:
+    while time.monotonic() < deadline:
         try:
             url = f"http://127.0.0.1:{port}/json/list"
             with urllib.request.urlopen(url, timeout=2) as response:
@@ -706,14 +951,27 @@ async def wait_for_target(profile: Path, timeout: float = 30.0) -> str:
     raise SystemExit("Chrome did not expose a page target in time.")
 
 
+def take_path(out_path: Path) -> Path:
+    """Where the take is written before validation promotes it."""
+    return out_path.with_name(out_path.stem + ".take" + out_path.suffix)
+
+
 async def record(
     url: str,
     out_path: Path,
     timeline: Timeline,
     headed: bool,
     total_seconds: float,
-) -> None:
+    seed: int = 42,
+) -> bool:
+    """Record one take, and promote it only if it validates.
+
+    Returns whether the take was accepted. A rejected take is kept at
+    the temporary path for inspection, and the shared reader is
+    restored to Analyst / English either way.
+    """
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = take_path(out_path)
 
     chrome = find_chrome()
     profile = Path(tempfile.mkdtemp(prefix="touchline-record-"))
@@ -746,7 +1004,7 @@ async def record(
             "-an",
             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "medium", "-crf", "20",
             "-movflags", "+faststart",
-            str(out_path),
+            str(temp_path),
         ],
         stdin=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
@@ -755,6 +1013,9 @@ async def record(
     writer = FrameWriter(ffmpeg)
 
     cdp: CDP | None = None
+    pump_task: asyncio.Task[None] | None = None
+    finalized = False
+    accepted = False
     try:
         ws_url = await wait_for_target(profile)
         cdp = await CDP.connect(ws_url)
@@ -815,6 +1076,10 @@ async def record(
         print("resetting the reader to Analyst / English")
         await reset_audience(cdp)
         await asyncio.sleep(1.0)
+        # The counters are read after the reset, so what moves them
+        # during the capture is the take's own beats.
+        counters_before = await read_provider_counters(cdp, seed)
+        print(f"provider counters before the take: {counters_before}")
         await cdp.evaluate(CAPTION_HTML)
 
         await cdp.send(
@@ -830,80 +1095,58 @@ async def record(
 
         pump_task = asyncio.create_task(_pump(writer))
 
-        # The last two beats -- full time and the closing stack line -- are
-        # held back from the rest, so a slow re-narration shortens the middle
-        # of the video rather than cutting the ending off.
-        closing = sum(
-            shot.settle + shot.hold for shot in timeline.shots[-2:]
-        )
-        reserved = closing
-
-        started = time.time()
-        for index, shot in enumerate(timeline.shots, start=1):
-            elapsed = time.time() - started
-            remaining = total_seconds - elapsed
-            if remaining <= 0:
-                print(f"    out of time before '{shot.name}'")
-                break
-            budget = remaining
-            if index < len(timeline.shots) - 2:
-                budget = max(0.0, remaining - reserved)
-            hold = min(shot.hold, budget)
-
-            shot_started = time.time()
-            caption = shot.caption
-            if callable(caption):
-                caption = await caption(cdp)
-            print(f"[{index}/{len(timeline.shots)}] {shot.name}  ({hold:.1f}s)")
-            if shot.title is not None:
-                await set_title(cdp, *shot.title)
-            else:
-                await set_title(cdp, "", "", "")
-            await set_caption(cdp, caption or "")
-
-            if shot.action is not None:
-                steps = shot.action if isinstance(shot.action, list) else [shot.action]
-                for step in steps:
-                    if callable(step):
-                        await step(cdp)
-                        continue
-                    result = await cdp.evaluate(step)
-                    if result is False:
-                        print(f"    note: a step of '{shot.name}' found nothing")
-
-            if shot.caption_after is not None:
-                after = shot.caption_after
-                text = await after(cdp) if callable(after) else after
-                await set_caption(cdp, text or "")
-
-            await asyncio.sleep(shot.settle)
-            await asyncio.sleep(hold)
-
-            took = time.time() - shot_started
-            print(f"    {took:5.1f}s elapsed")
-
-            badge_now = await cdp.evaluate(READ_BADGE)
-            if "fallback" in (badge_now or "").lower():
-                print(f"    WARNING: the provider fell back during '{shot.name}'")
-            elif "live" not in (badge_now or "").lower():
-                print(f"    note: the badge during '{shot.name}' was {badge_now!r}")
+        beats = await _run_timeline(cdp, timeline, total_seconds)
 
         await set_caption(cdp, "")
         await set_title(cdp, "")
 
-        # Leave the deployed app the way a judge should find it.
-        print("resetting the reader back to Analyst / English")
-        await reset_audience(cdp, replay=True)
+        # The capture ends here. The video is stopped and finalized
+        # BEFORE the shared reader is reset: the reset's clicks are
+        # cleanup, and they must not be part of the take.
+        await _stop_capture(cdp, writer, pump_task)
+        finalized = True
 
-        pump_task.cancel()
+        counters_after = await read_provider_counters(cdp, seed)
+        print(f"provider counters after the take: {counters_after}")
+        validation = await validate_take(
+            cdp,
+            seed=seed,
+            beats=beats,
+            counters_before=counters_before,
+            counters_after=counters_after,
+            video_path=temp_path,
+        )
+        if validation.ok:
+            temp_path.replace(out_path)
+            print(f"take accepted and promoted to {out_path}")
+            accepted = True
+        else:
+            print("take REJECTED:")
+            for reason in validation.reasons:
+                print(f"  - {reason}")
+            print(f"the rejected take is kept at {temp_path}")
+            accepted = False
     finally:
         if cdp:
+            # The video is finalized before the shared reader is touched,
+            # even when the take fell over half way through.
+            if not finalized:
+                await _stop_capture(cdp, writer, pump_task)
             # Leave the deployment the way a judge should find it, even if
-            # the take fell over half way through.
+            # the take fell over half way through -- and verify it, rather
+            # than assuming the clicks landed.
             with contextlib.suppress(Exception):
                 await reset_audience(cdp, replay=True)
+            if await verify_reader(cdp):
+                print("reader restored to Analyst / English and verified")
+            else:
+                print(
+                    "WARNING: the reader could not be verified back on "
+                    "Analyst / English"
+                )
             await cdp.close()
-        writer.close()
+        elif not finalized:
+            writer.close()
         chrome_process.terminate()
         try:
             chrome_process.wait(timeout=10)
@@ -914,6 +1157,67 @@ async def record(
     errors = ffmpeg.stderr.read().decode() if ffmpeg.stderr else ""
     if errors.strip():
         print(errors, file=sys.stderr)
+    return accepted
+
+
+async def _run_timeline(
+    cdp: CDP, timeline: Timeline, total_seconds: float
+) -> list[BeatResult]:
+    """Play every beat of the timeline, bounded by the capture deadline.
+
+    The deadline is on the monotonic clock, and every beat -- its action,
+    its waits, its hold -- is bounded by what is left of it. A beat that
+    does not land is recorded as missing: the take is rejected rather
+    than published without it.
+
+    Returns one result per beat, in timeline order.
+    """
+    # The last two beats -- full time and the closing stack line -- are
+    # held back from the rest, so a slow re-narration shortens the middle
+    # of the video rather than cutting the ending off.
+    closing = sum(shot.settle + shot.hold for shot in timeline.shots[-2:])
+    reserved = closing
+
+    capture_deadline = time.monotonic() + total_seconds
+
+    beats: list[BeatResult] = []
+    for index, shot in enumerate(timeline.shots, start=1):
+        remaining = capture_deadline - time.monotonic()
+        if remaining <= 0:
+            print(f"    out of time before '{shot.name}'")
+            beats.append(
+                BeatResult(shot.name, False, "the capture deadline passed")
+            )
+            break
+        budget = remaining
+        if index < len(timeline.shots) - 2:
+            budget = max(0.0, remaining - reserved)
+        hold = min(shot.hold, budget)
+
+        shot_started = time.monotonic()
+        print(f"[{index}/{len(timeline.shots)}] {shot.name}  ({hold:.1f}s)")
+        try:
+            timeout = max(0.1, capture_deadline - time.monotonic())
+            ok, detail = await asyncio.wait_for(
+                _play_shot(cdp, shot, hold), timeout=timeout
+            )
+        except TimeoutError:
+            ok, detail = False, "the capture deadline passed mid-beat"
+        except Exception as exc:  # the beat failed; record why
+            ok, detail = False, f"{type(exc).__name__}: {exc}"
+        beats.append(BeatResult(shot.name, ok, detail))
+        if not ok:
+            print(f"    beat '{shot.name}' did not land: {detail}")
+
+        took = time.monotonic() - shot_started
+        print(f"    {took:5.1f}s elapsed")
+
+        badge_now = await cdp.evaluate(READ_BADGE)
+        if "fallback" in (badge_now or "").lower():
+            print(f"    WARNING: the provider fell back during '{shot.name}'")
+        elif "live" not in (badge_now or "").lower():
+            print(f"    note: the badge during '{shot.name}' was {badge_now!r}")
+    return beats
 
 
 async def _pump(writer: FrameWriter) -> None:
@@ -1101,6 +1405,10 @@ def build_timeline() -> Timeline:
             caption=grab_english,
             action=[SWITCH_LANGUAGE, wait_for_idle],
             caption_after=show_english,
+            # The beat only counts when the card on screen actually
+            # changed language. A caption that claims a translation the
+            # screen does not show is a take that must be rejected.
+            check=LANGUAGE_LANDED,
             settle=1.5,
             hold=5.0,
         )
@@ -1132,6 +1440,9 @@ def main() -> None:
     parser.add_argument(
         "--seconds", type=float, default=110.0, help="the total length of the video"
     )
+    parser.add_argument(
+        "--seed", type=int, default=42, help="the match seed the studio shows"
+    )
     args = parser.parse_args()
 
     out_path = Path(args.out)
@@ -1140,15 +1451,24 @@ def main() -> None:
 
     if shutil.which("ffmpeg") is None:
         raise SystemExit("ffmpeg is not on PATH.")
+    if shutil.which("ffprobe") is None:
+        raise SystemExit("ffprobe is not on PATH (it ships with ffmpeg).")
 
     timeline = build_timeline()
     if not timeline.shots:
         raise SystemExit("The timeline is empty.")
 
-    asyncio.run(
-        record(args.url, out_path, timeline, args.headed, args.seconds)
+    accepted = asyncio.run(
+        record(args.url, out_path, timeline, args.headed, args.seconds, args.seed)
     )
-    print(f"wrote {out_path}")
+    if accepted:
+        print(f"wrote {out_path}")
+    else:
+        print(
+            f"take rejected; the rejected take is kept at {take_path(out_path)}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
