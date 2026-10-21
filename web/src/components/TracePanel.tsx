@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 
+import RecoveryReplaySection from "./RecoveryReplaySection";
 import type { Handoff } from "../types";
 
 /**
@@ -193,6 +194,10 @@ export default function TracePanel({
           );
         })}
       </ol>
+
+      {/* A recorded grounding-recovery run, replayed from a fixture:
+          purely presentational, visibly a test rather than an incident. */}
+      <RecoveryReplaySection />
     </div>
   );
 }
