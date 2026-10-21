@@ -66,9 +66,7 @@ def test_ordinary_single_agent_verifies_first_try():
 
 
 def test_fault_once_recovers_through_correction():
-    scenario = _scenario(
-        fault={"kind": "incorrect_metric", "persistence": "once"}
-    )
+    scenario = _scenario(fault={"kind": "incorrect_metric", "persistence": "once"})
     ctx = runner.build_context(scenario)
     result = asyncio.run(runner.run_single_agent(ctx, scenario, "template"))
     assert result.outcome == "verified_after_correction", result.verification
@@ -78,9 +76,7 @@ def test_fault_once_recovers_through_correction():
 
 
 def test_fault_always_publishes_the_deterministic_fallback():
-    scenario = _scenario(
-        fault={"kind": "unknown_citation", "persistence": "always"}
-    )
+    scenario = _scenario(fault={"kind": "unknown_citation", "persistence": "always"})
     ctx = runner.build_context(scenario)
     result = asyncio.run(runner.run_single_agent(ctx, scenario, "template"))
     assert result.outcome == "fallback_published", result.verification
@@ -94,13 +90,14 @@ def test_pipeline_ordinary_scenario_verifies():
     result = asyncio.run(runner.run_pipeline(ctx, _scenario(), "template"))
     assert result.verification["ok"], result.verification
     assert result.outcome in ("verified_first_try", "verified_after_correction")
+    assert result.model_calls == 3  # one insight, one call per model-driven stage
+    assert len(result.call_latencies_ms) == result.model_calls
+    assert result.published_output["overlay_id"] == "ovl-cand-0003"
 
 
 def test_pipeline_fault_always_recovers_through_fallback():
     pytest.importorskip("agent_framework")
-    scenario = _scenario(
-        fault={"kind": "unknown_citation", "persistence": "always"}
-    )
+    scenario = _scenario(fault={"kind": "unknown_citation", "persistence": "always"})
     ctx = runner.build_context(scenario)
     result = asyncio.run(runner.run_pipeline(ctx, scenario, "template"))
     assert result.outcome == "fallback_published", result.verification
@@ -129,6 +126,36 @@ def test_progress_is_reported_after_every_scenario():
     counts = [len(report["results"]) for report in seen]
     assert counts == sorted(counts)
     assert counts[-1] == len(manifest["scenarios"]) * 2
+    assert counts == list(range(1, len(manifest["scenarios"]) * 2 + 1))
+    assert seen[0]["scenarios_run"] == 0
+    assert seen[1]["scenarios_run"] == 1
+    assert seen[-1]["scenarios_run"] == 12
+    assert not seen[0]["complete"]
+    assert seen[-1]["complete"]
     # And each one is already a readable report on its own.
     assert "summary" in seen[-1]
     assert seen[0]["results"]
+
+
+def test_resume_preserves_measured_results_and_runs_only_missing_pairs(monkeypatch):
+    reports = []
+    asyncio.run(runner.run_all("template", on_progress=reports.append))
+    checkpoint = reports[-2]
+    calls = []
+    original = runner.run_single_agent
+
+    async def single(ctx, scenario, provider):
+        calls.append((scenario["id"], "single_agent"))
+        return await original(ctx, scenario, provider)
+
+    async def unexpected_pipeline(*args):
+        pytest.fail("completed pipeline result must not be measured again")
+
+    monkeypatch.setattr(runner, "run_pipeline", unexpected_pipeline)
+    monkeypatch.setattr(runner, "run_single_agent", single)
+    resumed = asyncio.run(runner.run_all("template", checkpoint=checkpoint))
+    assert calls == [("s12", "single_agent")]
+    assert resumed["results"][:-1] == checkpoint["results"]
+    assert resumed["complete"] and resumed["scenarios_run"] == 12
+    with pytest.raises(ValueError, match="incompatible provider"):
+        asyncio.run(runner.run_all("foundry", checkpoint=checkpoint))

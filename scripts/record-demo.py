@@ -1372,7 +1372,7 @@ def build_timeline() -> Timeline:
         Shot(
             name="one moment, narrowed to its hand-offs",
             caption=(
-                "Five agents, one shared state. "
+                "Three model-driven agents, one shared state. "
                 "The narrator asks the explainer over A2A."
             ),
             # The evidence drawer is modal, so it is closed before the

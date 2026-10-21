@@ -40,6 +40,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import copy
+import hashlib
 import json
 import sys
 import time
@@ -86,9 +88,7 @@ class CountingClient:
             return await self._inner.get_response(messages, **kwargs)
         finally:
             self.calls += 1
-            self.call_latencies_ms.append(
-                (time.perf_counter() - start) * 1000.0
-            )
+            self.call_latencies_ms.append((time.perf_counter() - start) * 1000.0)
 
 
 def _edit_unknown_citations(text: str) -> str:
@@ -99,9 +99,7 @@ def _edit_unknown_citations(text: str) -> str:
             for index, _ in enumerate(payload["cited_event_ids"])
         ]
     baseline = payload.get("baseline")
-    if isinstance(baseline, dict) and isinstance(
-        baseline.get("cited_event_ids"), list
-    ):
+    if isinstance(baseline, dict) and isinstance(baseline.get("cited_event_ids"), list):
         baseline["cited_event_ids"] = [
             f"ev-unknown-b{index + 1}"
             for index, _ in enumerate(baseline["cited_event_ids"])
@@ -284,6 +282,7 @@ class ApproachResult:
     latency_ms: float = 0.0
     call_latencies_ms: list[float] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    published_output: dict[str, Any] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -299,6 +298,7 @@ async def run_pipeline(
     from touchline.agents.explainer import ExplainerAgent
     from touchline.agents.narrator import NarratorAgent
     from touchline.agents.personalizer import PersonalizerAgent
+    from touchline.metrics.analyst import MatchAnalyst
     from touchline.orchestration.workflow import MatchWorkflow
     from touchline.sim.generator import team_names
 
@@ -313,7 +313,18 @@ async def run_pipeline(
     narrator_client = CountingClient(build_base_client(provider))
     personalizer_client = CountingClient(build_base_client(provider))
 
+    class ScenarioAnalyst(MatchAnalyst):
+        """Keep the normal deterministic analysis; publish only the test candidate."""
+
+        def select_for_feed(self, candidates: Any) -> Any:
+            return [
+                candidate
+                for candidate in super().select_for_feed(candidates)
+                if candidate.candidate_id == ctx.candidate.candidate_id
+            ]
+
     workflow = MatchWorkflow(
+        analyst=ScenarioAnalyst(team_names=team_names(ctx.seed)),
         explainer=ExplainerAgent(explainer_client),
         narrator=NarratorAgent(narrator_client),
         personalizer=PersonalizerAgent(
@@ -380,12 +391,17 @@ async def run_pipeline(
             ],
         },
         model_calls=model_calls,
-        attempts=len([v for v in run.verdicts if v.candidate_id == candidate_id])
-        or 1,
+        attempts=len([v for v in run.verdicts if v.candidate_id == candidate_id]) or 1,
         vetoes=len(vetoes),
         fallback_used=fallback,
         latency_ms=latency_ms,
+        call_latencies_ms=(
+            explainer_client._inner.call_latencies_ms
+            + narrator_client.call_latencies_ms
+            + personalizer_client.call_latencies_ms
+        ),
         notes=list(run.degradations),
+        published_output=overlay.model_dump(mode="json"),
     )
 
 
@@ -404,6 +420,7 @@ class _OverlayLike:
     reading: str
     metrics: list[Any]
     cited_event_ids: list[str]
+
 
 SINGLE_AGENT_INSTRUCTIONS = """\
 You are a football analyst writing a broadcast overlay.
@@ -434,9 +451,7 @@ def _single_agent_prompt(
 ) -> str:
     from touchline.providers.payload import encode_payload
 
-    prompt = encode_payload(
-        "explain", candidate, locale=locale, mode=mode
-    )
+    prompt = encode_payload("explain", candidate, locale=locale, mode=mode)
     instructions = SINGLE_AGENT_INSTRUCTIONS
     if feedback:
         instructions += (
@@ -509,7 +524,9 @@ async def run_single_agent(
         try:
             if provider == "template":
                 payload = _template_single_agent_reply(
-                    candidate, locale=ctx.locale, mode=ctx.mode,
+                    candidate,
+                    locale=ctx.locale,
+                    mode=ctx.mode,
                     reply_text=reply_text,
                 )
             else:
@@ -603,6 +620,12 @@ async def run_single_agent(
         fallback_used=fallback_used,
         latency_ms=latency_ms,
         call_latencies_ms=list(client.call_latencies_ms),
+        published_output={
+            "title": overlay_like.title,
+            "body": overlay_like.body,
+            "reading": overlay_like.reading,
+            "locale": ctx.locale,
+        },
     )
 
 
@@ -614,6 +637,7 @@ async def run_single_agent(
 async def run_all(
     provider: str,
     on_progress: Callable[[dict[str, Any]], None] | None = None,
+    checkpoint: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run every scenario in the manifest, both approaches.
 
@@ -627,9 +651,7 @@ async def run_all(
 
     manifest = load_manifest()
     provider_label = (
-        TEMPLATE_PROVIDER_LABEL
-        if provider == "template"
-        else f"foundry ({provider})"
+        TEMPLATE_PROVIDER_LABEL if provider == "template" else f"foundry ({provider})"
     )
     revision = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -651,21 +673,61 @@ async def run_all(
             if provider == "template"
             else "foundry run: real model behind both approaches."
         ),
-        "scenarios_run": len(manifest["scenarios"]),
+        "workload": "one-candidate-v1",
+        "manifest_sha256": hashlib.sha256(
+            json.dumps(manifest, sort_keys=True).encode()
+        ).hexdigest(),
+        "scenarios_planned": len(manifest["scenarios"]),
+        "scenarios_run": 0,
+        "complete": False,
         "results": [],
     }
+
+    if checkpoint is not None:
+        for key in ("provider", "workload", "manifest_sha256", "project_revision"):
+            if checkpoint.get(key) != report[key]:
+                raise ValueError(
+                    f"checkpoint has incompatible {key}; use a fresh output"
+                )
+        report["results"] = list(checkpoint["results"])
+    expected = {
+        (scenario["id"], approach)
+        for scenario in manifest["scenarios"]
+        for approach in ("pipeline", "single_agent")
+    }
+    done = [(row["scenario_id"], row["approach"]) for row in report["results"]]
+    if len(done) != len(set(done)) or not set(done) <= expected:
+        raise ValueError("checkpoint contains duplicate or unknown scenario results")
+
+    def progress() -> None:
+        report["scenarios_run"] = sum(
+            all(
+                (scenario["id"], approach) in done
+                for approach in ("pipeline", "single_agent")
+            )
+            for scenario in manifest["scenarios"]
+        )
+        report["complete"] = len(done) == len(expected)
+        report["summary"] = summarize(report)
+        if on_progress is not None:
+            # A callback may retain reports; later progress must not mutate them.
+            on_progress(copy.deepcopy(report))
 
     for scenario in manifest["scenarios"]:
         ctx = build_context(scenario)
         for approach in ("pipeline", "single_agent"):
+            if (scenario["id"], approach) in done:
+                continue
             if approach == "pipeline":
                 result = await run_pipeline(ctx, scenario, provider)
             else:
                 result = await run_single_agent(ctx, scenario, provider)
             report["results"].append(asdict(result))
-            report["summary"] = summarize(report)
-            if on_progress is not None:
-                on_progress(report)
+            done.append((scenario["id"], approach))
+            progress()
+
+    if not report["complete"]:
+        progress()
 
     return report
 
@@ -679,27 +741,20 @@ def summarize(report: dict[str, Any]) -> dict[str, Any]:
         outcomes = [row["outcome"] for row in rows]
         summary[approach] = {
             "scenarios": len(rows),
-            "verification_success": sum(
-                1 for row in rows if row["verification"]["ok"]
-            ),
+            "verification_success": sum(1 for row in rows if row["verification"]["ok"]),
             "published_output_failures": sum(
                 1 for row in rows if not row["verification"]["ok"]
             ),
             "recovery_success": sum(
                 1
                 for row in rows
-                if row["outcome"]
-                in ("verified_after_correction", "fallback_published")
+                if row["outcome"] in ("verified_after_correction", "fallback_published")
             ),
             "verified_first_try": outcomes.count("verified_first_try"),
-            "verified_after_correction": outcomes.count(
-                "verified_after_correction"
-            ),
+            "verified_after_correction": outcomes.count("verified_after_correction"),
             "fallback_published": outcomes.count("fallback_published"),
             "total_model_calls": sum(row["model_calls"] for row in rows),
-            "total_latency_ms": round(
-                sum(row["latency_ms"] for row in rows), 1
-            ),
+            "total_latency_ms": round(sum(row["latency_ms"] for row in rows), 1),
         }
     return summary
 
@@ -735,7 +790,10 @@ def main() -> None:
         """
         out.write_text(json.dumps(report, indent=2, ensure_ascii=False))
 
-    report = asyncio.run(run_all(args.provider, on_progress=write))
+    checkpoint = json.loads(out.read_text()) if out.exists() else None
+    report = asyncio.run(
+        run_all(args.provider, on_progress=write, checkpoint=checkpoint)
+    )
     report["summary"] = summarize(report)
     write(report)
     print(json.dumps(report["summary"], indent=2))
