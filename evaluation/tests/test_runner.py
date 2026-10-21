@@ -106,3 +106,29 @@ def test_pipeline_fault_always_recovers_through_fallback():
     assert result.outcome == "fallback_published", result.verification
     assert result.verification["ok"]
     assert result.vetoes > 0
+
+
+def test_progress_is_reported_after_every_scenario():
+    """The run is written as it is measured.
+
+    The Foundry run is hours of model quota, so a failure at hour three
+    must leave the first two hours on disk. The progress callback is
+    what does that, and it has to fire once per scenario - not once at
+    the end.
+    """
+    seen: list[dict] = []
+
+    async def collect() -> None:
+        await runner.run_all("template", on_progress=seen.append)
+
+    asyncio.run(collect())
+
+    manifest = runner.load_manifest()
+    assert len(seen) == len(manifest["scenarios"]) * 2
+    # Each report is a prefix of the next: the results only ever grow.
+    counts = [len(report["results"]) for report in seen]
+    assert counts == sorted(counts)
+    assert counts[-1] == len(manifest["scenarios"]) * 2
+    # And each one is already a readable report on its own.
+    assert "summary" in seen[-1]
+    assert seen[0]["results"]

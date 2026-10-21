@@ -43,6 +43,7 @@ import asyncio
 import json
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -610,7 +611,18 @@ async def run_single_agent(
 # ---------------------------------------------------------------------------
 
 
-async def run_all(provider: str) -> dict[str, Any]:
+async def run_all(
+    provider: str,
+    on_progress: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """Run every scenario in the manifest, both approaches.
+
+    ``on_progress`` is called with the report as it stands after each
+    scenario/approach pair. The Foundry run is three hours of model quota
+    against a ten-request-a-minute deployment, so the results are
+    written as they are measured: a failure at hour three must not throw
+    away the two hours and forty minutes that came before it.
+    """
     import subprocess
 
     manifest = load_manifest()
@@ -626,17 +638,7 @@ async def run_all(provider: str) -> dict[str, Any]:
         text=True,
     ).stdout.strip()
 
-    results: list[dict[str, Any]] = []
-    for scenario in manifest["scenarios"]:
-        ctx = build_context(scenario)
-        for approach in ("pipeline", "single_agent"):
-            if approach == "pipeline":
-                result = await run_pipeline(ctx, scenario, provider)
-            else:
-                result = await run_single_agent(ctx, scenario, provider)
-            results.append(asdict(result))
-
-    return {
+    report: dict[str, Any] = {
         "evaluation": manifest["evaluation"],
         "manifest_version": manifest["version"],
         "project_revision": revision,
@@ -650,8 +652,22 @@ async def run_all(provider: str) -> dict[str, Any]:
             else "foundry run: real model behind both approaches."
         ),
         "scenarios_run": len(manifest["scenarios"]),
-        "results": results,
+        "results": [],
     }
+
+    for scenario in manifest["scenarios"]:
+        ctx = build_context(scenario)
+        for approach in ("pipeline", "single_agent"):
+            if approach == "pipeline":
+                result = await run_pipeline(ctx, scenario, provider)
+            else:
+                result = await run_single_agent(ctx, scenario, provider)
+            report["results"].append(asdict(result))
+            report["summary"] = summarize(report)
+            if on_progress is not None:
+                on_progress(report)
+
+    return report
 
 
 def summarize(report: dict[str, Any]) -> dict[str, Any]:
@@ -708,11 +724,20 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    report = asyncio.run(run_all(args.provider))
-    report["summary"] = summarize(report)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(report, indent=2, ensure_ascii=False))
+
+    def write(report: dict[str, Any]) -> None:
+        """Write the report as it stands.
+
+        Called after every scenario, so an interrupted run leaves a
+        readable file behind rather than nothing at all.
+        """
+        out.write_text(json.dumps(report, indent=2, ensure_ascii=False))
+
+    report = asyncio.run(run_all(args.provider, on_progress=write))
+    report["summary"] = summarize(report)
+    write(report)
     print(json.dumps(report["summary"], indent=2))
     print(f"wrote {out}")
 
