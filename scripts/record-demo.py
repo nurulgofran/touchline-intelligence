@@ -426,11 +426,12 @@ SWITCH_SIDE = """
 # text that was on screen a moment earlier.
 SWITCH_LANGUAGE = """
 (async () => {{
-  const pick = () => {{
-    const cards = [...document.querySelectorAll('article')];
-    return cards.find((card) => !card.textContent.includes('RECAP'))
-      ?? cards[0] ?? null;
-  }};
+  // Watch the FIRST article (the recap): the captions track this same card
+  // (READ_BODY / READ_OVERLAY_ID use querySelector('article')), and the
+  // recap is the card the language rewrite reaches first -- the excluded
+  // second card can stay English for minutes while an earlier mode rewrite
+  // is still draining through the shared 8/min pacer.
+  const pick = () => document.querySelector('article');
   const card = pick();
   const body = card ? card.querySelector('p') : null;
   const before = body ? body.textContent.trim() : '';
@@ -623,8 +624,10 @@ SAME_CARD = """
 # that was rewritten in one of them.
 LANGUAGE_LANDED = """
 (() => {{
-  const cards = [...document.querySelectorAll('article')];
-  const card = cards.find((c) => !c.textContent.includes('RECAP')) ?? cards[0];
+  // Same card the captions track: the first article (the recap). It is the
+  // first card the language rewrite reaches, so this lands in seconds
+  // instead of timing out behind an earlier mode rewrite.
+  const card = document.querySelector('article');
   if (!card) return false;
   return /[^\x00-\x7F]/.test(card.textContent);
 }})()
