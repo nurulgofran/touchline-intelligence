@@ -206,9 +206,9 @@ def build_base_client(provider: str) -> Any:
 
         return TemplateChatClient()
     if provider == "foundry":
-        from touchline.providers.foundry import build_foundry_chat_client
+        from touchline.providers.clients import FoundryChatClient
 
-        return build_foundry_chat_client()
+        return FoundryChatClient()
     raise ValueError(f"unknown provider {provider!r}")
 
 

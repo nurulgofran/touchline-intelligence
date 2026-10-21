@@ -12,10 +12,12 @@
   validated against the locally simulated seed-42 event log. Real
   Foundry evidence for the *pipeline approach's published outputs* only.
 
-## What is pending
+## Deferred under the quota exception (2026-10-21)
 
 - **`foundry.json`** -- the definitive run with a real Foundry model behind
-  both approaches. Run `../run_mac_foundry.sh` on the Mac (needs `az login`
+  both approaches. The owner deferred this run: roughly 1,550 calls would take
+  over three hours at eight requests per minute. No Foundry comparison results
+  have been generated. Run `../run_mac_foundry.sh` on the Mac (needs `az login`
   plus `FOUNDRY_PROJECT_ENDPOINT` / `FOUNDRY_MODEL`). Until this exists, no
   claim about model behaviour is made, and no superiority claim for either
   approach is supported.

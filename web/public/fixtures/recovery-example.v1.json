@@ -1,0 +1,279 @@
+{
+  "fixture_format": "touchline.recovery-example",
+  "fixture_version": "1.0.0",
+  "kind": "recorded-test-run",
+  "label": "RECORDED TEST RUN \u2014 synthetic data; the invalid claim was injected on purpose to exercise the grounding veto. Not a live incident.",
+  "generated_at": "2026-10-21T12:00:54.118945+00:00",
+  "generator": {
+    "name": "fixtures/recovery/generate_recovery_fixture.py",
+    "version": "1.0.0",
+    "command": "/Users/nurulgofran/Projects/Touchline-Intelligence/.venv/bin/python fixtures/recovery/generate_recovery_fixture.py --provider foundry --out web/public/fixtures/recovery-example.v1.json"
+  },
+  "repo": {
+    "revision": "5e80eacc98e1f3e07d43284467e2782b2718cf8a",
+    "branch": "final-delivery",
+    "app_version": "0.2.0"
+  },
+  "test_context": {
+    "seed": 42,
+    "match_minutes": 20,
+    "match_id": "seed-42-recovery",
+    "audience": "analyst",
+    "locale": "en",
+    "target_candidate_id": "cand-0001",
+    "isolation": "Synthetic fixture match simulated in-process; no network calls to the live deployment, no shared reader state touched."
+  },
+  "providers": {
+    "explainer": "Microsoft Foundry",
+    "narrator": "Microsoft Foundry",
+    "personalizer": "Microsoft Foundry",
+    "correction_provider": "Microsoft Foundry",
+    "template_fallback_used": false
+  },
+  "injected_fault": {
+    "type": "metric_value_perturbation",
+    "description": "The Explainer's first claim stated distance_to_goal_m as 45.6716 instead of the 20.6716 the event log recomputes \u2014 a deliberately invalid structured claim.",
+    "candidate_id": "cand-0001",
+    "metric": "distance_to_goal_m",
+    "true_value": 20.67164009192304,
+    "claimed_value": 45.67164009192304,
+    "attempt": 1
+  },
+  "recovery": {
+    "invalid_claim": {
+      "candidate_id": "cand-0001",
+      "reading": "Dovercrest Athletic won a free kick 20.67164009192304 metres from goal, creating a dangerous set-piece opportunity for the away side. This matters because it gives the away team a direct chance to threaten the home goal from a short distance.",
+      "metrics": [
+        {
+          "name": "distance_to_goal_m",
+          "value": 45.67164009192304,
+          "unit": "m",
+          "side": "AWAY"
+        },
+        {
+          "name": "free_kicks",
+          "value": 1.0,
+          "unit": "",
+          "side": "AWAY"
+        },
+        {
+          "name": "fouls",
+          "value": 1.0,
+          "unit": "",
+          "side": "HOME"
+        }
+      ],
+      "cited_event_ids": [
+        "ev-000144",
+        "ev-000145"
+      ],
+      "baseline": null
+    },
+    "veto": {
+      "candidate_id": "cand-0001",
+      "accepted": false,
+      "reasons": [
+        "distance_to_goal_m: claimed 45.6716, recomputed 20.6716"
+      ],
+      "checks": [
+        {
+          "metric_name": "distance_to_goal_m",
+          "claimed": 45.67164009192304,
+          "recomputed": 20.67164009192304,
+          "ok": false,
+          "reason": "claimed 45.6716, recomputed 20.6716"
+        },
+        {
+          "metric_name": "free_kicks",
+          "claimed": 1.0,
+          "recomputed": 1.0,
+          "ok": true,
+          "reason": ""
+        },
+        {
+          "metric_name": "fouls",
+          "claimed": 1.0,
+          "recomputed": 1.0,
+          "ok": true,
+          "reason": ""
+        }
+      ]
+    },
+    "veto_trace_entry": {
+      "index": 5,
+      "from_stage": "grounding",
+      "to_stage": "explainer",
+      "kind": "veto",
+      "summary": "cand-0001: vetoed -- distance_to_goal_m: claimed 45.6716, recomputed 20.6716",
+      "candidate_id": "cand-0001",
+      "accepted": false,
+      "provider": null
+    },
+    "corrected_claim": {
+      "candidate_id": "cand-0001",
+      "reading": "Dovercrest Athletic won a free kick 20.67164009192304 metres from goal; this is a dangerous set piece opportunity for the away side. It matters because the event was recorded as a foul on the home team, creating a direct chance from close range.",
+      "metrics": [
+        {
+          "name": "distance_to_goal_m",
+          "value": 20.67164009192304,
+          "unit": "m",
+          "side": "AWAY"
+        },
+        {
+          "name": "free_kicks",
+          "value": 1.0,
+          "unit": "",
+          "side": "AWAY"
+        },
+        {
+          "name": "fouls",
+          "value": 1.0,
+          "unit": "",
+          "side": "HOME"
+        }
+      ],
+      "cited_event_ids": [
+        "ev-000144",
+        "ev-000145"
+      ],
+      "baseline": null
+    },
+    "acceptance": {
+      "candidate_id": "cand-0001",
+      "accepted": true,
+      "reasons": [],
+      "checks": [
+        {
+          "metric_name": "distance_to_goal_m",
+          "claimed": 20.67164009192304,
+          "recomputed": 20.67164009192304,
+          "ok": true,
+          "reason": ""
+        },
+        {
+          "metric_name": "free_kicks",
+          "claimed": 1.0,
+          "recomputed": 1.0,
+          "ok": true,
+          "reason": ""
+        },
+        {
+          "metric_name": "fouls",
+          "claimed": 1.0,
+          "recomputed": 1.0,
+          "ok": true,
+          "reason": ""
+        }
+      ]
+    },
+    "overlay": {
+      "schema_version": "1.0",
+      "overlay_id": "ovl-cand-0001",
+      "type": "TACTICAL",
+      "start_ms": 734732,
+      "end_ms": 742732,
+      "match_clock_ms": 734732,
+      "title": "Short-range free kick offers clear attacking chance",
+      "body": "Dovercrest Athletic win a free kick 21 metres from goal. distance to goal 20.7 m, free kicks 1 and fouls 1. From an away foul just outside the box the visitors gain a dangerous set-piece. Expect a direct attempt on goal or delivery aimed at headers; this situation typically increases expected goal threat and airborne duel probability. Every number above comes straight from the event log.",
+      "metrics": [
+        {
+          "name": "distance_to_goal_m",
+          "value": 20.67164009192304,
+          "unit": "m",
+          "label": "distance to goal",
+          "side": "AWAY",
+          "subject": null
+        },
+        {
+          "name": "free_kicks",
+          "value": 1.0,
+          "unit": "",
+          "label": "free kicks",
+          "side": "AWAY",
+          "subject": null
+        },
+        {
+          "name": "fouls",
+          "value": 1.0,
+          "unit": "",
+          "label": "fouls",
+          "side": "HOME",
+          "subject": null
+        }
+      ],
+      "cited_event_ids": [
+        "ev-000144",
+        "ev-000145"
+      ],
+      "locale": "en",
+      "confidence": 0.642,
+      "revision": 0,
+      "provenance_provider": null,
+      "prose_substituted": false,
+      "deterministic_prose": false
+    }
+  },
+  "trace": [
+    {
+      "index": 2,
+      "from_stage": "explainer",
+      "to_stage": "grounding",
+      "kind": "claim",
+      "summary": "cand-0001: claim on 2 events",
+      "candidate_id": "cand-0001",
+      "accepted": null,
+      "provider": "Microsoft Foundry"
+    },
+    {
+      "index": 5,
+      "from_stage": "grounding",
+      "to_stage": "explainer",
+      "kind": "veto",
+      "summary": "cand-0001: vetoed -- distance_to_goal_m: claimed 45.6716, recomputed 20.6716",
+      "candidate_id": "cand-0001",
+      "accepted": false,
+      "provider": null
+    },
+    {
+      "index": 8,
+      "from_stage": "explainer",
+      "to_stage": "grounding",
+      "kind": "claim",
+      "summary": "cand-0001: claim on 2 events",
+      "candidate_id": "cand-0001",
+      "accepted": null,
+      "provider": "Microsoft Foundry"
+    },
+    {
+      "index": 11,
+      "from_stage": "grounding",
+      "to_stage": "narrator",
+      "kind": "verdict",
+      "summary": "cand-0001: grounded",
+      "candidate_id": "cand-0001",
+      "accepted": true,
+      "provider": null
+    },
+    {
+      "index": 14,
+      "from_stage": "narrator",
+      "to_stage": "personalizer",
+      "kind": "narration",
+      "summary": "cand-0001: Dangerous free kick for Dovercrest",
+      "candidate_id": "cand-0001",
+      "accepted": null,
+      "provider": "Microsoft Foundry"
+    },
+    {
+      "index": 15,
+      "from_stage": "personalizer",
+      "to_stage": "screen",
+      "kind": "overlay",
+      "summary": "cand-0001: Short-range free kick offers clear attacking chance",
+      "candidate_id": "cand-0001",
+      "accepted": null,
+      "provider": "Microsoft Foundry"
+    }
+  ],
+  "degradations": []
+}

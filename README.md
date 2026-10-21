@@ -101,7 +101,7 @@ scenarios and the revision they were measured against; it must be re-pinned at f
   incident.
 - **Endpoints and fixture generation.** `GET /api/evidence/{candidate_id}` is the read-only
   evidence endpoint (unknown candidates return 404). A video-ready recovery fixture is generated
-  with `python fixtures/recovery/generate_recovery_fixture.py --provider foundry --out web/public/fixtures/recovery-example.v1.json` — it needs Foundry credentials and a subsequent image rebuild; the fixture names the injected fault, provider, revision, and test context. The fixture is **not yet generated** (2026-10-21).
+  with `python fixtures/recovery/generate_recovery_fixture.py --provider foundry --out web/public/fixtures/recovery-example.v1.json` — it needs Foundry credentials and a subsequent image rebuild; the fixture names the injected fault, provider, revision, and test context. The fixture was generated with Microsoft Foundry on 2026-10-21 and records a genuine veto, correction, and acceptance with no template fallback.
 
 ## Running locally
 
@@ -261,8 +261,8 @@ public repository; the source, the scripts, this README and [`submission/`](./su
 the whole of it. [`submission/`](./submission/) holds the pitch, the testing instructions for a
 judge, the submission checklists with what was verified and when, and the demo-video plan.
 
-Open items, stated plainly (2026-10-21): the Foundry comparative evaluation is still pending a
-machine with credentials; the recovery fixture has not yet been generated; the demo video has
+Open items, stated plainly (2026-10-21): the Foundry comparative evaluation was deferred under the
+quota exception (roughly 1,550 calls at eight requests per minute); the demo video has
 not yet been recorded or published; the project is not yet linked to challenge 5078 and the
 submission has not been made — those need the owner's account. See
 [`submission/CHECKLIST.md`](./submission/CHECKLIST.md) for the full evidence-backed list.

@@ -199,5 +199,5 @@ engineering check, not statistically conclusive research. As of 2026-10-21 two r
 are complete — the template-local run (mechanics validation only; the template is
 never presented as Microsoft output) and the live-API probe (**45/45 published
 overlays pass citation validity and metric recomputation**). The Foundry comparison
-is pending a machine with credentials; until it exists, no superiority claim is
+was deferred under the quota exception (roughly 1,550 calls); until it exists, no superiority claim is
 made. Method and results: `evaluation/methodology.md`, `evaluation/results/README.md`.

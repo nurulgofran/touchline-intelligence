@@ -8,21 +8,13 @@ produced. The trace comes out of the run itself — it is never hand-authored.
 
 ## Status
 
-No Foundry-backed fixture exists yet. This VM has no Foundry credentials,
-and the live deployment cannot produce one either: its A2A endpoint serves
-the Explainer (a claim *producer*), Grounding is not exposed over any
-endpoint, the live workflow runs autonomously on the match clock with no
-claim-injection channel, and the live trace currently holds 340 hand-offs
-with **0 vetoes**. Sending crafted A2A tasks at the live Explainer could
-not route anything through Grounding and would touch its shared memory.
+The showcase fixture was generated on the Mac with Microsoft Foundry on
+2026-10-21 from revision `5e80eac`. It records the genuine grounding veto,
+back-edge, model correction, and acceptance with no template fallback.
+The isolated run did not modify the live match or shared reader.
 
-So this directory ships the honest fallback:
-
-| File | What it is |
-|---|---|
-| `recovery_fixture.schema.json` | The fixture JSON schema (draft 2020-12) + versioning convention |
-| `generate_recovery_fixture.py` | Runs the REAL workflow end to end and records the recovery |
-| `test_recovery_fixture.py` | Local tests (template/fake clients) proving the generator mechanics |
+The fixture is committed at `web/public/fixtures/recovery-example.v1.json`.
+The schema, generator, and local tests remain here for reproduction.
 
 ## How the generator works
 
