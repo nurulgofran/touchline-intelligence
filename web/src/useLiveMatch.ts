@@ -47,6 +47,18 @@ import type {
 
 const DEFAULT_SEED = 42;
 
+/**
+ * The language the studio is written in, and the only one the reader can
+ * be asked for.
+ *
+ * The service still writes German and Bengali when it is asked to - that
+ * capability is tested and it is not going away - but the studio is for an
+ * international room, and a language switcher on the reader bar is
+ * clutter in front of the story the studio is telling. So the locale is
+ * fixed here, at the one place an audience request is made.
+ */
+const READER_LOCALE = "en";
+
 /** How long a match event stays bright on the pitch, in match time. */
 export const EVENT_FADE_MS = 8_000;
 
@@ -909,14 +921,18 @@ export function useLiveMatch(seed: number = DEFAULT_SEED): LiveMatchApi {
    */
   const setAudience = useCallback(
     (audience: Audience) => {
-      pendingAudienceRef.current = audience;
+      // The studio is English only. The reader's locale is fixed, so the
+      // request says so whatever the caller passed: the mode is the only
+      // thing the reader chooses.
+      const requested: Audience = { ...audience, locale: READER_LOCALE };
+      pendingAudienceRef.current = requested;
       setState((prev) => ({
         ...prev,
-        audience,
+        audience: requested,
         audiencePending: true,
         audienceRewriteError: null,
       }));
-      send({ type: "control", action: "audience", value: audience });
+      send({ type: "control", action: "audience", value: requested });
     },
     [send],
   );

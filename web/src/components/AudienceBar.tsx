@@ -50,7 +50,6 @@ export default function AudienceBar({
   onRetry,
 }: AudienceBarProps) {
   const modes = options?.modes ?? [];
-  const locales = options?.locales ?? [];
 
   const players = useMemo(
     () => (options?.players ?? []).slice().sort(byName),
@@ -86,30 +85,6 @@ export default function AudienceBar({
             </button>
           );
         })}
-
-        <span className="ml-auto flex items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-studio-500">
-            In
-          </span>
-          {locales.map((locale) => {
-            const active = audience.locale === locale.id;
-            return (
-              <button
-                key={locale.id}
-                type="button"
-                onClick={() => update({ locale: locale.id })}
-                data-active={active}
-                className={
-                  active
-                    ? "rounded border border-sky-400/80 bg-sky-400/20 px-1.5 py-0.5 text-[11px] font-semibold text-sky-200"
-                    : "rounded border border-studio-600 bg-studio-800 px-1.5 py-0.5 text-[11px] text-studio-300 transition-colors hover:border-studio-400 hover:text-white"
-                }
-              >
-                {locale.label}
-              </button>
-            );
-          })}
-        </span>
       </div>
 
       <p className="text-[11px] leading-snug text-studio-500">

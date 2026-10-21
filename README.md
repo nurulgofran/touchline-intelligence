@@ -173,14 +173,14 @@ All six panels are on screen at once — there is no tab to click.
 | Panel | What it shows |
 |---|---|
 | **Pitch** | The synthetic match, top-down, with the two fictional clubs' colours |
-| **Read it as** | Who the match is being explained to — analyst, fan, player-focus, my-team or metric-lens, in English, German or Bengali. The same moments, rewritten; the numbers on each card still come from the same cited events |
+| **Read it as** | Who the match is being explained to — analyst, fan, player-focus, my-team or metric-lens. The same moments, rewritten; the numbers on each card still come from the same cited events |
 | **Key moments** | Each insight as it is explained, with the metric and the event ids it rests on |
 | **Momentum** | The control-vs-chaos curve, in match time, with a cursor on the clock |
 | **Vision tracker** | The tracker's own score sheet: precision, recall, position error, pass error and shot speed, measured against the ground truth the synthetic feed was rendered from |
 | **Agent trace** | Every hand-off between the stages, as it happens — including the A2A hop and the grounding verdict, and a veto if a claim had to be sent back. "Show hand-offs" on an insight narrows the trace to that one moment |
 | **Transport** | Play, pause, replay, speed, and "jump to the next key moment" |
 
-**Shared reader state, progressive rewrites.** The audience selection (mode + language) is one
+**Shared reader state, progressive rewrites.** The audience selection is one
 shared state: changing it starts a rewrite of the whole feed at the model's rate. The service
 acknowledges immediately, rewrites the moments nearest the viewer's clock first, and replaces
 cards in place as each finishes — in the 2026-10-21 checks the visible card was rewritten

@@ -37,7 +37,7 @@ as a broadcast overlay, and rewrites it for whoever is reading.
   JSON-RPC exchange through the deployed app's own ASGI transport, visible in the
   agent trace.
 - **Personalises it.** The Personalizer rewrites the same moments for an analyst, a
-  fan, one player, one side, or one metric — in English, German or Bengali.
+  fan, one player, one side, or one metric.
 
 **The numbers are never invented by the model.** Metric values are computed in
 deterministic code; the model only writes prose around them, and the grounding pass
@@ -78,7 +78,7 @@ audit; live counters on `/healthz` move as the demo is used):
   recomputed from the log.
 - **The vision tracker, scored against ground truth** (read 2026-10-20): 100%
   precision, 85.4% recall, 0.07 m mean position error, 4 of 4 shots tracked.
-- **Five reader modes, three languages**, all rewriting the same events.
+- **Five reader modes**, all rewriting the same events.
 
 ## Links
 

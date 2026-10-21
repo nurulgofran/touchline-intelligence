@@ -17,8 +17,9 @@ talking to the real Foundry deployment.
   2:00 — judges are not required to watch beyond it).
 - **Sound:** silent. The rules allow silence and forbid copyrighted music, and
   English on-screen text is the safest form of the narration.
-- **Language:** English captions throughout. The one beat in German carries its
-  accurate English alongside it.
+- **Language:** English throughout — the captions, the interface and the explanation
+  the model writes. The studio has no language switcher, so nothing on screen is
+  in a language the judge has to read twice.
 - **Marks:** none. The repository contains no image file of any kind, so there is no
   crest, no kit, no logo and no wordmark graphic to appear.
 - **Trademarks:** "Microsoft Foundry" appears as plain text in the provider badge
@@ -40,8 +41,7 @@ talking to the real Foundry deployment.
    to the Explainer, corrected, accepted.
 4. **The full-time recap.** Jump to the end of the match: the deterministic recap.
 5. **The same moment, personalized.** The same moment rewritten for *My team*
-   (Riverside United), and then in German — with the accurate English alongside in
-   the caption, so the judge sees the language change and the unchanged numbers.
+   (Riverside United) — over the same cited events, with the numbers unchanged.
 6. **Closing value and technology credits.** One value statement; then the credits:
    Microsoft Foundry, Microsoft Agent Framework, A2A, Azure Container Apps, Azure
    Container Registry, managed identity (keyless).
@@ -56,12 +56,12 @@ The recorder launches Chrome, waits for the provider badge to report `live`, the
 drives the studio over CDP while capturing a screencast into ffmpeg. A take is
 written to a temporary path and promoted to the final filename **only after
 validation**: the recorder targets 110 seconds and **rejects any take at or over
-120 seconds**; it rejects a take for missing required beats, an unsuccessful
-language change, a provider fallback during capture (it compares counters across
-the capture interval rather than sampling the badge), or prose substitution. A
-rejected take is kept at the temporary path for inspection. Cleanup restores
-Analyst/English and verifies the restore — cleanup failure is reported, never
-described as a successful reset.
+120 seconds**; it rejects a take for missing required beats, a beat that could
+not show what its caption claims, a provider fallback during capture (it
+compares counters across the capture interval rather than sampling the badge),
+or prose substitution. A rejected take is kept at the temporary path for
+inspection. Cleanup restores Analyst/English and verifies the restore —
+cleanup failure is reported, never described as a successful reset.
 
 Before recording, wait for the deployment's analysis to complete (historically
 about 17 minutes) and restore Analyst/English.
@@ -74,9 +74,8 @@ about 17 minutes) and restore Analyst/English.
 2. **Check the length.** `ffprobe -v error -show_entries format=duration -of
    csv=p=0 build/touchline-demo.mp4` — it must be under 120 seconds.
 3. **Check the frames.** Cut a few and look at them, especially the opening
-   title card, the evidence inspector beat, the German beat with its English
-   alongside, and the closing caption. **Watch the entire finished video, not just
-   screenshots.**
+   title card, the evidence inspector beat, the recorded recovery replay, and the
+   closing caption. **Watch the entire finished video, not just screenshots.**
 
 ## Uploading (needs the owner's account)
 

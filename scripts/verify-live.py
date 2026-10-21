@@ -213,8 +213,8 @@ async def check_websocket(base: str, report: Report, seconds: int) -> None:
 async def check_reader(base: str, report: Report) -> None:
     """Change the reader, and check that the service answers at once.
 
-    The reader is the service's state, so a control that says "write it
-    in English" has to be answered with English -- and answered *at
+    The reader is the service's state, so a control that says "explain it
+    as a fan" has to be answered with the fan's reading -- and answered *at
     once*. A service that waits for the whole rewrite before it answers
     cannot answer a second control at all if the socket is cut first,
     which is how a reader change used to be lost.
@@ -227,8 +227,12 @@ async def check_reader(base: str, report: Report) -> None:
         async with websockets.connect(url, open_timeout=20.0) as socket:
             hello = json.loads(await asyncio.wait_for(socket.recv(), timeout=20.0))
             was = hello.get("audience") or {}
-            current = was.get("locale")
-            wanted = "bn" if current != "bn" else "de"
+            current = was.get("mode")
+            # The studio is English only, so the check changes the reading
+            # rather than the language: the deployment must come back the
+            # way it was found, and a judge has no language switcher to
+            # undo one that was left behind.
+            wanted = "fan" if current != "fan" else "analyst"
 
             await socket.send(
                 json.dumps(
@@ -236,8 +240,8 @@ async def check_reader(base: str, report: Report) -> None:
                         "type": "control",
                         "action": "audience",
                         "value": {
-                            "mode": "analyst",
-                            "locale": wanted,
+                            "mode": wanted,
+                            "locale": "en",
                             "side": None,
                             "player_id": None,
                             "player_name": None,
@@ -256,13 +260,13 @@ async def check_reader(base: str, report: Report) -> None:
                     break
                 frame = json.loads(raw)
                 if frame.get("type") == "audience":
-                    applied = (frame.get("audience") or {}).get("locale")
+                    applied = (frame.get("audience") or {}).get("mode")
                     if applied:
                         break
 
             # The reader is the service's state and it is shared, so it
             # is put back the way it was found. A judge should find the
-            # default, not the language a check left behind.
+            # default, not the reading a check left behind.
             if current:
                 await socket.send(
                     json.dumps(
@@ -271,7 +275,7 @@ async def check_reader(base: str, report: Report) -> None:
                             "action": "audience",
                             "value": {
                                 "mode": was.get("mode", "analyst"),
-                                "locale": current,
+                                "locale": "en",
                                 "side": was.get("side"),
                                 "player_id": was.get("player_id"),
                                 "player_name": was.get("player_name"),

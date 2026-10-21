@@ -25,7 +25,7 @@ One screen, three columns, all live at once:
 | Column | Panel | What it does |
 |---|---|---|
 | **Left** | **Pitch** | The synthetic match from above. The two fictional clubs' colours, the event dots as they happen, and the player involved in the latest one. Below it, the **transport** controls. |
-| **Middle** | **Read it as / In** | The audience and language switch. Below it, **Key moments** — the insights, as they are explained. |
+| **Middle** | **Read it as** | The audience switch — five ways of reading the same moment. Below it, **Key moments** — the insights, as they are explained. |
 | **Right** | **Momentum** | The control-versus-chaos curve over the 90 minutes, with a cursor on the clock. Below it, the **Vision tracker's** own score sheet. Below that, the **Agent trace**. |
 
 The header carries the score, the match clock, and the **provider badge** on the right.
@@ -90,8 +90,9 @@ team**, **Metric lens**:
 - **Metric lens** adds a metric picker; pick one metric and the feed is rewritten
   around it.
 
-The **In** row switches the language: **English**, **Deutsch**, **বাংলা**. The
-interface chrome stays English; the *explanation* is rewritten in the chosen language.
+The studio is written in English and the explanation is in English too: there is no
+language switcher on the reader bar, so the only thing to choose is who the moment is
+explained to.
 The audience selection is one shared state: the service acknowledges immediately,
 rewrites the moments nearest your clock first, and replaces cards in place as each
 one finishes. The button turns amber and the hint line says *rewriting the feed…*

@@ -420,37 +420,6 @@ SWITCH_SIDE = """
 """
 
 
-# Switch the language and wait for the card to be rewritten. The body is
-# compared rather than the title, because a title can be the same word in two
-# languages. It is all one script, so the text it compares against is the
-# text that was on screen a moment earlier.
-SWITCH_LANGUAGE = """
-(async () => {{
-  // Watch the FIRST article (the recap): the captions track this same card
-  // (READ_BODY / READ_OVERLAY_ID use querySelector('article')), and the
-  // recap is the card the language rewrite reaches first -- the excluded
-  // second card can stay English for minutes while an earlier mode rewrite
-  // is still draining through the shared 8/min pacer.
-  const pick = () => document.querySelector('article');
-  const card = pick();
-  const body = card ? card.querySelector('p') : null;
-  const before = body ? body.textContent.trim() : '';
-  const button = [...document.querySelectorAll('button')]
-    .find((b) => b.textContent.includes('Deutsch'));
-  if (!button) return false;
-  button.click();
-  for (let i = 0; i < 160; i += 1) {{
-    await new Promise((r) => setTimeout(r, 250));
-    const now_card = pick();
-    const now_body = now_card ? now_card.querySelector('p') : null;
-    const now = now_body ? now_body.textContent.trim() : '';
-    if (now && now !== before) return true;
-  }}
-  return false;
-}})()
-"""
-
-
 # Open the evidence drawer on the moment that is on screen, and wait for
 # the recomputed figures to be in it.
 #
@@ -653,101 +622,6 @@ PICK_PLAYER = """
 """
 
 
-# The English text of the moment on screen, so the caption can carry the
-# English alongside a translation the model wrote in another language.
-#
-# It reads the FIRST article -- the recap -- which is the card the German
-# beat shows and rewrites, so the English quoted is the English of the card
-# that changed language, and not of a second card the caption would then
-# claim was its translation.
-READ_INSIGHT = """
-(() => {
-  const card = document.querySelector('article');
-  if (!card) return '';
-  const title = card.querySelector('h3');
-  const body = card.querySelector('p');
-  const heading = title ? title.textContent.trim() : '';
-  const first = body ? (body.textContent.trim().split(/(?<=[.!?])\\s/)[0] || '') : '';
-  return (heading + ' — ' + first).trim();
-})()
-"""
-
-
-# The caption bar is one or two lines, so the excerpt is cut to fit.
-LIMIT_INSIGHT = """
-((text) => {
-  const limit = __LIMIT__;
-  if (text.length <= limit) return text;
-  const cut = text.slice(0, limit);
-  const stop = cut.lastIndexOf('. ');
-  return (stop > limit * 0.5 ? cut.slice(0, stop + 1) : cut).trim() + ' \u2026';
-})(__TEXT__)
-"""
-
-
-async def limit_insight(cdp: CDP, text: str, limit: int = 150) -> str:
-    script = LIMIT_INSIGHT.replace("__LIMIT__", str(limit)).replace(
-        "__TEXT__", json.dumps(text)
-    )
-    return await cdp.evaluate(script)
-
-
-# Is the card on screen still the one the English was taken from?
-SAME_CARD = """
-(() => {{
-  const wanted = __ID__;
-  if (!wanted) return true;
-  const card = document.querySelector('article');
-  if (!card) return false;
-  return card.textContent.includes(wanted);
-}})()
-"""
-
-
-#: The characters a locale's prose is written in.
-#:
-#: English and German share the Latin script, so a Latin letter proves
-#: nothing about the language: German is recognised by its umlauts and its
-#: sharp s, or by the words a German sentence is made of. Bengali has its
-#: own script, and nothing else on the page is written in it.
-LOCALE_MARKS: dict[str, str] = {
-    "en": r"[A-Za-z]",
-    "de": (
-        r"[äöüßÄÖÜ]"
-        r"|\b(?:der|die|das|und|ist|nicht|ein|eine|mit|von|aus|Spiel"
-        r"|Tore|Schüsse|Abpfiff|Minute|Ereignisprotokoll)\b"
-    ),
-    "bn": r"[ঀ-৿]",
-}
-
-
-# Did the copy on screen change into the language that was asked for?
-#
-# The check is specific on purpose. "Some character outside ASCII" would
-# pass for German and for Bengali alike, and would pass for a card that
-# was rewritten into the wrong language. So the check is told which locale
-# was requested and looks for that locale's own writing.
-LANGUAGE_LANDED = """
-(() => {{
-  const wanted = __LOCALE__;
-  const marks = __MARKS__;
-  // Same card the captions track: the first article (the recap). It is the
-  // first card the language rewrite reaches, so this lands in seconds
-  // instead of timing out behind an earlier mode rewrite.
-  const card = document.querySelector('article');
-  if (!card) return false;
-  return new RegExp(marks).test(card.textContent || '');
-}})()
-"""
-
-
-def language_landed_script(locale: str) -> str:
-    """The script that says the card on screen is written in this locale."""
-    return LANGUAGE_LANDED.replace("__LOCALE__", json.dumps(locale)).replace(
-        "__MARKS__", json.dumps(LOCALE_MARKS.get(locale, r"[^\x00-\x7f]"))
-    )
-
-
 # Is the evidence drawer open with the recomputed figures on it?
 #
 # The label "recomputed" is on the drawer only once the evidence has
@@ -794,47 +668,6 @@ RECOVERY_LABELLED = """
     (el) => el.children.length === 0
       && (el.textContent || '').trim().toLowerCase() === 'recorded test run');
   return visible(badge);
-}})()
-"""
-
-
-# The card that is on screen: which insight it is, and what it says.
-#
-# The overlay id and the text together are what the check compares the
-# page against the service with: the id says which insight this is, and
-# the text says which revision of it is on the screen.
-CARD_STATE = """
-(() => {{
-  const card = document.querySelector('article');
-  if (!card) return null;
-  const id = [...card.querySelectorAll('span')]
-    .find((s) => s.textContent.startsWith('ovl-'));
-  const body = card.querySelector('p');
-  return {
-    id: id ? id.textContent.trim() : '',
-    body: body ? body.textContent.trim() : '',
-  };
-}})()
-"""
-
-
-READ_OVERLAY_ID = """
-(() => {{
-  const card = document.querySelector('article');
-  if (!card) return '';
-  const id = [...card.querySelectorAll('span')]
-    .find((s) => s.textContent.startsWith('ovl-'));
-  return id ? id.textContent.trim() : '';
-}})()
-"""
-
-
-READ_BODY = """
-(() => {{
-  const card = document.querySelector('article');
-  if (!card) return '';
-  const body = card.querySelector('p');
-  return body ? body.textContent.trim() : '';
 }})()
 """
 
@@ -887,76 +720,6 @@ async def read_provider_counters(cdp: CDP, seed: int = 42) -> dict[str, int]:
         key: int(provider.get(key) or 0)
         for key in ("call_count", "fallback_count", "substitution_count")
     }
-
-
-async def read_overlay(
-    cdp: CDP, seed: int, overlay_id: str
-) -> dict[str, Any] | None:
-    """The overlay the service holds for one id, with its revision.
-
-    The page does not carry the revision, so the check that the card on
-    screen is the revision the service holds has to ask the service. This
-    reads the overlay out of the read-only insights endpoint, which is the
-    same state the studio is drawing.
-    """
-    if not overlay_id:
-        return None
-    script = (
-        "fetch('/api/match/insights?seed="
-        + str(int(seed))
-        + "').then((r) => r.json()).then((j) => (j.insights || [])"
-        ".find((i) => i.overlay_id === "
-        + json.dumps(overlay_id)
-        + ") || null)"
-    )
-    overlay = await cdp.evaluate(script)
-    return overlay if isinstance(overlay, dict) else None
-
-
-async def same_card_in_locale(
-    cdp: CDP,
-    *,
-    seed: int,
-    overlay_id: str,
-    revision: int,
-    locale: str,
-) -> bool:
-    """Is the card on screen the same insight, at the service's revision,
-    in the language that was asked for?
-
-    The overlay id on its own proves very little. A card can be the same
-    insight at an older revision, and it can be that insight in another
-    language entirely. So the check reads the card off the page and the
-    overlay off the service, and asks the two to agree: the same id, a
-    revision that has not gone backwards, the same text, and the locale
-    that was requested.
-    """
-    if not overlay_id:
-        return False
-    # The card on screen is the one the English was taken from.
-    script = SAME_CARD.replace("__ID__", json.dumps(overlay_id))
-    if not await cdp.evaluate(script):
-        return False
-    shown = await cdp.evaluate(CARD_STATE)
-    if not isinstance(shown, dict):
-        return False
-    # And it is that insight exactly, not a card that happens to carry the
-    # id somewhere in its text.
-    if str(shown.get("id") or "") != overlay_id:
-        return False
-    current = await read_overlay(cdp, seed, overlay_id)
-    if current is None:
-        return False
-    if str(current.get("locale") or "") != locale:
-        return False
-    if int(current.get("revision") or 0) < int(revision or 0):
-        return False
-    # The screen shows the revision the service holds: the same text, not
-    # an older copy of it.
-    if str(current.get("body") or "").strip() != str(shown.get("body") or "").strip():
-        return False
-    # And what is on screen is written in the language that was asked for.
-    return bool(await cdp.evaluate(language_landed_script(locale)))
 
 
 async def read_substituted_cards(cdp: CDP, seed: int = 42) -> list[str]:
@@ -1483,7 +1246,7 @@ async def _pump(writer: FrameWriter) -> None:
         await asyncio.sleep(1.0 / FPS / 2)
 
 
-def build_timeline(seed: int = 42) -> Timeline:
+def build_timeline() -> Timeline:
     """The beats of the video.
 
     The order follows the plan: the problem, the studio, the explanation and
@@ -1654,67 +1417,6 @@ def build_timeline(seed: int = 42) -> Timeline:
         )
     )
 
-    # 1:03 - the language. The caption carries the English of the moment that
-    # is on screen in another language, so nothing is shown without English
-    # beside it.
-    # The English is read before the switch and shown after it, so the
-    # German on screen always has its English underneath it.
-    captured: dict[str, Any] = {}
-
-    async def grab_english(cdp: CDP) -> str:
-        text = await cdp.evaluate(READ_INSIGHT)
-        excerpt = await limit_insight(cdp, text)
-        captured["english"] = excerpt
-        captured["body"] = await cdp.evaluate(READ_BODY)
-        captured["id"] = await cdp.evaluate(READ_OVERLAY_ID)
-        # The revision the card is on now, so the check can tell an older
-        # copy of the same insight from the one the service holds.
-        overlay = await read_overlay(cdp, seed, captured.get("id", ""))
-        captured["revision"] = int((overlay or {}).get("revision") or 0)
-        return ""
-
-    async def same_card_in_german(cdp: CDP) -> bool:
-        """The card on screen is this insight, at the service's revision,
-        written in the language that was asked for."""
-        return await same_card_in_locale(
-            cdp,
-            seed=seed,
-            overlay_id=captured.get("id", ""),
-            revision=int(captured.get("revision") or 0),
-            locale="de",
-        )
-
-    async def show_english(cdp: CDP) -> str:
-        english = captured.get("english", "")
-        generic = (
-            "The interface is English. "
-            "The explanation is rewritten in the reader's language."
-        )
-        if not english:
-            return generic
-        if not await same_card_in_german(cdp):
-            # A different moment is on screen now, or it is the right
-            # moment in the wrong language or at an older revision, so the
-            # caption cannot claim to be its translation.
-            return generic
-        return f"In English: {english}"
-
-    timeline.add(
-        Shot(
-            name="the same moment in Deutsch",
-            caption=grab_english,
-            action=[SWITCH_LANGUAGE, wait_for_idle],
-            caption_after=show_english,
-            # The beat only counts when the card on screen is the same
-            # insight, at the revision the service holds, in the language
-            # that was asked for. A caption that claims a translation the
-            # screen does not show is a take that must be rejected.
-            check=same_card_in_german,
-            settle=1.5,
-            hold=5.0,
-        )
-    )
-
     # 1:11 - the stack.
     timeline.add(
         Shot(
@@ -1755,7 +1457,7 @@ def main() -> None:
     if shutil.which("ffprobe") is None:
         raise SystemExit("ffprobe is not on PATH (it ships with ffmpeg).")
 
-    timeline = build_timeline(args.seed)
+    timeline = build_timeline()
     if not timeline.shots:
         raise SystemExit("The timeline is empty.")
 
