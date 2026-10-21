@@ -1,0 +1,473 @@
+{
+  "source": "https://touchline-app.icywave-bfcbf183.germanywestcentral.azurecontainerapps.io/api/match/insights?seed=42",
+  "fetched_at": "2026-10-21T01:41:40+0000",
+  "seed": 42,
+  "approach": "pipeline",
+  "provider": "Microsoft Foundry (live deployment)",
+  "ground_truth": "locally simulated event log for the same seed (touchline.sim.generator.simulate)",
+  "caveats": [
+    "The live match is the fixed demo match (Analyst/English audience); it is not one of the 12 fixed scenarios.",
+    "Fault scenarios cannot be injected through the API, so no veto/recovery behaviour is observable here.",
+    "The single-agent baseline has no live endpoint and is not measured here."
+  ],
+  "overlays": 45,
+  "verification_success": 45,
+  "published_output_failures": 0,
+  "rows": [
+    {
+      "candidate_id": "cand-0001",
+      "overlay_id": "ovl-cand-0001",
+      "citations": 2,
+      "metrics": 3,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0002",
+      "overlay_id": "ovl-cand-0002",
+      "citations": 58,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0003",
+      "overlay_id": "ovl-cand-0003",
+      "citations": 60,
+      "metrics": 3,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0004",
+      "overlay_id": "ovl-cand-0004",
+      "citations": 61,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0005",
+      "overlay_id": "ovl-cand-0005",
+      "citations": 61,
+      "metrics": 3,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0006",
+      "overlay_id": "ovl-cand-0006",
+      "citations": 14,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0008",
+      "overlay_id": "ovl-cand-0008",
+      "citations": 16,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0011",
+      "overlay_id": "ovl-cand-0011",
+      "citations": 5,
+      "metrics": 4,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0012",
+      "overlay_id": "ovl-cand-0012",
+      "citations": 17,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0016",
+      "overlay_id": "ovl-cand-0016",
+      "citations": 59,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0017",
+      "overlay_id": "ovl-cand-0017",
+      "citations": 17,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0020",
+      "overlay_id": "ovl-cand-0020",
+      "citations": 18,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0024",
+      "overlay_id": "ovl-cand-0024",
+      "citations": 15,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0025",
+      "overlay_id": "ovl-cand-0025",
+      "citations": 58,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0027",
+      "overlay_id": "ovl-cand-0027",
+      "citations": 61,
+      "metrics": 3,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0031",
+      "overlay_id": "ovl-cand-0031",
+      "citations": 55,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0032",
+      "overlay_id": "ovl-cand-0032",
+      "citations": 50,
+      "metrics": 3,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0034",
+      "overlay_id": "ovl-cand-0034",
+      "citations": 56,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0035",
+      "overlay_id": "ovl-cand-0035",
+      "citations": 48,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0038",
+      "overlay_id": "ovl-cand-0038",
+      "citations": 24,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0039",
+      "overlay_id": "ovl-cand-0039",
+      "citations": 46,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0040",
+      "overlay_id": "ovl-cand-0040",
+      "citations": 22,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0043",
+      "overlay_id": "ovl-cand-0043",
+      "citations": 22,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0045",
+      "overlay_id": "ovl-cand-0045",
+      "citations": 22,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0046",
+      "overlay_id": "ovl-cand-0046",
+      "citations": 73,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0050",
+      "overlay_id": "ovl-cand-0050",
+      "citations": 66,
+      "metrics": 3,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0051",
+      "overlay_id": "ovl-cand-0051",
+      "citations": 32,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0053",
+      "overlay_id": "ovl-cand-0053",
+      "citations": 20,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0056",
+      "overlay_id": "ovl-cand-0056",
+      "citations": 30,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0057",
+      "overlay_id": "ovl-cand-0057",
+      "citations": 4,
+      "metrics": 4,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0062",
+      "overlay_id": "ovl-cand-0062",
+      "citations": 52,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0064",
+      "overlay_id": "ovl-cand-0064",
+      "citations": 30,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0065",
+      "overlay_id": "ovl-cand-0065",
+      "citations": 61,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0067",
+      "overlay_id": "ovl-cand-0067",
+      "citations": 33,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0069",
+      "overlay_id": "ovl-cand-0069",
+      "citations": 58,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0070",
+      "overlay_id": "ovl-cand-0070",
+      "citations": 41,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0073",
+      "overlay_id": "ovl-cand-0073",
+      "citations": 59,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0077",
+      "overlay_id": "ovl-cand-0077",
+      "citations": 58,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": [
+        {
+          "text": "32.5",
+          "context": "...p speed [32.5] m/s and sho..."
+        }
+      ]
+    },
+    {
+      "candidate_id": "cand-0078",
+      "overlay_id": "ovl-cand-0078",
+      "citations": 52,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0084",
+      "overlay_id": "ovl-cand-0084",
+      "citations": 37,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0085",
+      "overlay_id": "ovl-cand-0085",
+      "citations": 50,
+      "metrics": 2,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0093",
+      "overlay_id": "ovl-cand-0093",
+      "citations": 31,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0095",
+      "overlay_id": "ovl-cand-0095",
+      "citations": 3,
+      "metrics": 4,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "cand-0096",
+      "overlay_id": "ovl-cand-0096",
+      "citations": 61,
+      "metrics": 1,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
+      "candidate_id": "recap",
+      "overlay_id": "ovl-recap",
+      "citations": 38,
+      "metrics": 8,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    }
+  ]
+}

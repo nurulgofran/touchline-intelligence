@@ -1,0 +1,532 @@
+{
+  "evaluation": "touchline-intelligence: multi-agent pipeline vs single agent",
+  "manifest_version": "1.0.0",
+  "project_revision": "a4763a7da9b6b533768fd276115a4019f51d49f8",
+  "provider": "template",
+  "provider_label": "template (deterministic fallback -- not a model)",
+  "honest_label": "template run: proves reproducibility mechanics only; the template engine is deterministic and is never presented as Microsoft/Foundry output.",
+  "scenarios_run": 12,
+  "results": [
+    {
+      "scenario_id": "s01",
+      "approach": "pipeline",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 132,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 544.9476160000586,
+      "call_latencies_ms": [],
+      "notes": []
+    },
+    {
+      "scenario_id": "s01",
+      "approach": "single_agent",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 1,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 0.6086739999773272,
+      "call_latencies_ms": [
+        0.15056600000207254
+      ],
+      "notes": []
+    },
+    {
+      "scenario_id": "s02",
+      "approach": "pipeline",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 132,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 543.3225159999893,
+      "call_latencies_ms": [],
+      "notes": []
+    },
+    {
+      "scenario_id": "s02",
+      "approach": "single_agent",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 1,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 0.4422339999337055,
+      "call_latencies_ms": [
+        0.14792199999646982
+      ],
+      "notes": []
+    },
+    {
+      "scenario_id": "s03",
+      "approach": "pipeline",
+      "outcome": "verified_after_correction",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 133,
+      "attempts": 2,
+      "vetoes": 1,
+      "fallback_used": false,
+      "latency_ms": 598.5516429999507,
+      "call_latencies_ms": [],
+      "notes": []
+    },
+    {
+      "scenario_id": "s03",
+      "approach": "single_agent",
+      "outcome": "verified_after_correction",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 2,
+      "attempts": 2,
+      "vetoes": 1,
+      "fallback_used": false,
+      "latency_ms": 0.8414430000129869,
+      "call_latencies_ms": [
+        0.28631000009227137,
+        0.1596289999952205
+      ],
+      "notes": []
+    },
+    {
+      "scenario_id": "s04",
+      "approach": "pipeline",
+      "outcome": "fallback_published",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 133,
+      "attempts": 2,
+      "vetoes": 2,
+      "fallback_used": true,
+      "latency_ms": 607.6922760000798,
+      "call_latencies_ms": [],
+      "notes": [
+        "cand-0034: the claim was vetoed 2 times (shots: claimed 66, recomputed 2); the deterministic claim was used instead"
+      ]
+    },
+    {
+      "scenario_id": "s04",
+      "approach": "single_agent",
+      "outcome": "fallback_published",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 2,
+      "attempts": 2,
+      "vetoes": 2,
+      "fallback_used": true,
+      "latency_ms": 1.360031999979583,
+      "call_latencies_ms": [
+        0.610285999982807,
+        0.2121590000569995
+      ],
+      "notes": []
+    },
+    {
+      "scenario_id": "s05",
+      "approach": "pipeline",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 126,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 542.6152950000187,
+      "call_latencies_ms": [],
+      "notes": []
+    },
+    {
+      "scenario_id": "s05",
+      "approach": "single_agent",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 1,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 0.39579400004186027,
+      "call_latencies_ms": [
+        0.13359100000798207
+      ],
+      "notes": []
+    },
+    {
+      "scenario_id": "s06",
+      "approach": "pipeline",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 126,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 479.0203669999755,
+      "call_latencies_ms": [],
+      "notes": []
+    },
+    {
+      "scenario_id": "s06",
+      "approach": "single_agent",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 1,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 0.4984679999324726,
+      "call_latencies_ms": [
+        0.24993500005621172
+      ],
+      "notes": []
+    },
+    {
+      "scenario_id": "s07",
+      "approach": "pipeline",
+      "outcome": "fallback_published",
+      "verification": {
+        "ok": true,
+        "summary": "prose advisories: '32.6'",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": [
+          {
+            "text": "32.6",
+            "context": "...digkeit [32.6] m/s und Sch..."
+          }
+        ]
+      },
+      "model_calls": 127,
+      "attempts": 2,
+      "vetoes": 2,
+      "fallback_used": true,
+      "latency_ms": 443.46833200006586,
+      "call_latencies_ms": [],
+      "notes": [
+        "cand-0016: the claim was vetoed 2 times (max_speed_mps: the cited events are not in the log; shots: the cited events are not in the log); the deterministic claim was used instead"
+      ]
+    },
+    {
+      "scenario_id": "s07",
+      "approach": "single_agent",
+      "outcome": "fallback_published",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 2,
+      "attempts": 2,
+      "vetoes": 2,
+      "fallback_used": true,
+      "latency_ms": 0.7782280000583341,
+      "call_latencies_ms": [
+        0.26620999994975136,
+        0.17870800002128817
+      ],
+      "notes": []
+    },
+    {
+      "scenario_id": "s08",
+      "approach": "pipeline",
+      "outcome": "verified_after_correction",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 127,
+      "attempts": 2,
+      "vetoes": 1,
+      "fallback_used": false,
+      "latency_ms": 480.55341899998893,
+      "call_latencies_ms": [],
+      "notes": []
+    },
+    {
+      "scenario_id": "s08",
+      "approach": "single_agent",
+      "outcome": "verified_after_correction",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 2,
+      "attempts": 2,
+      "vetoes": 1,
+      "fallback_used": false,
+      "latency_ms": 0.783176000027197,
+      "call_latencies_ms": [
+        0.22899300006429257,
+        0.12988499997845793
+      ],
+      "notes": []
+    },
+    {
+      "scenario_id": "s09",
+      "approach": "pipeline",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 132,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 501.6214190000028,
+      "call_latencies_ms": [],
+      "notes": []
+    },
+    {
+      "scenario_id": "s09",
+      "approach": "single_agent",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 1,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 0.6025450001061472,
+      "call_latencies_ms": [
+        0.17438200006836269
+      ],
+      "notes": []
+    },
+    {
+      "scenario_id": "s10",
+      "approach": "pipeline",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 132,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 517.2104929999932,
+      "call_latencies_ms": [],
+      "notes": []
+    },
+    {
+      "scenario_id": "s10",
+      "approach": "single_agent",
+      "outcome": "verified_first_try",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 1,
+      "attempts": 1,
+      "vetoes": 0,
+      "fallback_used": false,
+      "latency_ms": 0.40591999993466743,
+      "call_latencies_ms": [
+        0.13913899999806745
+      ],
+      "notes": []
+    },
+    {
+      "scenario_id": "s11",
+      "approach": "pipeline",
+      "outcome": "verified_after_correction",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 133,
+      "attempts": 2,
+      "vetoes": 1,
+      "fallback_used": false,
+      "latency_ms": 374.2124859999194,
+      "call_latencies_ms": [],
+      "notes": []
+    },
+    {
+      "scenario_id": "s11",
+      "approach": "single_agent",
+      "outcome": "verified_after_correction",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 2,
+      "attempts": 2,
+      "vetoes": 1,
+      "fallback_used": false,
+      "latency_ms": 0.8154439999543683,
+      "call_latencies_ms": [
+        0.2862000000050102,
+        0.14658999998573563
+      ],
+      "notes": []
+    },
+    {
+      "scenario_id": "s12",
+      "approach": "pipeline",
+      "outcome": "fallback_published",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 133,
+      "attempts": 2,
+      "vetoes": 2,
+      "fallback_used": true,
+      "latency_ms": 381.89967799996793,
+      "call_latencies_ms": [],
+      "notes": [
+        "cand-0014: the claim was vetoed 2 times (player_total_distance_m: claimed 66, recomputed 3020.38); the deterministic claim was used instead"
+      ]
+    },
+    {
+      "scenario_id": "s12",
+      "approach": "single_agent",
+      "outcome": "fallback_published",
+      "verification": {
+        "ok": true,
+        "summary": "all checks passed",
+        "unknown_citations": [],
+        "metric_failures": [],
+        "prose_issues": []
+      },
+      "model_calls": 2,
+      "attempts": 2,
+      "vetoes": 2,
+      "fallback_used": true,
+      "latency_ms": 0.6245870000611831,
+      "call_latencies_ms": [
+        0.21823800000220217,
+        0.13133699997069925
+      ],
+      "notes": []
+    }
+  ],
+  "summary": {
+    "pipeline": {
+      "scenarios": 12,
+      "verification_success": 12,
+      "published_output_failures": 0,
+      "recovery_success": 6,
+      "verified_first_try": 6,
+      "verified_after_correction": 3,
+      "fallback_published": 3,
+      "total_model_calls": 1566,
+      "total_latency_ms": 6015.1
+    },
+    "single_agent": {
+      "scenarios": 12,
+      "verification_success": 12,
+      "published_output_failures": 0,
+      "recovery_success": 6,
+      "verified_first_try": 6,
+      "verified_after_correction": 3,
+      "fallback_published": 3,
+      "total_model_calls": 18,
+      "total_latency_ms": 8.2
+    }
+  }
+}

@@ -1,0 +1,212 @@
+{
+  "balance": {
+    "fault_incorrect_metric": [
+      "s04",
+      "s08",
+      "s12"
+    ],
+    "fault_unknown_citation": [
+      "s03",
+      "s07",
+      "s11"
+    ],
+    "ordinary": [
+      "s01",
+      "s02",
+      "s05",
+      "s06",
+      "s09",
+      "s10"
+    ]
+  },
+  "correction_policy": {
+    "exhaustion": "the deterministic claim is published (Explanation.from_candidate + template copy), the veto stays in the trace, a degradation is recorded",
+    "feedback": "explicit: the veto's reasons are appended to the next attempt's prompt",
+    "max_grounding_attempts": 2
+  },
+  "created": "2026-10-21",
+  "design": {
+    "approaches": {
+      "pipeline": "ExplainerAgent -> ground_claim (GroundingExecutor logic) -> NarratorAgent -> PersonalizerAgent, wired as MatchWorkflow. A vetoed claim goes back to the Explainer with the verdict reasons as feedback.",
+      "single_agent": "One chat call returns explanation AND presentation together: {reading, metrics[], cited_event_ids[], title, body}. The reply is checked by the SAME ground_claim; on rejection it is retried with the verdict reasons as feedback, up to the same attempt bound; on exhaustion the deterministic fallback overlay is published."
+    },
+    "identical_inputs": [
+      "synthetic event log from touchline.sim.generator.simulate(seed)",
+      "deterministic analyst candidates (same feed candidate by candidate_id)",
+      "audience requirements (mode + locale)",
+      "model configuration (provider, deployment)",
+      "output requirements (Overlay shape: title, body, metrics, cited_event_ids)",
+      "correction allowance: max_grounding_attempts = 2 (repo default DEFAULT_MAX_GROUNDING_ATTEMPTS), with explicit feedback (verdict reasons) after each rejection"
+    ],
+    "independent_checks": [
+      "citation validity: every cited_event_id exists in the event log",
+      "metric recomputation: each published metric recomputes from the cited events via touchline.metrics.definitions.compute_metric, same tolerance as grounding",
+      "numeric-prose consistency: numbers in title/body/reading are matched against the claimed metric values (heuristic, see methodology)"
+    ],
+    "language_rubric": "manual; see methodology.md. NOT automated in this harness.",
+    "languages": [
+      "en",
+      "de",
+      "bn"
+    ]
+  },
+  "evaluation": "touchline-intelligence: multi-agent pipeline vs single agent",
+  "faults": {
+    "incorrect_metric": "the first metric value is replaced with a wrong figure (66.0); names, sides and citations are untouched",
+    "none": "the model-facing client answers from the template engine unedited",
+    "persistence": {
+      "always": "every attempt is faulted; the attempt bound is exhausted (tests recovery-through-fallback)",
+      "once": "only the first attempt per candidate is faulted; the retry is clean (tests recovery-through-correction)"
+    },
+    "unknown_citation": "cited_event_ids are replaced with ids not present in the event log (ev-unknown-*)"
+  },
+  "project_revision_measured": "a4763a7da9b6b533768fd276115a4019f51d49f8",
+  "question": "Compare the multi-agent pipeline (Explainer -> Grounding -> Narrator -> Personalizer) against ONE agent performing explanation + presentation in a single response, under identical inputs and identical verification.",
+  "scenarios": [
+    {
+      "candidate_id": "cand-0003",
+      "fault": {
+        "kind": "none",
+        "persistence": null
+      },
+      "id": "s01",
+      "locale": "en",
+      "mode": "analyst",
+      "note": "ordinary case: PRESS_BREAK, home/away passing shape",
+      "seed": 42
+    },
+    {
+      "candidate_id": "cand-0011",
+      "fault": {
+        "kind": "none",
+        "persistence": null
+      },
+      "id": "s02",
+      "locale": "de",
+      "mode": "fan",
+      "note": "ordinary case: SET_PIECE in German for a supporter audience",
+      "seed": 42
+    },
+    {
+      "candidate_id": "cand-0031",
+      "fault": {
+        "kind": "unknown_citation",
+        "persistence": "once"
+      },
+      "id": "s03",
+      "locale": "bn",
+      "mode": "my_team",
+      "note": "controlled fault: unknown citations in Bengali, faulted once so the retry must correct it",
+      "seed": 42
+    },
+    {
+      "candidate_id": "cand-0034",
+      "fault": {
+        "kind": "incorrect_metric",
+        "persistence": "always"
+      },
+      "id": "s04",
+      "locale": "en",
+      "mode": "player",
+      "note": "controlled fault: wrong metric value on every attempt; the deterministic fallback must be published",
+      "seed": 42
+    },
+    {
+      "candidate_id": "cand-0010",
+      "fault": {
+        "kind": "none",
+        "persistence": null
+      },
+      "id": "s05",
+      "locale": "en",
+      "mode": "player",
+      "note": "ordinary case: CHANCE_CREATED, player-centred view",
+      "seed": 7
+    },
+    {
+      "candidate_id": "cand-0001",
+      "fault": {
+        "kind": "none",
+        "persistence": null
+      },
+      "id": "s06",
+      "locale": "bn",
+      "mode": "my_team",
+      "note": "ordinary case: DISCIPLINE in Bengali for the supporter's own team",
+      "seed": 7
+    },
+    {
+      "candidate_id": "cand-0016",
+      "fault": {
+        "kind": "unknown_citation",
+        "persistence": "always"
+      },
+      "id": "s07",
+      "locale": "de",
+      "mode": "fan",
+      "note": "controlled fault: unknown citations on every attempt in German; fallback expected",
+      "seed": 7
+    },
+    {
+      "candidate_id": "cand-0028",
+      "fault": {
+        "kind": "incorrect_metric",
+        "persistence": "once"
+      },
+      "id": "s08",
+      "locale": "en",
+      "mode": "analyst",
+      "note": "controlled fault: wrong metric value on the first attempt only; the retry must correct it",
+      "seed": 7
+    },
+    {
+      "candidate_id": "cand-0007",
+      "fault": {
+        "kind": "none",
+        "persistence": null
+      },
+      "id": "s09",
+      "locale": "en",
+      "mode": "analyst",
+      "note": "ordinary case: PRESS_BREAK",
+      "seed": 99
+    },
+    {
+      "candidate_id": "cand-0012",
+      "fault": {
+        "kind": "none",
+        "persistence": null
+      },
+      "id": "s10",
+      "locale": "de",
+      "mode": "fan",
+      "note": "ordinary case: CHANCE_CREATED in German",
+      "seed": 99
+    },
+    {
+      "candidate_id": "cand-0002",
+      "fault": {
+        "kind": "unknown_citation",
+        "persistence": "once"
+      },
+      "id": "s11",
+      "locale": "bn",
+      "mode": "player",
+      "note": "controlled fault: unknown citations in Bengali on the first attempt; retry must correct",
+      "seed": 99
+    },
+    {
+      "candidate_id": "cand-0014",
+      "fault": {
+        "kind": "incorrect_metric",
+        "persistence": "always"
+      },
+      "id": "s12",
+      "locale": "en",
+      "mode": "my_team",
+      "note": "controlled fault: wrong metric value on every attempt; fallback expected",
+      "seed": 99
+    }
+  ],
+  "version": "1.0.0"
+}
