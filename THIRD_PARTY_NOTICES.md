@@ -54,7 +54,9 @@ Microsoft Foundry client. It must not be removed from the lockfile.
   trademarks, logos, wordmarks, badges, or crests appear in the source, the UI, or the demo
   video.
 - **The video feed is rendered from our own simulation.** It contains no broadcast footage.
-- **No copyrighted music** is used in the demo video.
+- **No copyrighted music** is used in the demo video. The optional music version
+  uses “First Light Particles” by Yoiyami, released under CC0 1.0 Universal.
+  Source, licence and courtesy credit: [`submission/MUSIC.md`](./submission/MUSIC.md).
 - The only non-original assets in the repository are the screenshots and diagram in the README and
   the architecture diagram, all produced from this project, and the two self-hosted open-licence
   typefaces listed above.

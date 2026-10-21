@@ -20,6 +20,14 @@ Cleanup restored Analyst/English and verified the feed had settled.
 The owner selected delivery of the MP4 for manual upload. It has **not** been
 published, and there is no public video URL yet.
 
+## Optional version with music
+
+A separate CC0 piano/ambient mix is available at
+`build/touchline-demo-with-music.mp4`. It preserves every video frame from the
+silent take and adds quiet music with fades. See [MUSIC.md](./MUSIC.md) for the
+creator, licence, optional description credit and verification. The silent take
+described below remains available.
+
 ## What it is
 
 A silent, captioned recording of the live deployment, made with Chrome DevTools
