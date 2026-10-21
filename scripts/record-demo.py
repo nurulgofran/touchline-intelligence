@@ -447,7 +447,7 @@ SWITCH_LANGUAGE = """
 """
 
 
-async def wait_for_idle(cdp: CDP, quiet_ms: int = 200, timeout: float = 150.0) -> bool:
+async def wait_for_idle(cdp: CDP, quiet_ms: int = 200, timeout: float = 30.0) -> bool:
     """Wait for the page's main thread to go quiet.
 
     A re-narration arrives as a burst of overlay frames, and each one
@@ -456,6 +456,11 @@ async def wait_for_idle(cdp: CDP, quiet_ms: int = 200, timeout: float = 150.0) -
     a millisecond takes twenty. So the wait measures the round trip rather
     than guessing at it, and it wants three quiet samples in a row, because
     a burst has gaps in it.
+
+    The wait is short on purpose. The page goes quiet within a second or
+    two of a burst ending, and a wait that runs long is a take that runs
+    long: the video is under two minutes and a beat that waits for
+    nothing is a beat that spends the video.
     """
     deadline = time.time() + timeout
     quiet = 0

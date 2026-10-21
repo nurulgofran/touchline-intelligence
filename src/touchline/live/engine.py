@@ -249,7 +249,6 @@ class LiveMatchEngine:
         self._overlays: list[Overlay] = []
         self._recap: Overlay | None = None
         self._revision = 0
-        self._feed_version = 0
         self._computed_ms = 0
         self._task: asyncio.Task[None] | None = None
         self._rewrite_task: asyncio.Task[None] | None = None
@@ -391,16 +390,6 @@ class LiveMatchEngine:
     def overlays(self) -> list[Overlay]:
         """Every overlay computed so far, in clock order."""
         return list(self._overlays)
-
-    @property
-    def feed_version(self) -> int:
-        """How many times the feed has been rewritten.
-
-        The session walks the feed from the start whenever this changes,
-        because a rewritten card keeps its id: the reader sees the same
-        moment again, written for somebody else.
-        """
-        return self._feed_version
 
     @property
     def rewriting(self) -> bool:
@@ -678,10 +667,8 @@ class LiveMatchEngine:
         for index, current in enumerate(self._overlays):
             if current.overlay_id == overlay.overlay_id:
                 self._overlays[index] = overlay
-                self._feed_version += 1
                 return
         self._overlays.append(overlay)
-        self._feed_version += 1
 
     def _replace_recap(self) -> None:
         """Write the full-time card again, for the reader who is here now.
@@ -698,10 +685,8 @@ class LiveMatchEngine:
         for index, overlay in enumerate(self._overlays):
             if overlay.type is OverlayType.RECAP:
                 self._overlays[index] = recap
-                self._feed_version += 1
                 return
         self._overlays.append(recap)
-        self._feed_version += 1
 
     def _cited_events(self, candidate: InsightCandidate) -> list[MatchEvent]:
         """The events one candidate cites, as the shared state holds them."""

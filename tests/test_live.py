@@ -268,14 +268,15 @@ def test_a_superseded_rewrite_does_not_land() -> None:
 def test_the_session_shows_the_rewritten_cards() -> None:
     """The viewer is shown the same moments, written for somebody else.
 
-    A rewritten card keeps its id, so the session has to walk the feed
-    again when the rewrite lands. If it did not, the viewer would keep
-    looking at the copy they had already seen.
+    A rewritten card keeps its id and carries a higher revision, so the
+    session sends it again and the studio tells the two apart. If the
+    rewritten card were not sent, the viewer would keep looking at the
+    copy they had already seen.
     """
     from touchline.live.engine import LiveMatchEngine
     from touchline.models.audience import Audience, AudienceMode
 
-    async def run() -> tuple[list[str], list[str]]:
+    async def run() -> tuple[list[tuple[str, int]], list[tuple[str, int]]]:
         engine = LiveMatchEngine(seed=SEED, client=TemplateChatClient())
         assert await engine.wait_for(engine.duration_ms, timeout=180)
         session = LiveSession(engine=engine)
@@ -283,7 +284,7 @@ def test_the_session_shows_the_rewritten_cards() -> None:
         session.seek(engine.duration_ms)
 
         before = [
-            frame["overlay"]["title"]
+            (frame["overlay"]["overlay_id"], frame["overlay"]["revision"])
             for frame in session.tick()
             if frame["type"] == "overlay"
         ]
@@ -292,7 +293,7 @@ def test_the_session_shows_the_rewritten_cards() -> None:
         )
         assert await engine.wait_for_rewrite(timeout=60)
         after = [
-            frame["overlay"]["title"]
+            (frame["overlay"]["overlay_id"], frame["overlay"]["revision"])
             for frame in session.tick()
             if frame["type"] == "overlay"
         ]
@@ -302,7 +303,39 @@ def test_the_session_shows_the_rewritten_cards() -> None:
     before, after = asyncio.run(run())
     assert before, "the session showed nothing"
     assert after, "the rewritten cards were never shown"
-    assert len(after) == len(before), "the feed lost a card"
+    assert [card for card, _ in after] == [card for card, _ in before], (
+        "the feed lost a card"
+    )
+    assert all(
+        new > old for (_, old), (_, new) in zip(before, after, strict=True)
+    ), "the rewritten cards were sent with the old revision"
+
+
+def test_the_session_sends_each_version_of_a_card_once() -> None:
+    """A card is not sent over and over.
+
+    The session used to walk the feed again from the start whenever a
+    card was rewritten, so the whole feed was sent again for every card
+    the rewrite published -- one card at a time, so the whole feed, over
+    and over. The browser was busy for minutes and the studio's own
+    "is it working?" signal never went quiet.
+    """
+    from touchline.live.engine import LiveMatchEngine
+
+    async def run() -> tuple[int, int]:
+        engine = LiveMatchEngine(seed=SEED, client=TemplateChatClient())
+        assert await engine.wait_for(engine.duration_ms, timeout=180)
+        session = LiveSession(engine=engine)
+        session.pause()
+        session.seek(engine.duration_ms)
+        first = len([f for f in session.tick() if f["type"] == "overlay"])
+        second = len([f for f in session.tick() if f["type"] == "overlay"])
+        await engine.close()
+        return first, second
+
+    first, second = asyncio.run(run())
+    assert first > 0, "the session showed nothing"
+    assert second == 0, f"the session sent the feed again ({second} cards)"
 
 
 def test_the_rewrite_starts_where_the_reader_is_looking() -> None:

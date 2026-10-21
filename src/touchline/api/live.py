@@ -203,15 +203,13 @@ class LiveSession:
 
     _last_tick: float = field(default_factory=time.monotonic)
     _event_cursor: int = 0
-    _overlay_cursor: int = 0
     _momentum_cursor: int = 0
     _trace_cursor: int = 0
-    _feed_version: int = 0
     _audience_key: str = ""
     _rewriting: bool = False
     _events: list[Any] = field(default_factory=list)
     _momentum: list[Any] = field(default_factory=list)
-    _seen_overlays: set[str] = field(default_factory=set)
+    _seen_overlays: set[tuple[str, int]] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         """Take a copy of what the session walks through."""
@@ -240,7 +238,6 @@ class LiveSession:
         """Start the match again from the beginning."""
         self.clock_ms = 0.0
         self._event_cursor = 0
-        self._overlay_cursor = 0
         self._momentum_cursor = 0
         self._trace_cursor = 0
         self._seen_overlays.clear()
@@ -417,31 +414,26 @@ class LiveSession:
     def _overlay_frames(self, clock: int) -> list[dict[str, object]]:
         """The insights the clock has just reached.
 
-        An overlay that arrives after the clock has passed its moment is
-        still shown: the clock does not wait for the model, the model
-        catches up with the clock. That is the difference between a live
-        feed that stalls and one that does not.
+        Each version of each card is sent once. A rewritten card keeps
+        its id and carries a higher revision, so the studio can tell a
+        new copy of a moment from the old one -- and the studio is what
+        decides which cards are on screen, by the clock it is at.
 
-        When the reader changes, the feed is rewritten and every card
-        keeps its id, so the walk starts again: the viewer is shown the
-        same moments, written for somebody else.
+        The session used to walk the feed again from the start whenever
+        a card was rewritten, which sent the whole feed again for every
+        card the rewrite published. A rewrite publishes one card at a
+        time, so that was the whole feed, over and over, and the browser
+        was busy for minutes.
         """
         frames: list[dict[str, object]] = []
-        if self.engine.feed_version != self._feed_version:
-            self._feed_version = self.engine.feed_version
-            self._overlay_cursor = 0
-            self._seen_overlays.clear()
-        overlays = self.engine.overlays
-        while self._overlay_cursor < len(overlays):
-            overlay = overlays[self._overlay_cursor]
-            self._overlay_cursor += 1
-            if overlay.overlay_id in self._seen_overlays:
+        for overlay in self.engine.overlays:
+            key = (overlay.overlay_id, overlay.revision)
+            if key in self._seen_overlays:
                 continue
             if overlay.match_clock_ms > clock:
-                # Not yet. Put it back for the next tick.
-                self._overlay_cursor -= 1
-                break
-            self._seen_overlays.add(overlay.overlay_id)
+                # Not yet. The clock will come to it.
+                continue
+            self._seen_overlays.add(key)
             frames.append(
                 {
                     "type": "overlay",

@@ -207,6 +207,89 @@ async def check_websocket(base: str, report: Report, seconds: int) -> None:
             f"keys={sorted(hello)[:6]}",
         )
 
+    await check_reader(base, report)
+
+
+async def check_reader(base: str, report: Report) -> None:
+    """Change the reader, and check that the service answers at once.
+
+    The reader is the service's state, so a control that says "write it
+    in English" has to be answered with English -- and answered *at
+    once*. A service that waits for the whole rewrite before it answers
+    cannot answer a second control at all if the socket is cut first,
+    which is how a reader change used to be lost.
+    """
+    report.section("The reader")
+
+    url = base.replace("https://", "wss://").replace("http://", "ws://") + WS_PATH
+
+    try:
+        async with websockets.connect(url, open_timeout=20.0) as socket:
+            hello = json.loads(await asyncio.wait_for(socket.recv(), timeout=20.0))
+            was = hello.get("audience") or {}
+            current = was.get("locale")
+            wanted = "bn" if current != "bn" else "de"
+
+            await socket.send(
+                json.dumps(
+                    {
+                        "type": "control",
+                        "action": "audience",
+                        "value": {
+                            "mode": "analyst",
+                            "locale": wanted,
+                            "side": None,
+                            "player_id": None,
+                            "player_name": None,
+                            "metric": None,
+                        },
+                    }
+                )
+            )
+
+            deadline = time.monotonic() + 15.0
+            applied = None
+            while time.monotonic() < deadline:
+                try:
+                    raw = await asyncio.wait_for(socket.recv(), timeout=5.0)
+                except TimeoutError:
+                    break
+                frame = json.loads(raw)
+                if frame.get("type") == "audience":
+                    applied = (frame.get("audience") or {}).get("locale")
+                    if applied:
+                        break
+
+            # The reader is the service's state and it is shared, so it
+            # is put back the way it was found. A judge should find the
+            # default, not the language a check left behind.
+            if current:
+                await socket.send(
+                    json.dumps(
+                        {
+                            "type": "control",
+                            "action": "audience",
+                            "value": {
+                                "mode": was.get("mode", "analyst"),
+                                "locale": current,
+                                "side": was.get("side"),
+                                "player_id": was.get("player_id"),
+                                "player_name": was.get("player_name"),
+                                "metric": was.get("metric"),
+                            },
+                        }
+                    )
+                )
+    except Exception as exc:
+        report.check("the reader can be changed", False, repr(exc))
+        return
+
+    report.check(
+        "the reader can be changed",
+        applied == wanted,
+        f"asked for {wanted}, the service is in {applied}",
+    )
+
 
 async def main() -> int:
     """Run every check against the URL.
