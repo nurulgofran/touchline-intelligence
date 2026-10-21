@@ -50,6 +50,12 @@ export interface ProviderState {
   last_call_at: string | null;
   call_count: number;
   fallback_count: number;
+  /**
+   * How many times validated prose was rejected and replaced with
+   * deterministic copy. Kept separate from the model-call counts: the
+   * call was served, but its words failed the figure check.
+   */
+  substitution_count: number;
 }
 
 /** One entry of the match log. */
@@ -116,6 +122,22 @@ export interface Overlay {
    * one.
    */
   revision?: number;
+  /**
+   * Which provider served the call that wrote this card's prose, if a
+   * model was asked. Null when the card is fully deterministic.
+   */
+  provenance_provider?: string | null;
+  /**
+   * Whether the model's prose was rejected by the figure check and
+   * replaced with deterministic copy in the requested audience and
+   * language. The studio labels such a card.
+   */
+  prose_substituted?: boolean;
+  /**
+   * Whether the card's prose is fully deterministic - no model call
+   * behind it. The full-time recap is deterministic.
+   */
+  deterministic_prose?: boolean;
 }
 
 /**
@@ -138,6 +160,11 @@ export interface Handoff {
   summary: string;
   candidate_id: string | null;
   accepted: boolean | null;
+  /**
+   * Which provider served the model call behind this hand-off, when there
+   * was one. Provenance, not a claim.
+   */
+  provider?: string | null;
 }
 
 /** One point on the momentum curve. */
@@ -315,6 +342,13 @@ export interface LensMetric {
 /** The audiences, the languages, the squad and the metrics. */
 export interface AudienceOptions {
   audience: Audience;
+  /** Whether the feed is still being rewritten for that reader. */
+  rewriting?: boolean;
+  /**
+   * Why the last rewrite did not finish, in one line. Null when the last
+   * rewrite finished or none was asked for.
+   */
+  rewrite_error?: string | null;
   modes: Choice[];
   locales: Choice[];
   teams: Array<{ side: Side; name: string; short_name: string }>;
@@ -374,6 +408,11 @@ export interface InsightsPayload {
     metrics: MetricValue[];
     cited_event_ids: string[];
     confidence: number;
+    locale: string;
+    revision: number;
+    provenance_provider?: string | null;
+    prose_substituted?: boolean;
+    deterministic_prose?: boolean;
   }>;
 }
 

@@ -462,6 +462,9 @@ def build_recap(
         locale=locale,
         mode=audience.mode.value,
         overlay_type=OverlayType.RECAP,
+        # The recap is deterministic: no model is asked to write it, so
+        # the card says so about itself.
+        deterministic_prose=True,
     )
 
 

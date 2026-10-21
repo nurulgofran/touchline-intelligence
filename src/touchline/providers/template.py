@@ -661,6 +661,9 @@ def build_overlay(
     mode: str = "analyst",
     overlay_type: OverlayType | None = None,
     revision: int = 0,
+    provenance_provider: str | None = None,
+    prose_substituted: bool = False,
+    deterministic_prose: bool = False,
 ) -> Overlay:
     """Assemble an overlay around copy that has already been written.
 
@@ -682,6 +685,12 @@ def build_overlay(
         revision: Which version of this overlay this is. The audience can
             change without the moment changing, so the card keeps its id and
             carries a number instead.
+        provenance_provider: Which provider served the call that wrote the
+            prose, if a model was asked.
+        prose_substituted: Whether the model's prose was rejected by the
+            figure check and replaced with deterministic copy.
+        deterministic_prose: Whether the prose is fully deterministic --
+            no model call behind it.
 
     Returns:
         The overlay, carrying the candidate's citations.
@@ -704,6 +713,9 @@ def build_overlay(
         locale=resolved_locale,
         confidence=candidate.confidence,
         revision=revision,
+        provenance_provider=provenance_provider,
+        prose_substituted=prose_substituted,
+        deterministic_prose=deterministic_prose,
     )
 
 

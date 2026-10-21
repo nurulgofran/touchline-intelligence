@@ -25,6 +25,7 @@ from typing import Any
 from touchline.models.claims import ClaimedBaseline, ClaimedMetric, Explanation
 from touchline.models.events import TeamSide
 from touchline.models.insights import InsightCandidate
+from touchline.providers import attribution
 from touchline.providers.payload import (
     TASK_EXPLAIN,
     decode_payload,
@@ -323,7 +324,13 @@ class ExplainerAgent:
             mode=mode,
             reading=feedback,
         )
-        response = await self._agent.run(prompt)
+        # The call is attributed to this request: the stage and the
+        # candidate travel in the task's context, so the provider status
+        # can say which request each result belonged to.
+        with attribution.request_context(
+            stage="explainer", candidate_id=candidate.candidate_id
+        ):
+            response = await self._agent.run(prompt)
         text = getattr(response, "text", "") or ""
         explanation = self._parse(candidate, text)
 

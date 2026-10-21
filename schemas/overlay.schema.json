@@ -84,6 +84,31 @@
       "type": "integer",
       "minimum": 0,
       "default": 0
+    },
+    "provenance_provider": {
+      "title": "Provenance Provider",
+      "description": "Which provider served the call that wrote this card's prose, if a model was asked. None when the card is fully deterministic. This is provenance, not a claim: the badge still shows the provider of the last call overall.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "prose_substituted": {
+      "title": "Prose Substituted",
+      "description": "Whether the model's prose was rejected by the figure check and replaced with deterministic copy in the requested audience and language. The studio labels such a card, because its words are not the model's.",
+      "type": "boolean",
+      "default": false
+    },
+    "deterministic_prose": {
+      "title": "Deterministic Prose",
+      "description": "Whether the card's prose is fully deterministic -- no model call behind it. The full-time recap is deterministic, and the studio labels it as such.",
+      "type": "boolean",
+      "default": false
     }
   },
   "required": [

@@ -14,7 +14,10 @@ import type { ProviderState } from "../types";
  *   two contradictory things at once.
  * - With a model configured, the label is the provider that served the
  *   **last** call, or the configured provider if no call has been made yet,
- *   and the chip says whether that call was live or a fallback.
+ *   and the chip says whether that call was live or a fallback. The
+ *   configured provider is shown separately, as small static text, so the
+ *   two facts never contradict each other: the big name is what answered,
+ *   the small name is what the service intends to use.
  */
 
 export interface ProviderBadgeProps {
@@ -98,6 +101,14 @@ export default function ProviderBadge({ provider }: ProviderBadgeProps) {
         <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/60 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
           <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
           fallback
+        </span>
+      )}
+      {provider.model_configured && (
+        <span
+          className="max-w-[12rem] truncate text-[10px] text-studio-500"
+          title="The provider the service is configured to use."
+        >
+          configured: {provider.configured_provider}
         </span>
       )}
     </div>

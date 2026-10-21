@@ -99,6 +99,22 @@ export default function OverlayFeed({
               <span className="rounded border border-studio-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-studio-400">
                 {overlay.type}
               </span>
+              {overlay.deterministic_prose && (
+                <span
+                  className="rounded border border-studio-600 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-studio-400"
+                  title="No model call behind this card: its prose is deterministic."
+                >
+                  deterministic
+                </span>
+              )}
+              {overlay.prose_substituted && !overlay.deterministic_prose && (
+                <span
+                  className="rounded border border-sky-500/50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-sky-300"
+                  title="The model's prose was rejected by the figure check, so this card shows deterministic copy instead."
+                >
+                  deterministic copy
+                </span>
+              )}
               <span className="ml-auto font-mono text-[10px] text-studio-600">
                 {overlay.overlay_id}
               </span>

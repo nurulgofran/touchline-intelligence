@@ -221,8 +221,12 @@ function insightToOverlay(
     body: insight.body,
     metrics: insight.metrics,
     cited_event_ids: insight.cited_event_ids,
-    locale: "en",
+    locale: insight.locale ?? "en",
     confidence: insight.confidence,
+    revision: insight.revision ?? 0,
+    provenance_provider: insight.provenance_provider ?? null,
+    prose_substituted: insight.prose_substituted ?? false,
+    deterministic_prose: insight.deterministic_prose ?? false,
   };
 }
 

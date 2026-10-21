@@ -69,10 +69,27 @@ from touchline.orchestration.messages import (
     MatchIngested,
     MatchLoaded,
 )
-from touchline.providers import template
+from touchline.providers import attribution, template
+from touchline.providers import status as provider_status
 from touchline.state.store import MatchStateStore
 
 logger = logging.getLogger(__name__)
+
+
+def _serving_provider(stage: str, candidate_id: str) -> str | None:
+    """Which provider served the stage's call for one insight.
+
+    The provider result is read straight after the call, in the same
+    task, so the last matching record is that call's. ``None`` when the
+    stage made no provider call -- a test double, or a deterministic
+    path -- in which case the hand-off carries no provenance.
+    """
+    call = provider_status.last_call_for(
+        stage=stage,
+        candidate_id=candidate_id,
+        revision=attribution.current().revision,
+    )
+    return call.provider if call is not None else None
 
 __all__ = [
     "STAGE_ANALYST",
@@ -396,6 +413,7 @@ class ExplainerExecutor(Executor):
             f"{candidate.candidate_id}: claim on "
             f"{len(explanation.cited_event_ids)} events",
             candidate_id=candidate.candidate_id,
+            provider=_serving_provider(STAGE_EXPLAINER, candidate.candidate_id),
         )
         await ctx.send_message(
             InsightExplained(
@@ -656,6 +674,7 @@ class NarratorExecutor(Executor):
             "narration",
             f"{candidate.candidate_id}: {narration.title}",
             candidate_id=candidate.candidate_id,
+            provider=_serving_provider(STAGE_NARRATOR, candidate.candidate_id),
         )
         await ctx.send_message(
             InsightNarrated(candidate=candidate, narration=narration),
@@ -735,6 +754,9 @@ class PersonalizerExecutor(Executor):
             "overlay",
             f"{message.candidate.candidate_id}: {overlay.title}",
             candidate_id=message.candidate.candidate_id,
+            provider=_serving_provider(
+                STAGE_PERSONALIZER, message.candidate.candidate_id
+            ),
         )
         await ctx.yield_output(
             InsightPersonalised(candidate=message.candidate, overlay=overlay)

@@ -28,7 +28,8 @@ from typing import Any
 from touchline.agents.figures import check_figures
 from touchline.models.claims import Explanation, Narration
 from touchline.models.insights import InsightCandidate
-from touchline.providers import template
+from touchline.providers import attribution, template
+from touchline.providers import status as provider_status
 from touchline.providers.payload import (
     TASK_NARRATE,
     encode_payload,
@@ -194,6 +195,7 @@ class NarratorAgent:
         )
         self._explainer_client = explainer_client
         self._degradations: list[str] = []
+        self._substitutions: list[str] = []
 
     @property
     def agent(self) -> Any:
@@ -215,14 +217,26 @@ class NarratorAgent:
 
     @property
     def degradations(self) -> list[str]:
-        """Every time the Narrator had to fall back on the template engine.
+        """Every time the Narrator's A2A hop could not be made.
 
-        Two things land here: an A2A hop that could not be made, and a copy
-        that carried a figure the event log does not hold. Both are worth
-        showing in the trace -- a judge watching the feed should be able to
-        see the system noticing its own model misbehaving.
+        This is only the call failing. A call that was served but whose
+        copy carried a figure the event log does not hold is a
+        substitution, not a failure, and it is recorded separately -- see
+        :attr:`substitutions`.
         """
         return list(self._degradations)
+
+    @property
+    def substitutions(self) -> list[str]:
+        """Every time validated prose was rejected and replaced.
+
+        The grounding step checked the *claim*; the guard checks the prose
+        around it. When the prose carries a figure the log does not hold,
+        deterministic copy in the requested language and mode is used
+        instead, and the substitution is recorded here and in the
+        provider status, separately from model-call failures.
+        """
+        return list(self._substitutions)
 
     async def reading_for(
         self,
@@ -303,7 +317,13 @@ class NarratorAgent:
             mode=mode,
             reading=reading,
         )
-        response = await self._agent.run(prompt)
+        # The call is attributed to this request: the stage and the
+        # candidate travel in the task's context, so the provider status
+        # can say which request each result belonged to.
+        with attribution.request_context(
+            stage="narrator", candidate_id=candidate.candidate_id
+        ):
+            response = await self._agent.run(prompt)
         text = getattr(response, "text", "") or ""
         narration = parse_narration(
             text,
@@ -342,7 +362,8 @@ class NarratorAgent:
             "the Narrator's copy carries figures the event log does not: "
             + ", ".join(f"{value:g}" for value in unsupported)
         )
-        self._degradations.append(reason)
+        self._substitutions.append(reason)
+        provider_status.record_substitution()
         logger.warning("%s; using the template engine's copy instead", reason)
         return deterministic_narration(candidate, locale=locale, mode=mode)
 

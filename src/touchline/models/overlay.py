@@ -55,6 +55,32 @@ class Overlay(BaseModel):
             "card from the old one."
         ),
     )
+    provenance_provider: str | None = Field(
+        default=None,
+        description=(
+            "Which provider served the call that wrote this card's prose, "
+            "if a model was asked. None when the card is fully "
+            "deterministic. This is provenance, not a claim: the badge "
+            "still shows the provider of the last call overall."
+        ),
+    )
+    prose_substituted: bool = Field(
+        default=False,
+        description=(
+            "Whether the model's prose was rejected by the figure check "
+            "and replaced with deterministic copy in the requested "
+            "audience and language. The studio labels such a card, "
+            "because its words are not the model's."
+        ),
+    )
+    deterministic_prose: bool = Field(
+        default=False,
+        description=(
+            "Whether the card's prose is fully deterministic -- no model "
+            "call behind it. The full-time recap is deterministic, and "
+            "the studio labels it as such."
+        ),
+    )
 
 
 class OverlayBundle(BaseModel):

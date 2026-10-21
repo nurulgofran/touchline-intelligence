@@ -99,6 +99,11 @@ async def insights(seed: int = Query(default=42)) -> dict[str, Any]:
                 ],
                 "cited_event_ids": list(overlay.cited_event_ids),
                 "confidence": overlay.confidence,
+                "locale": overlay.locale,
+                "revision": overlay.revision,
+                "provenance_provider": overlay.provenance_provider,
+                "prose_substituted": overlay.prose_substituted,
+                "deterministic_prose": overlay.deterministic_prose,
             }
             for overlay in overlays
         ],

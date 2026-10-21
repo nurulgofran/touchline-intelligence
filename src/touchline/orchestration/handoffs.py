@@ -44,6 +44,14 @@ class Handoff(BaseModel):
             "veto records False here."
         ),
     )
+    provider: str | None = Field(
+        default=None,
+        description=(
+            "Which provider served the model call behind this hand-off, "
+            "when there was one. Provenance, not a claim: it names the "
+            "provider that actually answered."
+        ),
+    )
 
 
 class HandoffTrace:
@@ -65,6 +73,7 @@ class HandoffTrace:
         *,
         candidate_id: str | None = None,
         accepted: bool | None = None,
+        provider: str | None = None,
     ) -> Handoff:
         """Record one hand-off.
 
@@ -75,6 +84,8 @@ class HandoffTrace:
             summary: One line about what was handed over.
             candidate_id: The insight this is about.
             accepted: Whether the receiving stage accepted it.
+            provider: Which provider served the model call behind this
+                hand-off, when there was one.
 
         Returns:
             The recorded hand-off.
@@ -87,6 +98,7 @@ class HandoffTrace:
             summary=summary,
             candidate_id=candidate_id,
             accepted=accepted,
+            provider=provider,
         )
         self._handoffs.append(handoff)
         return handoff

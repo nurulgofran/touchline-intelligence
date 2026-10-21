@@ -62,7 +62,7 @@ from touchline.models.insights import InsightCandidate
 from touchline.models.overlay import Overlay, OverlayType
 from touchline.orchestration.handoffs import Handoff, HandoffTrace
 from touchline.orchestration.workflow import FeedCursor, MatchWorkflow
-from touchline.providers import foundry
+from touchline.providers import attribution, foundry
 from touchline.providers import status as provider_status
 from touchline.sim.generator import simulate, team_names
 from touchline.sim.teams import build_teams
@@ -117,6 +117,17 @@ class StretchResult:
             if narration.candidate_id == candidate_id:
                 return narration
         return None
+
+
+def _overlay_candidate_id(overlay_id: str) -> str:
+    """The insight id behind an overlay id.
+
+    The overlay is named after the insight it came from. (The API layer
+    has its own copy; this module cannot import it without a cycle.)
+    """
+    if overlay_id.startswith("ovl-"):
+        return overlay_id[4:]
+    return overlay_id
 
 
 def _concise_error(exc: BaseException) -> str:
@@ -734,13 +745,32 @@ class LiveMatchEngine:
 
                 async def rewrite(candidate: Any, narration: Any) -> Overlay:
                     async with limit:
-                        return await self._personalizer.personalise(
-                            candidate,
-                            narration,
-                            audience=audience,
-                            events=self._cited_events(candidate),
+                        # The call is attributed to this request: the
+                        # stage, the candidate and the audience revision
+                        # travel in the task's context, so concurrent
+                        # rewrites cannot mix attribution.
+                        with attribution.request_context(
+                            stage="personalizer",
+                            candidate_id=candidate.candidate_id,
+                            revision=revision,
+                        ):
+                            overlay = await self._personalizer.personalise(
+                                candidate,
+                                narration,
+                                audience=audience,
+                                events=self._cited_events(candidate),
+                                revision=revision,
+                            )
+                        call = provider_status.last_call_for(
+                            stage="personalizer",
+                            candidate_id=candidate.candidate_id,
                             revision=revision,
                         )
+                        if call is not None:
+                            overlay = overlay.model_copy(
+                                update={"provenance_provider": call.provider}
+                            )
+                        return overlay
 
                 # Each card goes on the screen as it is written, rather
                 # than the whole feed at the end. A rewrite is one call
@@ -805,6 +835,30 @@ class LiveMatchEngine:
                 # the feed is finished.
                 self._rewrite_error = _concise_error(exc)
                 self._active_key = None
+
+    def _stamp_provenance(self, overlay: Overlay) -> Overlay:
+        """Stamp a card with the provider that wrote its prose.
+
+        The provider result is read straight after the graph ran, so the
+        last matching record is the personaliser's call for this card.
+        The revision is stamped too: it is this stretch's, and the card
+        keeps it until a rewrite replaces it.
+
+        Args:
+            overlay: The card, as the graph yielded it.
+
+        Returns:
+            The card, with its revision and its provenance.
+        """
+        update: dict[str, object] = {"revision": self._revision}
+        call = provider_status.last_call_for(
+            stage="personalizer",
+            candidate_id=_overlay_candidate_id(overlay.overlay_id),
+            revision=self._revision,
+        )
+        if call is not None:
+            update["provenance_provider"] = call.provider
+        return overlay.model_copy(update=update)
 
     def _publish(self, overlay: Overlay, revision: int) -> bool:
         """Put one rewritten card on the screen, where it was.
@@ -979,8 +1033,12 @@ class LiveMatchEngine:
                 mode=audience.mode.value,
                 audience=audience,
             )
-            run = await workflow.run(events, match_id=self._match_id)
-
+            # The audience revision travels in the task's context, so every
+            # provider call the graph makes is attributed to this stretch's
+            # revision. The agents narrow the stage and the candidate
+            # around their own calls, inheriting the revision from here.
+            with attribution.request_context(revision=self._revision):
+                run = await workflow.run(events, match_id=self._match_id)
             degradations = [
                 *workflow.local_degradations,
                 *self._narrator.degradations[narrator_before:],
@@ -988,7 +1046,7 @@ class LiveMatchEngine:
                 *self._client_degradations(client_before),
             ]
             overlays = [
-                overlay.model_copy(update={"revision": self._revision})
+                self._stamp_provenance(overlay)
                 for overlay in run.overlays
             ]
             self._results.append(

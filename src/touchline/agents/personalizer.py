@@ -49,7 +49,8 @@ from touchline.models.claims import Narration
 from touchline.models.events import MatchEvent, TeamSide
 from touchline.models.insights import InsightCandidate
 from touchline.models.overlay import Overlay
-from touchline.providers import template
+from touchline.providers import attribution, template
+from touchline.providers import status as provider_status
 from touchline.providers.payload import (
     TASK_PERSONALISE,
     encode_payload,
@@ -141,6 +142,7 @@ class PersonalizerAgent:
         self._metric: str | None = None
         self._team_names: dict[TeamSide, str] = dict(team_names or {})
         self._degradations: list[str] = []
+        self._substitutions: list[str] = []
 
     @property
     def agent(self) -> Any:
@@ -149,14 +151,28 @@ class PersonalizerAgent:
 
     @property
     def degradations(self) -> list[str]:
-        """Every time the Personaliser had to fall back on the narration.
+        """Every time the Personaliser's model call failed.
+
+        This is only the call failing. A call that was served but whose
+        prose was rejected by the figure check is a substitution, not a
+        failure, and it is recorded separately -- see
+        :attr:`substitutions`.
+        """
+        return list(self._degradations)
+
+    @property
+    def substitutions(self) -> list[str]:
+        """Every time validated prose was rejected and replaced.
 
         The copy the Personaliser writes is checked the same way the
         Narrator's is: a figure in the prose has to be a figure the event
-        log already carries. When it is not, the narration's own copy is
-        used instead, and the fallback is recorded rather than hidden.
+        log already carries. When it is not, deterministic copy in the
+        requested audience and language is used instead -- not the
+        narration's copy from an earlier stage, which may be in the wrong
+        language -- and the substitution is recorded here and in the
+        provider status, separately from model-call failures.
         """
-        return list(self._degradations)
+        return list(self._substitutions)
 
     @property
     def audience(self) -> Audience:
@@ -256,7 +272,15 @@ class PersonalizerAgent:
                 "AUDIENCE_METRIC": resolved.metric or "-",
             },
         )
-        response = await self._agent.run(prompt)
+        # The call is attributed to this request: the stage, the candidate
+        # and the audience revision travel in the task's context, so the
+        # provider status can say which request each result belonged to.
+        with attribution.request_context(
+            stage="personalizer",
+            candidate_id=candidate.candidate_id,
+            revision=revision,
+        ):
+            response = await self._agent.run(prompt)
         text = getattr(response, "text", "") or ""
 
         payload = parse_json_object(text)
@@ -266,15 +290,32 @@ class PersonalizerAgent:
         unsupported = check_figures(
             title, projected, locale=resolved_locale
         ) + check_figures(body, projected, locale=resolved_locale)
+        substituted = False
         if unsupported:
             reason = (
                 "the Personaliser's copy carries figures the event log does "
                 "not: " + ", ".join(f"{value:g}" for value in unsupported)
             )
-            self._degradations.append(reason)
-            logger.warning("%s; using the narration's copy instead", reason)
-            title = narration.title
-            body = narration.body
+            self._substitutions.append(reason)
+            provider_status.record_substitution()
+            logger.warning(
+                "%s; using deterministic copy in %s instead",
+                reason,
+                resolved_locale,
+            )
+            # Deterministic copy for the *requested* audience and
+            # language -- not the narration's copy from an earlier stage,
+            # which may be in the wrong language entirely.
+            title = template.render_title(
+                projected,
+                locale=resolved_locale,
+                mode=resolved_mode,
+                audience=resolved,
+            )
+            body = template.render_reading(
+                projected, locale=resolved_locale, mode=resolved_mode
+            )
+            substituted = True
 
         prefix = template.mode_title_prefix(
             resolved_mode, locale=resolved_locale, audience=resolved
@@ -282,13 +323,17 @@ class PersonalizerAgent:
         facts = template.render_facts(projected, locale=resolved_locale)
         closer = template.render_closer(resolved_mode, locale=resolved_locale)
 
+        # The deterministic title already carries the audience prefix;
+        # the model's title and the narration's title do not.
+        overlay_title = title if substituted else prefix + title
         return template.build_overlay(
             projected,
-            title=prefix + title,
+            title=overlay_title,
             body=f"{facts} {body} {closer}",
             locale=resolved_locale,
             mode=resolved_mode,
             revision=revision,
+            prose_substituted=substituted,
         )
 
     def _resolve_audience(
