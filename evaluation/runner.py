@@ -174,7 +174,7 @@ class FaultedClient:
             from touchline.providers.payload import decode_payload
 
             return decode_payload(text).candidate.candidate_id
-        except Exception:  # noqa: BLE001 -- not a decodable prompt: no fault
+        except Exception:
             return ""
 
     async def get_response(self, messages: Any, **kwargs: Any) -> Any:
@@ -333,7 +333,9 @@ async def run_pipeline(
     candidate_id = ctx.candidate.candidate_id
     overlays = [o for o in run.overlays if o.overlay_id == f"ovl-{candidate_id}"]
     vetoes = [v for v in run.vetoes if v.candidate_id == candidate_id]
-    accepted = [v for v in run.verdicts if v.candidate_id == candidate_id and v.accepted]
+    accepted = [
+        v for v in run.verdicts if v.candidate_id == candidate_id and v.accepted
+    ]
     fallback = any(candidate_id in note for note in run.degradations)
 
     if not overlays:
@@ -517,7 +519,7 @@ async def run_single_agent(
                 json.dumps(payload, ensure_ascii=False),
                 candidate_id=candidate.candidate_id,
             )
-        except Exception as exc:  # noqa: BLE001 -- any parse failure is a veto
+        except Exception as exc:
             parse_error = str(exc)[:200]
             feedback = f"the reply was not usable: {parse_error}"
             continue
@@ -567,7 +569,9 @@ async def run_single_agent(
         metrics=list(published["metrics"]),
         cited_event_ids=list(published["cited_event_ids"]),
     )
-    check = validators.validate_overlay(overlay_like, ctx.events_by_id, locale=ctx.locale)
+    check = validators.validate_overlay(
+        overlay_like, ctx.events_by_id, locale=ctx.locale
+    )
 
     if fallback_used:
         outcome = "fallback_published"
@@ -692,7 +696,10 @@ def main() -> None:
         "--provider",
         choices=["template", "foundry"],
         default="template",
-        help="template: local deterministic run; foundry: real model (needs az login / env).",
+        help=(
+            "template: local deterministic run; "
+            "foundry: real model (needs az login / env)."
+        ),
     )
     parser.add_argument(
         "--out",

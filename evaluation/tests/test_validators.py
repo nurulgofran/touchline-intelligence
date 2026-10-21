@@ -13,6 +13,7 @@ sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO))
 
 from evaluation import validators  # noqa: E402
+
 from touchline.metrics.analyst import MatchAnalyst  # noqa: E402
 from touchline.sim.generator import simulate, team_names  # noqa: E402
 

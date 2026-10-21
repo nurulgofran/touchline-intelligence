@@ -18,8 +18,9 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import Any
 
 __all__ = [
     "ProseIssue",
@@ -245,7 +246,7 @@ def check_numeric_prose(
                 re.match(r"^m\b", unit_hint) and not unit_hint.startswith("min")
             ) or "metre" in unit_hint or "meter" in unit_hint
             matched = False
-            for claimed, unit, name in metric_values:
+            for claimed, unit, _name in metric_values:
                 if percent and unit != "%":
                     continue
                 if metres and unit != "m":
@@ -268,11 +269,6 @@ def check_numeric_prose(
 # ---------------------------------------------------------------------------
 
 
-def validate_overlay(
-    overlay: Any,
-    events_by_id: dict[str, Any],
-) -> ValidationResult:
-    """Run all three independent checks on one published overlay."""
 def validate_overlay(
     overlay: Any,
     events_by_id: dict[str, Any],
