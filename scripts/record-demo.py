@@ -451,6 +451,87 @@ SWITCH_LANGUAGE = """
 """
 
 
+# Open the evidence drawer on the moment that is on screen, and wait for
+# the recomputed figures to be in it.
+#
+# The drawer is read-only: it recomputes the metrics from the event log and
+# shows the events they came from. So what it puts on screen is a check
+# rather than a claim, which is what the beat's caption says.
+OPEN_EVIDENCE = """
+(async () => {{
+  const button = [...document.querySelectorAll('button')]
+    .find((b) => b.textContent.includes('inspect evidence'));
+  if (!button) return false;
+  button.scrollIntoView();
+  button.click();
+  for (let i = 0; i < 80; i += 1) {{
+    await new Promise((r) => setTimeout(r, 250));
+    const dialog = document.querySelector('[role="dialog"]');
+    if (!dialog) continue;
+    if (!(dialog.textContent || '').includes('Metric verification')) continue;
+    const dts = [...dialog.querySelectorAll('dt')];
+    const recomputed = dts.filter(
+      (dt) => dt.textContent.trim().toLowerCase() === 'recomputed');
+    const withValue = recomputed.filter((dt) => {{
+      const dd = dt.nextElementSibling;
+      if (!dd) return false;
+      const value = dd.textContent.trim();
+      return value.length > 0 && value !== '\\u2014' && value !== '-';
+    }});
+    if (withValue.length > 0) return true;
+  }}
+  return false;
+}})()
+"""
+
+
+# Close the evidence drawer again.
+#
+# This is cleanup, not a claim, so it is allowed to find no drawer: the
+# beat that opened it may never have opened, and the beat that opened it
+# is the one that fails if it did not.
+CLOSE_EVIDENCE = """
+(async () => {{
+  const close = [...document.querySelectorAll('button')]
+    .find((b) => b.textContent.trim() === 'Close');
+  if (!close) return true;
+  close.click();
+  for (let i = 0; i < 40; i += 1) {{
+    await new Promise((r) => setTimeout(r, 100));
+    if (!document.querySelector('[role="dialog"]')) return true;
+  }}
+  return true;
+}})()
+"""
+
+
+# Show the recorded recovery run in the trace panel.
+#
+# The run is a test, and the panel says so: the label comes out of the
+# fixture, and the fixture is a recording of a run whose fault was
+# injected on purpose. The beat may only call it that if the screen says
+# it, so the label is what this waits for.
+SHOW_RECOVERY = """
+(async () => {{
+  const label = () => [...document.querySelectorAll('*')].find(
+    (el) => el.children.length === 0
+      && (el.textContent || '').trim().startsWith('RECORDED TEST RUN'));
+  if (!label()) {{
+    const header = [...document.querySelectorAll('button')]
+      .find((b) => b.textContent.includes('Recovery example'));
+    if (!header) return false;
+    header.click();
+    await new Promise((r) => setTimeout(r, 500));
+  }}
+  const el = label();
+  if (!el) return false;
+  el.scrollIntoView();
+  await new Promise((r) => setTimeout(r, 250));
+  return true;
+}})()
+"""
+
+
 async def wait_for_idle(cdp: CDP, quiet_ms: int = 200, timeout: float = 30.0) -> bool:
     """Wait for the page's main thread to go quiet.
 
@@ -623,17 +704,116 @@ SAME_CARD = """
 """
 
 
-# Did the copy on screen actually change language? German and Bengali
-# both write characters outside ASCII, so a card that has one is a card
-# that was rewritten in one of them.
+#: The characters a locale's prose is written in.
+#:
+#: English and German share the Latin script, so a Latin letter proves
+#: nothing about the language: German is recognised by its umlauts and its
+#: sharp s, or by the words a German sentence is made of. Bengali has its
+#: own script, and nothing else on the page is written in it.
+LOCALE_MARKS: dict[str, str] = {
+    "en": r"[A-Za-z]",
+    "de": (
+        r"[äöüßÄÖÜ]"
+        r"|\b(?:der|die|das|und|ist|nicht|ein|eine|mit|von|aus|Spiel"
+        r"|Tore|Schüsse|Abpfiff|Minute|Ereignisprotokoll)\b"
+    ),
+    "bn": r"[ঀ-৿]",
+}
+
+
+# Did the copy on screen change into the language that was asked for?
+#
+# The check is specific on purpose. "Some character outside ASCII" would
+# pass for German and for Bengali alike, and would pass for a card that
+# was rewritten into the wrong language. So the check is told which locale
+# was requested and looks for that locale's own writing.
 LANGUAGE_LANDED = """
 (() => {{
+  const wanted = __LOCALE__;
+  const marks = __MARKS__;
   // Same card the captions track: the first article (the recap). It is the
   // first card the language rewrite reaches, so this lands in seconds
   // instead of timing out behind an earlier mode rewrite.
   const card = document.querySelector('article');
   if (!card) return false;
-  return /[^\x00-\x7F]/.test(card.textContent);
+  return new RegExp(marks).test(card.textContent || '');
+}})()
+"""
+
+
+def language_landed_script(locale: str) -> str:
+    """The script that says the card on screen is written in this locale."""
+    return LANGUAGE_LANDED.replace("__LOCALE__", json.dumps(locale)).replace(
+        "__MARKS__", json.dumps(LOCALE_MARKS.get(locale, r"[^\x00-\x7f]"))
+    )
+
+
+# Is the evidence drawer open with the recomputed figures on it?
+#
+# The label "recomputed" is on the drawer only once the evidence has
+# arrived, and the figure beside it is only there once a metric could be
+# recomputed from the event log. A dash means it could not be, so a dash
+# does not count.
+EVIDENCE_OPEN = """
+(() => {{
+  const dialog = document.querySelector('[role="dialog"]');
+  if (!dialog) return false;
+  if (!(dialog.textContent || '').includes('Metric verification')) return false;
+  const dts = [...dialog.querySelectorAll('dt')];
+  return dts.some((dt) => {{
+    if (dt.textContent.trim().toLowerCase() !== 'recomputed') return false;
+    const dd = dt.nextElementSibling;
+    if (!dd) return false;
+    const value = dd.textContent.trim();
+    return value.length > 0 && value !== '\\u2014' && value !== '-';
+  }});
+}})()
+"""
+
+
+# Is the recorded recovery run on screen, and labelled as a recorded run?
+#
+# The label is the fixture's own words - "RECORDED TEST RUN" and the note
+# that the invalid claim was injected on purpose - and the badge beside
+# the panel's title says the same thing. The caption may only call the
+# replay a recorded test run if one of them is on the screen.
+RECOVERY_LABELLED = """
+(() => {{
+  const visible = (el) => {{
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0
+      && rect.top >= 0 && rect.left >= 0
+      && rect.bottom <= window.innerHeight && rect.right <= window.innerWidth;
+  }};
+  const leaves = [...document.querySelectorAll('*')].filter(
+    (el) => el.children.length === 0
+      && (el.textContent || '').trim().startsWith('RECORDED TEST RUN'));
+  if (!leaves.some(visible)) return false;
+  const badge = [...document.querySelectorAll('*')].find(
+    (el) => el.children.length === 0
+      && (el.textContent || '').trim().toLowerCase() === 'recorded test run');
+  return visible(badge);
+}})()
+"""
+
+
+# The card that is on screen: which insight it is, and what it says.
+#
+# The overlay id and the text together are what the check compares the
+# page against the service with: the id says which insight this is, and
+# the text says which revision of it is on the screen.
+CARD_STATE = """
+(() => {{
+  const card = document.querySelector('article');
+  if (!card) return null;
+  const id = [...card.querySelectorAll('span')]
+    .find((s) => s.textContent.startsWith('ovl-'));
+  const body = card.querySelector('p');
+  return {
+    id: id ? id.textContent.trim() : '',
+    body: body ? body.textContent.trim() : '',
+  };
 }})()
 """
 
@@ -707,6 +887,76 @@ async def read_provider_counters(cdp: CDP, seed: int = 42) -> dict[str, int]:
         key: int(provider.get(key) or 0)
         for key in ("call_count", "fallback_count", "substitution_count")
     }
+
+
+async def read_overlay(
+    cdp: CDP, seed: int, overlay_id: str
+) -> dict[str, Any] | None:
+    """The overlay the service holds for one id, with its revision.
+
+    The page does not carry the revision, so the check that the card on
+    screen is the revision the service holds has to ask the service. This
+    reads the overlay out of the read-only insights endpoint, which is the
+    same state the studio is drawing.
+    """
+    if not overlay_id:
+        return None
+    script = (
+        "fetch('/api/match/insights?seed="
+        + str(int(seed))
+        + "').then((r) => r.json()).then((j) => (j.insights || [])"
+        ".find((i) => i.overlay_id === "
+        + json.dumps(overlay_id)
+        + ") || null)"
+    )
+    overlay = await cdp.evaluate(script)
+    return overlay if isinstance(overlay, dict) else None
+
+
+async def same_card_in_locale(
+    cdp: CDP,
+    *,
+    seed: int,
+    overlay_id: str,
+    revision: int,
+    locale: str,
+) -> bool:
+    """Is the card on screen the same insight, at the service's revision,
+    in the language that was asked for?
+
+    The overlay id on its own proves very little. A card can be the same
+    insight at an older revision, and it can be that insight in another
+    language entirely. So the check reads the card off the page and the
+    overlay off the service, and asks the two to agree: the same id, a
+    revision that has not gone backwards, the same text, and the locale
+    that was requested.
+    """
+    if not overlay_id:
+        return False
+    # The card on screen is the one the English was taken from.
+    script = SAME_CARD.replace("__ID__", json.dumps(overlay_id))
+    if not await cdp.evaluate(script):
+        return False
+    shown = await cdp.evaluate(CARD_STATE)
+    if not isinstance(shown, dict):
+        return False
+    # And it is that insight exactly, not a card that happens to carry the
+    # id somewhere in its text.
+    if str(shown.get("id") or "") != overlay_id:
+        return False
+    current = await read_overlay(cdp, seed, overlay_id)
+    if current is None:
+        return False
+    if str(current.get("locale") or "") != locale:
+        return False
+    if int(current.get("revision") or 0) < int(revision or 0):
+        return False
+    # The screen shows the revision the service holds: the same text, not
+    # an older copy of it.
+    if str(current.get("body") or "").strip() != str(shown.get("body") or "").strip():
+        return False
+    # And what is on screen is written in the language that was asked for.
+    return bool(await cdp.evaluate(language_landed_script(locale)))
 
 
 async def read_substituted_cards(cdp: CDP, seed: int = 42) -> list[str]:
@@ -1233,13 +1483,14 @@ async def _pump(writer: FrameWriter) -> None:
         await asyncio.sleep(1.0 / FPS / 2)
 
 
-def build_timeline() -> Timeline:
+def build_timeline(seed: int = 42) -> Timeline:
     """The beats of the video.
 
-    The order follows the plan: the problem, the studio, the agent trace, the
-    auto-eventing, the personalizer, and the closing stack line. Every caption
-    says something that is true of what is on screen at that moment, and no
-    caption claims a fallback, a veto or a number the studio does not show.
+    The order follows the plan: the problem, the studio, the explanation and
+    its evidence, the agent trace and the recorded recovery run, the
+    personalizer, and the closing stack line. Every caption says something
+    that is true of what is on screen at that moment, and no caption claims
+    a fallback, a veto or a number the studio does not show.
 
     The runtime is budgeted, because a reader change is not free: the service
     re-narrates the feed, which takes between two and sixteen seconds
@@ -1305,7 +1556,26 @@ def build_timeline() -> Timeline:
         )
     )
 
-    # 0:26 - the agent trace.
+    # 0:26 - the evidence inspector. One explanation, and the check on it:
+    # the drawer recomputes the metrics from the event log and names the
+    # events they came from.
+    timeline.add(
+        Shot(
+            name="inspect evidence",
+            caption=(
+                "One explanation, checked against the event log — "
+                "the metrics recomputed, the events named."
+            ),
+            action=[OPEN_EVIDENCE, wait_for_idle],
+            # The drawer is only worth showing if it opened with the
+            # recomputed figures on it.
+            check=EVIDENCE_OPEN,
+            settle=1.0,
+            hold=4.5,
+        )
+    )
+
+    # 0:33 - the agent trace.
     timeline.add(
         Shot(
             name="one moment, narrowed to its hand-offs",
@@ -1313,7 +1583,13 @@ def build_timeline() -> Timeline:
                 "Five agents, one shared state. "
                 "The narrator asks the explainer over A2A."
             ),
-            action=click_when_ready("show hand-offs"),
+            # The evidence drawer is modal, so it is closed before the
+            # trace is touched. Closing it is cleanup, not a claim.
+            action=[
+                CLOSE_EVIDENCE,
+                click_when_ready("show hand-offs"),
+                wait_for_idle,
+            ],
             settle=2.0,
             hold=5.5,
         )
@@ -1330,16 +1606,23 @@ def build_timeline() -> Timeline:
         )
     )
 
-    # 0:39 - the auto-eventing.
+    # 0:41 - the recovery replay. A recorded run of a claim that was
+    # injected invalid on purpose, refused by the grounding check and
+    # corrected. The vision tracker is in the studio and stays there; the
+    # plan makes it the optional beat and this one the story.
     timeline.add(
         Shot(
-            name="the vision tracker",
+            name="labelled recovery replay",
             caption=(
-                "The synthetic feed is tracked and scored against its own "
-                "ground truth: 100% precision, 85.4% recall."
+                "A recorded test run: a claim injected invalid on purpose, "
+                "refused, and corrected. Not a live incident."
             ),
-            settle=0.5,
-            hold=4.5,
+            action=[SHOW_RECOVERY, wait_for_idle],
+            # The caption may only call it a recorded test run if the
+            # screen says so.
+            check=RECOVERY_LABELLED,
+            settle=1.0,
+            hold=4.0,
         )
     )
 
@@ -1376,7 +1659,7 @@ def build_timeline() -> Timeline:
     # beside it.
     # The English is read before the switch and shown after it, so the
     # German on screen always has its English underneath it.
-    captured: dict[str, str] = {}
+    captured: dict[str, Any] = {}
 
     async def grab_english(cdp: CDP) -> str:
         text = await cdp.evaluate(READ_INSIGHT)
@@ -1384,7 +1667,22 @@ def build_timeline() -> Timeline:
         captured["english"] = excerpt
         captured["body"] = await cdp.evaluate(READ_BODY)
         captured["id"] = await cdp.evaluate(READ_OVERLAY_ID)
+        # The revision the card is on now, so the check can tell an older
+        # copy of the same insight from the one the service holds.
+        overlay = await read_overlay(cdp, seed, captured.get("id", ""))
+        captured["revision"] = int((overlay or {}).get("revision") or 0)
         return ""
+
+    async def same_card_in_german(cdp: CDP) -> bool:
+        """The card on screen is this insight, at the service's revision,
+        written in the language that was asked for."""
+        return await same_card_in_locale(
+            cdp,
+            seed=seed,
+            overlay_id=captured.get("id", ""),
+            revision=int(captured.get("revision") or 0),
+            locale="de",
+        )
 
     async def show_english(cdp: CDP) -> str:
         english = captured.get("english", "")
@@ -1394,15 +1692,10 @@ def build_timeline() -> Timeline:
         )
         if not english:
             return generic
-        script = SAME_CARD.replace("__ID__", json.dumps(captured.get("id", "")))
-        if not await cdp.evaluate(script):
-            # A different moment is on screen now, so the caption cannot
-            # claim to be its translation.
-            return generic
-        if not await cdp.evaluate(LANGUAGE_LANDED):
-            # The rewrite did not land -- the grounding check may have sent
-            # the copy back -- so the screen is still English and the
-            # caption must not claim otherwise.
+        if not await same_card_in_german(cdp):
+            # A different moment is on screen now, or it is the right
+            # moment in the wrong language or at an older revision, so the
+            # caption cannot claim to be its translation.
             return generic
         return f"In English: {english}"
 
@@ -1412,10 +1705,11 @@ def build_timeline() -> Timeline:
             caption=grab_english,
             action=[SWITCH_LANGUAGE, wait_for_idle],
             caption_after=show_english,
-            # The beat only counts when the card on screen actually
-            # changed language. A caption that claims a translation the
+            # The beat only counts when the card on screen is the same
+            # insight, at the revision the service holds, in the language
+            # that was asked for. A caption that claims a translation the
             # screen does not show is a take that must be rejected.
-            check=LANGUAGE_LANDED,
+            check=same_card_in_german,
             settle=1.5,
             hold=5.0,
         )
@@ -1461,7 +1755,7 @@ def main() -> None:
     if shutil.which("ffprobe") is None:
         raise SystemExit("ffprobe is not on PATH (it ships with ffmpeg).")
 
-    timeline = build_timeline()
+    timeline = build_timeline(args.seed)
     if not timeline.shots:
         raise SystemExit("The timeline is empty.")
 

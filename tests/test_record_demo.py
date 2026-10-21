@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -275,6 +276,112 @@ def test_the_deutsch_beat_requires_the_switch_to_land(rec: Any) -> None:
     timeline = rec.build_timeline()
     deutsch = next(s for s in timeline.shots if "Deutsch" in s.name)
     assert deutsch.check is not None
+
+
+# -- the beats the plan asks for -----------------------------------------------
+
+
+def test_the_timeline_shows_the_evidence_and_the_recovery_run(rec: Any) -> None:
+    """Both are in the video, and both carry a check.
+
+    The vision tracker is the beat the plan makes optional, so it is the
+    one that goes when the two required beats need the time.
+    """
+    timeline = rec.build_timeline()
+    names = [shot.name for shot in timeline.shots]
+    assert "inspect evidence" in names
+    assert "labelled recovery replay" in names
+    assert "the vision tracker" not in names
+    for name in ("inspect evidence", "labelled recovery replay"):
+        shot = next(s for s in timeline.shots if s.name == name)
+        assert shot.check is not None, name
+
+
+def test_the_recovery_beat_says_it_is_a_recorded_run(rec: Any) -> None:
+    """The caption may only call the replay a recorded test run if it does."""
+    timeline = rec.build_timeline()
+    shot = next(s for s in timeline.shots if s.name == "labelled recovery replay")
+    caption = str(shot.caption)
+    assert "recorded test run" in caption.lower()
+    assert "not a live incident" in caption.lower()
+    # The check looks for the label the fixture carries.
+    assert "RECORDED TEST RUN" in rec.RECOVERY_LABELLED
+
+
+def test_the_evidence_beat_needs_the_recomputed_figures(rec: Any) -> None:
+    """The drawer is only worth showing if it opened with the check on it."""
+    assert "Metric verification" in rec.EVIDENCE_OPEN
+    assert "recomputed" in rec.EVIDENCE_OPEN
+    assert "[role=\"dialog\"]" in rec.EVIDENCE_OPEN
+
+
+# -- the language check is specific --------------------------------------------
+
+
+def test_the_german_marks_do_not_match_english_prose(rec: Any) -> None:
+    """German is recognised by German, not by "a character outside ASCII"."""
+    marks = re.compile(rec.LOCALE_MARKS["de"])
+    english = (
+        "Full time. goals 0, shots 12, shots on target 5, expected goals 1. "
+        "This is the whole match, counted from the shots and the goals that "
+        "are named underneath. Milestone at the 90th minute"
+    )
+    german = (
+        "Abpfiff. Tore 0, Schüsse 12. Das ist das gesamte Spiel, gezählt "
+        "aus den Schüssen und den Toren."
+    )
+    assert marks.search(english) is None
+    assert marks.search(german) is not None
+    assert re.compile(rec.LOCALE_MARKS["bn"]).search(german) is None
+
+
+def test_the_language_beat_checks_the_revision_and_the_locale(rec: Any) -> None:
+    """The check asks the service and the page whether they agree.
+
+    A card can be the same insight at an older revision, and it can be
+    that insight in another language, so neither the id nor a character
+    outside ASCII is enough on its own.
+    """
+    overlay = {
+        "overlay_id": "ovl-recap",
+        "locale": "de",
+        "revision": 12,
+        "body": "Abpfiff. Tore 0, Schüsse 12.",
+    }
+    card = {"id": "ovl-recap", "body": "Abpfiff. Tore 0, Schüsse 12."}
+
+    def script(expression: str) -> Any:
+        if "overlay_id ===" in expression:
+            return dict(overlay)
+        if "startsWith('ovl-')" in expression:
+            return dict(card)
+        if "new RegExp(marks)" in expression:
+            return True
+        return True
+
+    cdp = FakeCDP(script)
+    agree = dict(seed=42, overlay_id="ovl-recap", revision=11, locale="de")
+    assert asyncio.run(rec.same_card_in_locale(cdp, **agree)) is True
+
+    # The service holds it in another language: the check must refuse it.
+    overlay["locale"] = "en"
+    assert asyncio.run(rec.same_card_in_locale(cdp, **agree)) is False
+    overlay["locale"] = "de"
+
+    # The screen is showing an older copy of the same insight.
+    card["body"] = "Full time. goals 0, shots 12."
+    assert asyncio.run(rec.same_card_in_locale(cdp, **agree)) is False
+    card["body"] = overlay["body"]
+
+    # And the card on screen is not the one the English came from.
+    assert (
+        asyncio.run(
+            rec.same_card_in_locale(
+                cdp, seed=42, overlay_id="ovl-other", revision=11, locale="de"
+            )
+        )
+        is False
+    )
 
 
 # -- cleanup ordering ------------------------------------------------------------
