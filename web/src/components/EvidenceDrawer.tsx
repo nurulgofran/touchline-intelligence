@@ -280,57 +280,6 @@ export default function EvidenceDrawer({
                 </p>
               </div>
 
-              <SectionTitle>Cited events</SectionTitle>
-              <ul className="mt-2 space-y-1">
-                {evidence.cited_events.map((event) =>
-                  event.found ? (
-                    <li
-                      key={event.event_id}
-                      className="border-b border-ink-800/70 py-1"
-                    >
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
-                        <span className="font-mono font-semibold text-ink-200">
-                          {event.type}
-                        </span>
-                        <span className="font-mono tabular-nums text-ink-300">
-                          {event.match_clock_ms !== undefined &&
-                            formatClock(event.match_clock_ms)}
-                        </span>
-                        {event.side && (
-                          <span className="font-mono text-ink-500">
-                            {event.side}
-                          </span>
-                        )}
-                        {event.player_name && (
-                          <span className="text-ink-300">
-                            {event.player_name}
-                          </span>
-                        )}
-                        {event.outcome && (
-                          <span className="text-ink-500">
-                            {event.outcome}
-                          </span>
-                        )}
-                        <span className="ml-auto font-mono text-[10px] text-ink-600">
-                          {event.event_id} · {event.score_home}–
-                          {event.score_away}
-                        </span>
-                      </div>
-                    </li>
-                  ) : (
-                    <li
-                      key={event.event_id}
-                      className="border-l-2 border-signal-amber/60 bg-signal-amber/[0.07] px-2.5 py-1 text-[11px] text-signal-amber"
-                    >
-                      <span className="font-semibold uppercase tracking-[0.1em]">
-                        missing evidence:{" "}
-                      </span>
-                      {event.note}
-                    </li>
-                  ),
-                )}
-              </ul>
-
               <SectionTitle>Metric verification</SectionTitle>
               {evidence.metrics.length === 0 && (
                 <p className="mt-2 text-[11px] text-ink-500">
@@ -458,6 +407,58 @@ export default function EvidenceDrawer({
                   {evidence.baseline.note}
                 </p>
               )}
+
+              <SectionTitle>Cited events</SectionTitle>
+              <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto rounded border border-ink-800 px-2">
+                {evidence.cited_events.map((event) =>
+                  event.found ? (
+                    <li
+                      key={event.event_id}
+                      className="border-b border-ink-800/70 py-1"
+                    >
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+                        <span className="font-mono font-semibold text-ink-200">
+                          {event.type}
+                        </span>
+                        <span className="font-mono tabular-nums text-ink-300">
+                          {event.match_clock_ms !== undefined &&
+                            formatClock(event.match_clock_ms)}
+                        </span>
+                        {event.side && (
+                          <span className="font-mono text-ink-500">
+                            {event.side}
+                          </span>
+                        )}
+                        {event.player_name && (
+                          <span className="text-ink-300">
+                            {event.player_name}
+                          </span>
+                        )}
+                        {event.outcome && (
+                          <span className="text-ink-500">
+                            {event.outcome}
+                          </span>
+                        )}
+                        <span className="ml-auto font-mono text-[10px] text-ink-600">
+                          {event.event_id} · {event.score_home}–
+                          {event.score_away}
+                        </span>
+                      </div>
+                    </li>
+                  ) : (
+                    <li
+                      key={event.event_id}
+                      className="border-l-2 border-signal-amber/60 bg-signal-amber/[0.07] px-2.5 py-1 text-[11px] text-signal-amber"
+                    >
+                      <span className="font-semibold uppercase tracking-[0.1em]">
+                        missing evidence:{" "}
+                      </span>
+                      {event.note}
+                    </li>
+                  ),
+                )}
+              </ul>
+
 
               <SectionTitle>Grounding verdict</SectionTitle>
               <div className="mt-2 flex items-center gap-2.5">

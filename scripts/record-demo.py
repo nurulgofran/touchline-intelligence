@@ -447,7 +447,13 @@ OPEN_EVIDENCE = """
       const value = dd.textContent.trim();
       return value.length > 0 && value !== '\\u2014' && value !== '-';
     }});
-    if (withValue.length > 0) return true;
+    if (withValue.length > 0) {{
+      const heading = [...dialog.querySelectorAll('h3')].find(
+        (el) => el.textContent.includes('Metric verification'));
+      (heading || withValue[0]).scrollIntoView({block: 'start'});
+      await new Promise((r) => setTimeout(r, 250));
+      return true;
+    }}
   }}
   return false;
 }})()
@@ -642,7 +648,9 @@ EVIDENCE_OPEN = """
     const dd = dt.nextElementSibling;
     if (!dd) return false;
     const value = dd.textContent.trim();
-    return value.length > 0 && value !== '\\u2014' && value !== '-';
+    const rect = dd.getBoundingClientRect();
+    return value.length > 0 && value !== '\\u2014' && value !== '-'
+      && rect.top >= 0 && rect.bottom < window.innerHeight - 120;
   }});
 }})()
 """
