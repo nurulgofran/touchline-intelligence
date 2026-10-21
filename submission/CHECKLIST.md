@@ -14,12 +14,12 @@
 | 4 | Deterministic fallback uses the requested audience/language | ✅ | Committed in the attribution workstream; tested (2026-10-21) |
 | 5 | Evidence inspector recomputes values and handles missing candidates/evidence | ✅ | `tests/test_evidence.py` passes; `GET /api/evidence/{candidate_id}` returns 404 for unknown candidates (2026-10-21) |
 | 6 | Recovery fixture is genuine, labelled, and isolated from live state | ✅ | Generated on the Mac with Microsoft Foundry at revision `5e80eac`; real veto → back-edge → correction → acceptance, no template fallback. See `web/public/fixtures/recovery-example.v1.json`. |
-| 7 | Comparative evaluation is reproducible and uses equal acceptance checks | ✅ | Complete candidate-matched Foundry run: 12 scenarios × 2 approaches, 24/24 published outputs pass citation/metric checks. Source `b75e550`; pipeline 42 calls / 300.7 s, single agent 18 calls / 138.1 s. Three prose advisories disclosed. Results, published copy and measurement manifest are committed under `evaluation/results/`. No correctness-superiority claim. |
+| 7 | Comparative evaluation is reproducible and uses equal acceptance checks | ✅ | Complete candidate-matched Foundry run: 12 scenarios × 2 approaches, 24/24 published outputs pass citation/metric checks. Final live-API probe: 46/46 overlays pass; one prose advisory. Source `b75e550`; pipeline 42 calls / 300.7 s, single agent 18 calls / 138.1 s. Three prose advisories disclosed. Results, published copy and measurement manifest are committed under `evaluation/results/`. No correctness-superiority claim. |
 | 8 | Recorder bounds duration, excludes cleanup, rejects invalid takes, and restores reader | ✅ | `tests/test_record_demo.py` passes; the recorder targets 110s, rejects ≥120s, and promotes only validated takes (2026-10-21). The timeline now drives the two beats the plan asks for — the evidence inspector and the labelled recovery replay — and each holds only if what its caption claims is on screen |
 | 9 | Full pytest, Ruff, mypy, and frontend build pass | ✅ | Final local checks, 2026-10-21: 242 tests across application, evaluation and fixture suites; Ruff clean; mypy clean (56 application files); TypeScript + Vite build green. |
-| 10 | Deployed revision and complete analysis verified; browser acceptance passes | ⏳ | Polished studio deployed as `7ba3d3a` using unique ACR tag `studio-clock-20261021-2314`; user-assigned identity and min/max replicas 1 verified. Waiting for full Foundry analysis before final recording and browser acceptance. |
-| 11 | Documentation claims match implementation and dated evidence | ✅ | README.md and `submission/` rewritten to the audited implementation (2026-10-21); every counter dated |
-| 12 | Video under 120 seconds, visually reviewed, public, and linked | ⏳ | **Not yet recorded**; the 2026-10-20 take is not approved for publication. See `VIDEO.md` — publication is on YouTube, by the owner |
+| 10 | Deployed revision and complete analysis verified; browser acceptance passes | ✅ | `7ba3d3a`, unique ACR tag `studio-clock-20261021-2314`; user-assigned identity and min/max replicas 1 verified. Full 90 minutes, 1,051 events, 45 insight cards plus recap. Live browser checks and all 11 recording beats passed. |
+| 11 | Documentation claims match implementation and dated evidence | ✅ | README.md and `submission/` aligned to the audited implementation (2026-10-21); every counter dated; final reader restored and verified. See `VERIFICATION.md` |
+| 12 | Video under 120 seconds, visually reviewed, public, and linked | ⏳ | Accepted MP4: 76.333 seconds, 1600 × 900, all 11 beats passed, zero capture fallbacks/substitutions. Full decode and storyboard/key-frame review complete. Owner full-video review, public upload and link remain; see `VIDEO.md` |
 | 13 | Public repository/demo and challenge 5078 association verified | ⏳ | The repo is public (`https://github.com/nurulgofran/touchline-intelligence`); **linking the project to challenge 5078 still needs the owner's account** |
 | 14 | Submission confirmed and confirmation retained | ⏳ | **Not yet submitted** — target 2026-10-26; cutoff 2026-10-28 07:59 CET |
 
@@ -27,8 +27,8 @@
 
 ## Also on the list
 
-- [ ] **Final deployment verification:** deployed application `7ba3d3a`; verify
-      completed analysis and browser acceptance before recording. The evaluation
+- [x] **Final deployment verification:** deployed application `7ba3d3a`; full
+      analysis, browser acceptance and all 11 recorded beats verified. The evaluation
       measured source is `b75e550`, recorded in the results; docs-only changes
       do not require rebuilding the application image.
 - [ ] Check the Azure credit balance and the demo URL on **1 November** and

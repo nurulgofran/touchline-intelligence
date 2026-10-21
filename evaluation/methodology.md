@@ -95,7 +95,7 @@ call, timed). Aggregates per approach in the results file's `summary`.
 
 2. **Live API** (`evaluation/results/live_api_seed42.json`) -- read-only
    GETs against the deployed service's `/api/match/insights?seed=42`
-   (Foundry-run pipeline, 45 published overlays), validated against the
+   (Foundry-run pipeline, 46 published overlays), validated against the
    locally simulated seed-42 event log. Real Foundry evidence for the
    pipeline approach's published outputs. Limits: it is the fixed demo
    match (Analyst/English audience), not the 12 scenarios; faults cannot be

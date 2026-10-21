@@ -8,7 +8,7 @@
   correction loop, validator behaviour), NOT model behaviour. The template
   is never presented as Microsoft/Foundry output.
 - **`live_api_seed42.json`** -- read-only probe of the deployed service
-  (`/api/match/insights?seed=42`): 45 Foundry-run pipeline overlays,
+  (`/api/match/insights?seed=42`): 46 Foundry-run pipeline overlays,
   validated against the locally simulated seed-42 event log. Real
   Foundry evidence for the *pipeline approach's published outputs* only.
 
@@ -59,6 +59,9 @@ It makes no model calls; its `model_calls` field counts chat-client invocations
 
 ## Live-API summary (Foundry pipeline, fixed demo match)
 
-45/45 published overlays pass citation validity and metric recomputation.
+Refreshed after recording on revision `7ba3d3a`, 2026-10-21, with the shared
+reader restored to Analyst/English and the rewrite complete.
+
+46/46 published overlays pass citation validity and metric recomputation.
 One prose advisory ("32.5 m/s", a derived figure not carried as a metric)
 -- a known heuristic limit, not a defect.

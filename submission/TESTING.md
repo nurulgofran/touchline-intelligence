@@ -15,8 +15,9 @@ There is no second host, no mirror and no staging copy.
 
 If the page is blank at first, give it a second: the studio opens a WebSocket to the
 same origin and the match is already analysed, so the feed fills in immediately.
-(On a fresh deployment the engine analyses the full 90 minutes first — historically
-about 17 minutes at the model's request rate — before the studio shows the match.)
+(On a fresh deployment the engine analyses the match in the background and cards
+arrive as each stretch completes. A full run takes minutes at the shared model
+request rate; additional reader rewrites can extend that time.)
 
 ## What you are looking at
 
@@ -53,10 +54,10 @@ The response carries a `provider` block — `configured_provider` and
 `last_call_provider` (`Microsoft Foundry` when the deployment is healthy),
 `last_call_state`, a `call_count` that grows every time the demo is used, and a
 `fallback_count` that counts how many times the template engine had to answer
-instead of Foundry. At the 2026-10-21 audit the live figures were **132 calls and
-0 fallbacks**; read them fresh on `/healthz` rather than trusting this document.
+instead of Foundry. At full analysis on revision `7ba3d3a` (2026-10-21), before
+recording setup, the figures were **166 calls and 0 fallbacks**; read them fresh on `/healthz` rather than trusting this document.
 The `match` block carries `seed` (42), the computed match length, and the overlay
-count — 44 insight cards plus one deterministic full-time recap — and `revision`
+count — 45 insight cards plus one deterministic full-time recap — and `revision`
 tells you the commit the running image was built from, so you can see which code
 is answering you.
 
@@ -95,7 +96,7 @@ language switcher on the reader bar, so the only thing to choose is who the mome
 explained to.
 The audience selection is one shared state: the service acknowledges immediately,
 rewrites the moments nearest your clock first, and replaces cards in place as each
-one finishes. The button turns amber and the hint line says *rewriting the feed…*
+one finishes. The selected reading is underlined and the hint line says *rewriting the feed…*
 while it works. In the 2026-10-21 checks the card on screen changed within about two
 seconds; the rest of the feed follows over the next few minutes at the model
 deployment's own rate. Two seconds is the observed measurement, not a guarantee —

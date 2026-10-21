@@ -1,10 +1,24 @@
 # The demo video
 
-## Status: not yet recorded
+## Status: validated MP4 ready for owner upload
 
-The old take at `build/touchline-demo.mp4` (recorded 2026-10-20) is **not approved
-for publication**. The video described below has not yet been recorded or uploaded
-(2026-10-21) — those need the owner's account and a verified deployment.
+Recorded from deployed revision `7ba3d3a` on 2026-10-21. The accepted take is
+`build/touchline-demo-final.mp4`; `build/touchline-demo.mp4` is an identical copy.
+The earlier, unapproved Oct 20 take is retained separately as
+`build/touchline-demo-20261020-unapproved.mp4`.
+
+- **76.333 seconds**, 1600 × 900, H.264, 30 fps, silent; 6,046,119 bytes.
+- All 11 recorder beats passed. Capture counters: 210 → 214 Foundry calls,
+  with fallback and substitution counts both remaining zero.
+- The complete file decodes without errors. A storyboard sampled every second
+  and full-resolution evidence, recovery, recap, personalization and closing
+  frames were reviewed. The owner should watch the complete MP4 before upload.
+- SHA-256: `595fe1887ffdc0710b65995e8257b4c86e326d300cc295cd7de3fe39b668ed05`.
+
+Cleanup restored Analyst/English and verified the feed had settled.
+
+The owner selected delivery of the MP4 for manual upload. It has **not** been
+published, and there is no public video URL yet.
 
 ## What it is
 
@@ -13,15 +27,14 @@ Protocol by [`scripts/record-demo.py`](../scripts/record-demo.py) — no editing
 re-creating, no mock. Every frame is the real studio on the real Container App
 talking to the real Foundry deployment.
 
-- **Length:** target 110 seconds, hard limit under 120 seconds (the rules' limit is
+- **Length:** accepted take 76.333 seconds; recorder budget 110 seconds, hard limit under 120 seconds (the rules' limit is
   2:00 — judges are not required to watch beyond it).
 - **Sound:** silent. There is no music or third-party audio. English on-screen
   captions carry the narration.
 - **Language:** English throughout — the captions, the interface and the explanation
   the model writes. The studio has no language switcher, so nothing on screen is
   in a language the judge has to read twice.
-- **Marks:** none. The repository contains no image file of any kind, so there is no
-  crest, no kit, no logo and no wordmark graphic to appear.
+- **Graphics:** no club or sponsor crests, kits, logos or wordmark graphics.
 - **Technology identification:** "Microsoft Foundry" appears as plain text in the
   provider badge and closing caption to identify the actual stack. No sponsor or
   club logos, crests, or brand graphics are used.
@@ -92,7 +105,7 @@ Touchline Intelligence — three agents that explain a football match, live
 
 ```
 Touchline Intelligence turns a synthetic football event stream into explainable
-intelligence: 1,051 events over 90 minutes, 44 explained moments plus one full-time
+intelligence: 1,051 events over 90 minutes, 45 explained moments plus one full-time
 recap, every claim cited to the event ids it was computed from, and a grounding pass
 that recomputes each cited metric from the log and vetoes any claim that does not
 hold up.

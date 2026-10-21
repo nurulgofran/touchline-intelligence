@@ -55,6 +55,12 @@ recomputes every cited metric from the event log and vetoes any claim that does 
 hold up. (The grounding verifies numbers against the log; it is not a verification
 of what the prose means.)
 
+The orchestration makes each responsibility, handoff and correction inspectable.
+In the committed 12-scenario Foundry comparison, both the pipeline and a single
+agent passed all published-output checks; the pipeline used more calls and time.
+The demonstrated benefit is explicit coordination and recovery, with that cost
+visible, rather than a measured correctness advantage over the baseline.
+
 ## Which Microsoft and Azure technologies are used
 
 | Technology | How this project uses it |
@@ -75,12 +81,13 @@ deployment.
 ## What is running right now
 
 The demo URL below is a live deployment, not a recording (figures from the 2026-10-21
-audit; live counters on `/healthz` move as the demo is used):
+audit of revision `7ba3d3a` before recording setup; live counters on `/healthz` move
+as the demo is used):
 
-- **Every model call served by Foundry.** At the audit the deployment had served **132
+- **Every model call served by Foundry.** At the audit the deployment had served **166
   calls with 0 recorded fallbacks** — the badge reads *Microsoft Foundry · live*, and
   the counter behind it is dated, not "never".
-- **44 insight cards plus one deterministic full-time recap** from 1,051 synthetic
+- **45 insight cards plus one deterministic full-time recap** from 1,051 synthetic
   events over 90 minutes.
 - **340 typed hand-offs** between the stages, every one visible in the agent trace, and
   **0 vetoes** in the normal live match — every claim that was made survived being
@@ -106,7 +113,7 @@ outright — so the app's FQDN is the published URL.
 ## A note on the data
 
 All data is synthetic. The clubs (Riverside United, Dovercrest Athletic) and every
-player are fictional, no real match data is used, and no Premier League, Microsoft or
-Azure trademark, logo or wordmark appears in the repository, the interface or the
-video. The interface chrome is English, and any non-English text in the video carries
-English alongside it.
+player are fictional, and no real match data or match footage is used. There are
+no sponsor or club logos, crests, kits or brand graphics. Technology names appear
+as plain text to identify the actual implementation. The interface and demo video
+are in English.

@@ -1,6 +1,6 @@
 {
   "source": "https://touchline-app.icywave-bfcbf183.germanywestcentral.azurecontainerapps.io/api/match/insights?seed=42",
-  "fetched_at": "2026-10-21T01:41:40+0000",
+  "fetched_at": "2026-10-21T23:30:55+0200",
   "seed": 42,
   "approach": "pipeline",
   "provider": "Microsoft Foundry (live deployment)",
@@ -10,8 +10,8 @@
     "Fault scenarios cannot be injected through the API, so no veto/recovery behaviour is observable here.",
     "The single-agent baseline has no live endpoint and is not measured here."
   ],
-  "overlays": 45,
-  "verification_success": 45,
+  "overlays": 46,
+  "verification_success": 46,
   "published_output_failures": 0,
   "rows": [
     {
@@ -315,6 +315,16 @@
       "prose_advisories": []
     },
     {
+      "candidate_id": "recap",
+      "overlay_id": "ovl-recap",
+      "citations": 38,
+      "metrics": 8,
+      "ok": true,
+      "unknown_citations": [],
+      "metric_failures": [],
+      "prose_advisories": []
+    },
+    {
       "candidate_id": "cand-0062",
       "overlay_id": "ovl-cand-0062",
       "citations": 52,
@@ -463,11 +473,20 @@
       "candidate_id": "recap",
       "overlay_id": "ovl-recap",
       "citations": 38,
-      "metrics": 8,
+      "metrics": 2,
       "ok": true,
       "unknown_citations": [],
       "metric_failures": [],
       "prose_advisories": []
     }
-  ]
+  ],
+  "deployment_revision": "7ba3d3a",
+  "audience": {
+    "mode": "analyst",
+    "locale": "en",
+    "side": "HOME",
+    "player_id": "dovercrest-athletic-13",
+    "player_name": "Dunar Garrowport",
+    "metric": "passes_completed"
+  }
 }
