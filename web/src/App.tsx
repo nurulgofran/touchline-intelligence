@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import AudienceBar from "./components/AudienceBar";
+import EvidenceDrawer from "./components/EvidenceDrawer";
 import MomentumChart from "./components/MomentumChart";
 import OverlayFeed from "./components/OverlayFeed";
 import Pitch from "./components/Pitch";
@@ -26,6 +27,12 @@ export default function App() {
   // narrows the agent trace to that moment - the A2A hop and any veto for
   // that one insight - and clicking it again puts the whole trace back.
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(
+    null,
+  );
+  // The insight whose evidence the drawer is showing. Opening the drawer
+  // fetches a read-only evidence payload; it makes no model calls and it
+  // changes no audience state.
+  const [evidenceCandidate, setEvidenceCandidate] = useState<string | null>(
     null,
   );
 
@@ -98,6 +105,7 @@ export default function App() {
               selectedCandidate={selectedCandidate}
               onHighlight={setHighlightedEventId}
               onSelect={setSelectedCandidate}
+              onInspect={setEvidenceCandidate}
             />
           </section>
 
@@ -126,6 +134,12 @@ export default function App() {
         computed from the event log and are shown with the event ids they
         were computed from, so every claim can be checked against the log.
       </footer>
+
+      <EvidenceDrawer
+        candidateId={evidenceCandidate}
+        seed={match.seed}
+        onClose={() => setEvidenceCandidate(null)}
+      />
     </div>
   );
 }

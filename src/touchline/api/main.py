@@ -49,6 +49,7 @@ from starlette.routing import Mount
 
 from touchline.api import ws as ws_module
 from touchline.api.live import get_engine, set_engine_hook
+from touchline.api.routes import evidence as evidence_routes
 from touchline.api.routes import match as match_routes
 from touchline.live.engine import LiveMatchEngine
 from touchline.orchestration.a2a_server import A2A_RPC_PATH, build_explainer_app
@@ -268,6 +269,7 @@ async def index() -> Response:
 
 
 app.include_router(match_routes.router)
+app.include_router(evidence_routes.router)
 app.include_router(ws_module.router)
 
 # The built frontend, mounted when it exists. StaticFiles raises if the

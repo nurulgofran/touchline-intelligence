@@ -34,6 +34,8 @@ export interface OverlayFeedProps {
   selectedCandidate: string | null;
   onHighlight: (eventId: string | null) => void;
   onSelect: (candidateId: string | null) => void;
+  /** Open the evidence drawer for one insight. */
+  onInspect: (candidateId: string) => void;
 }
 
 function sideColour(teams: Teams | null, side: Side | null): string {
@@ -54,6 +56,7 @@ export default function OverlayFeed({
   selectedCandidate,
   onHighlight,
   onSelect,
+  onInspect,
 }: OverlayFeedProps) {
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -217,6 +220,14 @@ export default function OverlayFeed({
             </div>
 
             <div className="mt-2 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => onInspect(overlay.candidate_id)}
+                className="rounded border border-studio-600 bg-studio-800 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-studio-300 transition-colors hover:border-studio-400 hover:text-white"
+                title="Open the evidence behind this insight: events, recomputed metrics and the grounding verdict"
+              >
+                inspect evidence
+              </button>
               <button
                 type="button"
                 onClick={() =>

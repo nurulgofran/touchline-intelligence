@@ -474,6 +474,246 @@ export interface TrackingReport {
 }
 
 /* ------------------------------------------------------------------ */
+/* The evidence inspector                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * `GET /api/evidence/{candidate_id}`.
+ *
+ * The calculated facts - the deterministic headline, the metrics, the
+ * baseline - are shown apart from the model interpretation - the title
+ * and body the provider wrote. Every metric carries its definition, the
+ * value on the card, and the value recomputed from the cited events.
+ */
+export interface EvidenceCalculatedFacts {
+  present: boolean;
+  /** The deterministic headline, when the engine kept a candidate record. */
+  headline?: string;
+  kind?: string;
+  match_clock_ms?: number;
+  side?: Side | null;
+  confidence?: number;
+  cited_event_ids: string[];
+  /**
+   * Why the facts are not here, when they are not. The drawer labels the
+   * gap; it never reconstructs what was never recorded.
+   */
+  note?: string;
+}
+
+/** The prose on the card, and what wrote it. */
+export interface EvidenceInterpretation {
+  title: string;
+  body: string;
+  type: string;
+  match_clock_ms: number;
+  provenance_provider?: string | null;
+  prose_substituted?: boolean;
+  deterministic_prose?: boolean;
+  /** The service says it once: prose is not formally verified. */
+  note: string;
+}
+
+/** One cited event, or the honest label when the log does not hold it. */
+export interface EvidenceCitedEvent {
+  event_id: string;
+  found: boolean;
+  type?: string;
+  match_clock_ms?: number;
+  period?: number;
+  side?: Side | null;
+  player_name?: string | null;
+  target_player_name?: string | null;
+  outcome?: string | null;
+  score_home?: number;
+  score_away?: number;
+  x?: number;
+  y?: number;
+  note?: string;
+}
+
+/** A number: what it means, what the card showed, what the log says. */
+export interface EvidenceMetric {
+  name: string;
+  label: string;
+  unit: string;
+  side: Side | null;
+  subject?: string | null;
+  definition: string;
+  displayed_value: number;
+  recomputed_value: number | null;
+  /** Whether the displayed value is the recomputed one, near enough. */
+  match: boolean;
+  /** Why the value could not be recomputed, when it could not. */
+  note: string | null;
+}
+
+/** The earlier half of the comparison, recomputed from its own citations. */
+export interface EvidenceBaseline {
+  present: boolean;
+  metric_name?: string;
+  definition?: string;
+  unit?: string;
+  side?: Side | null;
+  earlier_value?: number;
+  recomputed_value?: number | null;
+  match?: boolean;
+  delta?: number;
+  delta_note?: string;
+  window_ms?: number;
+  cited_event_ids?: string[];
+  missing_event_ids?: string[];
+  note?: string | null;
+}
+
+/** What the grounding step said about this insight, as the trace holds it. */
+export interface EvidenceGrounding {
+  candidate_id: string;
+  status: "accepted" | "vetoed" | "not_recorded";
+  status_note: string;
+  handoffs: Handoff[];
+}
+
+/** `GET /api/evidence/{candidate_id}` */
+export interface EvidencePayload {
+  candidate_id: string;
+  seed: number;
+  calculated: EvidenceCalculatedFacts;
+  interpretation: EvidenceInterpretation;
+  cited_events: EvidenceCitedEvent[];
+  metrics: EvidenceMetric[];
+  baseline: EvidenceBaseline;
+  grounding: EvidenceGrounding;
+}
+
+/* ------------------------------------------------------------------ */
+/* The recovery replay                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The grounding-recovery fixture: a recorded test run of the real
+ * workflow, served from the built frontend at
+ * `/fixtures/recovery-example.v1.json`.
+ *
+ * The schema lives at `fixtures/recovery/recovery_fixture.schema.json`;
+ * this is its TypeScript spelling for the parts the trace panel renders.
+ * The UI must surface `label` verbatim and must never present the run as
+ * a live incident.
+ */
+export interface RecoveryInjectedFault {
+  type: string;
+  description: string;
+  candidate_id: string;
+  metric: string;
+  true_value: number;
+  claimed_value: number;
+  attempt: number;
+}
+
+export interface RecoveryVerdict {
+  candidate_id: string;
+  accepted: boolean;
+  reasons: string[];
+}
+
+/** One hand-off of the recorded run, in the trace's JSON form. */
+export interface RecoveryTraceEntry {
+  index: number;
+  from_stage: string;
+  to_stage: string;
+  kind: string;
+  summary: string;
+  candidate_id: string | null;
+  accepted: boolean | null;
+  provider?: string | null;
+}
+
+export interface RecoveryClaimedMetric {
+  name: string;
+  value: number;
+  unit: string;
+  side?: Side | null;
+}
+
+/** The Explainer's claim, in `touchline.models.claims.Explanation` form. */
+export interface RecoveryClaim {
+  candidate_id: string;
+  reading: string;
+  metrics: RecoveryClaimedMetric[];
+  cited_event_ids: string[];
+}
+
+/** The overlay the accepted claim produced. */
+export interface RecoveryOverlay {
+  overlay_id: string;
+  type: string;
+  match_clock_ms: number;
+  title: string;
+  body: string;
+  provenance_provider?: string | null;
+}
+
+/** Who served what in the recorded run. */
+export interface RecoveryProviders {
+  explainer: string;
+  narrator: string;
+  personalizer: string;
+  correction_provider: string;
+  template_fallback_used: boolean;
+}
+
+export interface RecoveryTestContext {
+  seed: number;
+  match_minutes: number;
+  match_id: string;
+  audience: string;
+  locale: string;
+  target_candidate_id: string;
+  isolation: string;
+}
+
+export interface RecoveryFixture {
+  fixture_format: "touchline.recovery-example";
+  fixture_version: string;
+  generated_at: string;
+  generator: {
+    command: string;
+    name: string;
+    version: string;
+  };
+  kind: "recorded-test-run";
+  /** The honesty label. The UI surfaces it verbatim. */
+  label: string;
+  injected_fault: RecoveryInjectedFault;
+  /** The invalid claim, with the injected fault. */
+  invalid_claim: RecoveryClaim;
+  /** The veto: accepted=false with the specific reasons. */
+  veto: RecoveryVerdict;
+  /** grounding -> explainer with accepted=false, the back edge. */
+  veto_trace_entry: RecoveryTraceEntry;
+  /** The Explainer's corrected claim, accepted by the Grounding step. */
+  corrected_claim: RecoveryClaim;
+  acceptance: RecoveryVerdict;
+  overlay: RecoveryOverlay;
+  providers: RecoveryProviders;
+  trace: RecoveryTraceEntry[];
+  test_context: RecoveryTestContext;
+  repo: {
+    revision: string;
+    branch: string;
+    app_version: string;
+  };
+  degradations: string[];
+}
+
+/** Whether the fixture is usable, and which failure mode we are in. */
+export type RecoveryFixtureState =
+  | { kind: "loading" }
+  | { kind: "not-generated" }
+  | { kind: "invalid"; reason: string }
+  | { kind: "ready"; fixture: RecoveryFixture };
+
+/* ------------------------------------------------------------------ */
 /* Connection state                                                  */
 /* ------------------------------------------------------------------ */
 
