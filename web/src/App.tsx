@@ -55,9 +55,9 @@ export default function App() {
       />
 
       <main className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
-        <div className="grid grid-cols-1 gap-2 p-2 lg:h-full lg:grid-cols-[minmax(0,4.4fr)_minmax(0,4.6fr)_minmax(0,3fr)]">
+        <div className="grid grid-cols-1 gap-3 p-3 lg:h-full lg:grid-cols-[minmax(0,4.2fr)_minmax(0,4.8fr)_minmax(0,3fr)]">
           {/* The main panel: the pitch, and the transport under it. */}
-          <section className="flex min-h-0 flex-col gap-2">
+          <section className="flex min-h-0 flex-col gap-3">
             <Pitch
               teams={match.teams}
               events={match.events}
@@ -87,7 +87,7 @@ export default function App() {
           </section>
 
           {/* The insights, beside the pitch. */}
-          <section className="flex min-h-0 flex-col gap-2">
+          <section className="flex min-h-0 flex-col gap-3">
             <AudienceBar
               audience={match.audience}
               options={match.audienceOptions}
@@ -116,7 +116,7 @@ export default function App() {
           </section>
 
           {/* The right panel: the momentum on top, the trace under it. */}
-          <section className="flex min-h-0 flex-col gap-2">
+          <section className="grid min-h-0 gap-3 lg:grid-rows-[minmax(145px,0.85fr)_auto_minmax(220px,1.25fr)]">
             <MomentumChart
               points={match.momentum}
               clockMs={match.clockMs}
@@ -138,12 +138,9 @@ export default function App() {
         not decoration, so it stays exactly as loud as it was: the
         studio's own words, in full, in the place a judge reads last.
       */}
-      <footer className="border-t border-ink-800 bg-ink-900 px-4 py-2 text-[11px] leading-relaxed text-ink-300">
-        All match data on this page is synthetic and every club and player is
-        fictional. No real competition, club, player or commercial mark is
-        represented, and no real match data is used. The insight numbers are
-        computed from the event log and are shown with the event ids they
-        were computed from, so every claim can be checked against the log.
+      <footer className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-ink-700 bg-ink-900 px-4 py-2 text-[11px] leading-relaxed text-ink-400">
+        <span>Synthetic match · fictional clubs and players · no real match data or commercial marks</span>
+        <span className="text-ink-300">Deterministic metrics. Cited evidence. Three model-driven agents.</span>
       </footer>
 
       <EvidenceDrawer

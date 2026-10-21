@@ -214,7 +214,7 @@ export default function MomentumChart({
         </div>
       </div>
 
-      <div ref={containerRef} className="relative h-44 px-1 pb-1 pt-1">
+      <div ref={containerRef} className="relative h-36 min-h-0 flex-1 px-1 pb-1 pt-1">
         {chart && (
           <svg
             width={chart.width}

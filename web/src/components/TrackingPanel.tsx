@@ -77,7 +77,7 @@ export default function TrackingPanel({ seed }: TrackingPanelProps) {
         ground truth.
       </p>
 
-      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
+      <dl className="mt-2 grid grid-cols-3 gap-x-3 gap-y-2">
         <Stat
           label="Precision"
           value={`${(overall.precision * 100).toFixed(1)}%`}
@@ -130,7 +130,7 @@ function Stat({
       <dd className="mt-0.5 font-display text-[17px] font-semibold leading-none tabular-nums text-ink-100">
         {value}
       </dd>
-      <dd className="mt-1 text-[10px] leading-tight text-ink-600">{hint}</dd>
+      <dd className="sr-only">{hint}</dd>
     </div>
   );
 }

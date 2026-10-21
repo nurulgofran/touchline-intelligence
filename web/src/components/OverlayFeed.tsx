@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   formatClock,
@@ -128,6 +128,8 @@ function Citations({
   onHighlight: (eventId: string | null) => void;
   hero: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const eventIds = expanded ? overlay.cited_event_ids : overlay.cited_event_ids.slice(0, 4);
   if (overlay.cited_event_ids.length === 0) return null;
 
   return (
@@ -137,7 +139,7 @@ function Citations({
           ? `computed from ${overlay.cited_event_ids.length} event${overlay.cited_event_ids.length === 1 ? "" : "s"}`
           : "events"}
       </span>
-      {overlay.cited_event_ids.map((eventId) => {
+      {eventIds.map((eventId) => {
         const highlighted = highlightedEventId === eventId;
         return (
           <button
@@ -161,6 +163,16 @@ function Citations({
           </button>
         );
       })}
+      {overlay.cited_event_ids.length > 4 && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded(!expanded)}
+          className="rounded-sm px-1.5 py-0.5 text-[11px] font-medium text-pitch-200 hover:bg-pitch-400/10 focus-ring"
+        >
+          {expanded ? "show fewer" : `+${overlay.cited_event_ids.length - 4} events`}
+        </button>
+      )}
     </div>
   );
 }
@@ -331,13 +343,13 @@ function HeroCard({
   onInspect: (candidateId: string) => void;
 }) {
   return (
-    <article className="animate-card-in border-l-2 border-l-pitch-400 bg-ink-850 px-3.5 py-3">
+    <article className="animate-card-in border-l-[3px] border-l-pitch-400 bg-ink-850 px-4 py-4">
       <MetaRow overlay={overlay} />
 
-      <h3 className="mt-2 font-display text-[23px] font-semibold leading-[1.15] text-ink-50">
+      <h3 className="mt-2 font-display text-[28px] font-semibold leading-[1.1] text-ink-50">
         {overlay.title}
       </h3>
-      <p className="mt-1.5 text-[13px] leading-[1.55] text-ink-200">
+      <p className="mt-2 text-[14px] leading-[1.6] text-ink-200">
         {overlay.body}
       </p>
 
