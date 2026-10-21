@@ -1307,8 +1307,8 @@ def build_timeline() -> Timeline:
             name="title card",
             caption="",
             title=(
-                "A scoreline tells you nothing.",
-                "Touchline Intelligence — five agents that explain a match, live.",
+                "Touchline Intelligence",
+                "Beyond the scoreline. Three agents. Evidence you can inspect.",
                 "Synthetic data · Microsoft Foundry · Azure Container Apps",
             ),
             settle=0.3,
@@ -1461,8 +1461,9 @@ def build_timeline() -> Timeline:
         Shot(
             name="the stack",
             caption=(
+                "Auditable match stories, shaped for each viewer. "
                 "Microsoft Foundry · Microsoft Agent Framework · A2A · "
-                "Azure Container Apps — one deployment, one URL, no key anywhere."
+                "Azure Container Apps · keyless managed identity."
             ),
             settle=0.5,
             hold=5.5,
